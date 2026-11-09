@@ -54,7 +54,29 @@ head = """<!doctype html>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="description" content="Мутация — хоррор-головоломка со слиянием существ в банке с формалином.">
 """
+head += """<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+"""
+# офлайн: service worker регистрируется только на http(s), не на file://
+sw_reg = """<script>
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+"""
 cut = src.index("</style>") + len("</style>")
-out = head + font_css + src[:cut] + "\n</head>\n<body>\n" + src[cut:].lstrip("\n") + "</body>\n</html>\n"
+out = head + font_css + src[:cut] + "\n</head>\n<body>\n" + src[cut:].lstrip("\n") + sw_reg + "</body>\n</html>\n"
 (ROOT / "index.html").write_text(out, encoding="utf-8")
-print("index.html собран:", len(out), "байт")
+
+# service worker: версия кэша = хэш всех файлов, чтобы обновления доходили до игроков
+import hashlib
+assets = ["./", "index.html", "manifest.webmanifest", "vendor/matter-0.19.0.min.js"]
+assets += sorted("fonts/" + f.name for f in (ROOT / "fonts").glob("*.woff2"))
+assets += sorted("icons/" + f.name for f in (ROOT / "icons").glob("*.png"))
+h = hashlib.sha256()
+for a in assets[1:]:
+    h.update((ROOT / a).read_bytes())
+version = h.hexdigest()[:12]
+sw = (ROOT / "src" / "sw.template.js").read_text(encoding="utf-8")
+sw = sw.replace("__VERSION__", version).replace("__ASSETS__", ",\n  ".join(f'"{a}"' for a in assets))
+(ROOT / "sw.js").write_text(sw, encoding="utf-8")
+print("index.html собран:", len(out), "байт; sw.js версия", version)
