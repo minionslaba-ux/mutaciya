@@ -204,6 +204,37 @@ button:disabled{filter:grayscale(1) brightness(.7)}
 .lore p{font-family:var(--f-mono);color:#e9dcc2;text-shadow:0 0 1px rgba(255,255,255,.2)}
 .reg .card .dot{background:#ff2d2d;box-shadow:0 0 8px #ff2d2d}
 @media (prefers-reduced-motion:reduce){body::after,.menu h1{animation:none}}
+/* ===== fit every screen ===== */
+body{height:100vh;height:100dvh}
+.shell{min-height:0}
+.bar,.menugrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.toggles{grid-template-columns:repeat(2,minmax(0,1fr))}
+.bar button,.menugrid button,.abil button,.toggles button{min-width:0}
+.bar button small,.menugrid small,.big small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu h1{font-size:clamp(40px,15vw,62px)}
+.menu .tag{overflow-wrap:anywhere}
+@media (max-height:640px){
+  .shell{gap:5px;padding-block:5px}
+  .scorebox .v{font-size:28px}
+  #ecg{height:18px;margin-top:2px}
+  .hud{grid-template-columns:44px 1fr 50px}
+  .iconbtn{width:44px;height:44px;min-height:44px}
+  #next{width:40px;height:40px}
+  .abil button{min-height:36px}
+  .bar button{min-height:42px}
+  #hero{width:130px;height:130px}
+  .menu{gap:9px}
+  .big{min-height:52px}
+}
+@media (max-width:350px){
+  .bar button,.abil button{font-size:12px;padding:0 3px;letter-spacing:0}
+  .bar button small{font-size:10px}
+  .scorebox .k{font-size:10px}
+}
+.rotate{display:none;position:fixed;inset:0;z-index:90;background:var(--bg);align-items:center;justify-content:center;text-align:center;padding:24px}
+.rotate b{font-family:var(--f-display);font-weight:400;font-size:28px;color:#e11b22;display:block;margin-bottom:8px}
+.rotate p{margin:0;color:var(--muted);max-width:32ch}
+@media (orientation:landscape) and (max-height:500px){.rotate{display:flex}}
 
 </style>
 
@@ -344,6 +375,7 @@ button:disabled{filter:grayscale(1) brightness(.7)}
   </div>
 </div>
 
+<div class="rotate" id="rotate" role="alert"><div><b>Поверните телефон</b><p>«Мутация» играется вертикально — в банку так помещается больше.</p></div></div>
 <canvas id="scream" hidden aria-hidden="true"></canvas>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
