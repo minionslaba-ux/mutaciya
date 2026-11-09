@@ -352,18 +352,19 @@ const $=id=>document.getElementById(id);
 
 const FORMS=[
  {id:'drop',  name:'Капля',     r:12, c:'#d3cd86', d:'#7e7838'},
- {id:'spore', name:'Спора',     r:16, c:'#d9a352', d:'#7a4f1c'},
- {id:'slug',  name:'Слизень',   r:21, c:'#9fbd5c', d:'#46601f'},
- {id:'larva', name:'Личинка',   r:26, c:'#e6c9a1', d:'#8b6a44'},
- {id:'eye',   name:'Глаз',      r:32, c:'#ece3cc', d:'#9a7f6a'},
- {id:'leech', name:'Пиявка',    r:38, c:'#83434f', d:'#3a1820'},
- {id:'teeth', name:'Зубастик',  r:44, c:'#c45a42', d:'#5e2116'},
- {id:'multi', name:'Многоглаз', r:51, c:'#8e6ca0', d:'#3d2a4b'},
+ {id:'spore', name:'Спора',     r:15, c:'#d9a352', d:'#7a4f1c'},
+ {id:'slug',  name:'Слизень',   r:19, c:'#9fbd5c', d:'#46601f'},
+ {id:'larva', name:'Личинка',   r:24, c:'#e6c9a1', d:'#8b6a44'},
+ {id:'eye',   name:'Глаз',      r:29, c:'#ece3cc', d:'#9a7f6a'},
+ {id:'leech', name:'Пиявка',    r:34, c:'#83434f', d:'#3a1820'},
+ {id:'wormy', name:'Червивец',  r:40, c:'#c2ab84', d:'#4d3c22'},
+ {id:'teeth', name:'Зубастик',  r:46, c:'#c45a42', d:'#5e2116'},
+ {id:'multi', name:'Многоглаз', r:52, c:'#8e6ca0', d:'#3d2a4b'},
  {id:'brain', name:'Мозгляк',   r:58, c:'#d98a96', d:'#6e2f3a'},
  {id:'clot',  name:'Сгусток',   r:65, c:'#6d2f3b', d:'#2c0f16'},
- {id:'maw',   name:'Пасть',     r:73, c:'#a8574a', d:'#3e130f'},
- {id:'beast', name:'Тварь',     r:81, c:'#56633f', d:'#222a16'},
- {id:'cocoon',name:'Кокон',     r:90, c:'#cdbf9a', d:'#4a3f26'},
+ {id:'maw',   name:'Пасть',     r:72, c:'#a8574a', d:'#3e130f'},
+ {id:'beast', name:'Тварь',     r:80, c:'#56633f', d:'#222a16'},
+ {id:'cocoon',name:'Кокон',     r:89, c:'#cdbf9a', d:'#4a3f26'},
  {id:'queen', name:'Матка',     r:100,c:'#b4334f', d:'#4c0c1d'},
 ];
 const LORE=[
@@ -373,6 +374,7 @@ const LORE=[
  'Сегменты. По ночам слышно, как она скребётся о стекло. Сторож говорит, что тоже слышит.',
  'Это просто глаз. Он следит за курсором на моём мониторе. Я сменил мышь. Не помогло.',
  'Укус круглый, двенадцать зубов. Завлаб велел не трогать банку голыми руками. Поздно.',
+ 'Из пор лезут черви, у каждого рот с зубами по кругу. Когда я смотрю, они втягиваются. Когда отворачиваюсь — высовываются.',
  'Он смеётся. Беззвучно, но формалин дрожит. Подал заявление о переводе в другой отдел.',
  'Семь глаз, и ни один не моргает одновременно с другим. Они дежурят по очереди.',
  'Ночью кто-то расставил банки по размеру. Камеры ничего не записали. Мозгляк выглядит довольным.',
@@ -413,6 +415,7 @@ const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.
 let found=new Set(store.get('mut.found',[0,1,2]));
 let loreRead=new Set(store.get('mut.lore',[]));
 if(store.get('mut.formsV',1)<2){const map={8:9,9:11,10:13};found=new Set([...found].map(x=>typeof x==='number'&&map[x]!=null?map[x]:x));store.set('mut.found',[...found]);store.set('mut.formsV',2)}
+if(store.get('mut.formsV',1)<3){const sh=x=>typeof x==='number'&&x>=6?x+1:x;found=new Set([...found].map(sh));loreRead=new Set([...loreRead].map(sh));store.set('mut.found',[...found]);store.set('mut.lore',[...loreRead]);store.set('mut.formsV',3)}
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const opts=Object.assign({sound:true,scare:!reduced,vibe:true,clips:true},store.get('mut.opts',{}));
 const saveOpts=()=>store.set('mut.opts',opts);
@@ -495,6 +498,19 @@ function drawCreature(ctx,lvl,r,t,seed,look,noBlink){
     case'leech': ctx.fillStyle='#1a0609';ctx.beginPath();ctx.arc(0,r*.08,r*.44,0,TAU);ctx.fill();
       teethRing(ctx,0,r*.08,r*.44,12,'#efe2c6');ctx.fillStyle='#4a0d16';ctx.beginPath();ctx.arc(0,r*.08,r*.18,0,TAU);ctx.fill();
       eye(ctx,0,-r*.62,r*.16,look,bl(0),'#5a1a1a',lid);break;
+    case'wormy':{ // pale spongy body riddled with holes; toothy worms poke out and wiggle
+      ctx.fillStyle='rgba(60,40,20,.35)';for(let i=0;i<9;i++){const a=R()*TAU,d=R()*r*.75;ctx.beginPath();ctx.arc(Math.cos(a)*d,Math.sin(a)*d,r*(.03+R()*.05),0,TAU);ctx.fill()}
+      const holes=[[-.45,-.35,1.1],[.42,-.42,.9],[.5,.3,1],[-.3,.45,.8],[.02,-.02,1.2]];
+      for(const [hx,hy,k] of holes){ctx.fillStyle='#1a0e06';ctx.beginPath();ctx.ellipse(hx*r,hy*r,r*.13*k,r*.1*k,hx*2,0,TAU);ctx.fill();
+        ctx.strokeStyle='rgba(110,70,40,.6)';ctx.lineWidth=r*.035;ctx.stroke()}
+      for(let i=0;i<holes.length;i++){const [hx,hy,k]=holes[i];const out=(Math.sin(t*1.7+i*2.1+seed)+1)/2;if(out<.25)continue;
+        const ang=Math.atan2(hy,hx)+Math.sin(t*4+i)*.5+(i===4?-1.5:0),len=r*(.15+.45*out)*k,w=r*.12*k;
+        const ex=hx*r+Math.cos(ang)*len,ey=hy*r+Math.sin(ang)*len,mx=hx*r+Math.cos(ang+.6*Math.sin(t*6+i))*len*.5,my=hy*r+Math.sin(ang+.6*Math.sin(t*6+i))*len*.5;
+        ctx.lineCap='round';ctx.strokeStyle='#3d1418';ctx.lineWidth=w*2.3;ctx.beginPath();ctx.moveTo(hx*r,hy*r);ctx.quadraticCurveTo(mx,my,ex,ey);ctx.stroke();
+        ctx.strokeStyle='#c98a84';ctx.lineWidth=w*1.9;ctx.stroke();
+        ctx.fillStyle='#c98a84';ctx.beginPath();ctx.arc(ex,ey,w*1.25,0,TAU);ctx.fill();
+        ctx.fillStyle='#160306';ctx.beginPath();ctx.arc(ex,ey,w*.9,0,TAU);ctx.fill();teethRing(ctx,ex,ey,w*.9,8,'#f4e8cf')}
+      eye(ctx,-r*.05,-r*.62,r*.11,look,bl(0),'#5a4a10',lid);break}
     case'teeth': eye(ctx,-r*.33,-r*.33,r*.2,look,bl(0),'#6a4a10',lid);eye(ctx,r*.33,-r*.33,r*.2,look,bl(1),'#6a4a10',lid);
       ctx.fillStyle='#1c0705';ctx.beginPath();ctx.moveTo(-r*.68,r*.05);ctx.quadraticCurveTo(0,r*.95,r*.68,r*.05);ctx.quadraticCurveTo(0,r*.3,-r*.68,r*.05);ctx.fill();
       ctx.fillStyle='#f1e6cb';for(let i=0;i<7;i++){const x=-r*.55+i*r*.18;ctx.beginPath();ctx.moveTo(x,r*.14);ctx.lineTo(x+r*.09,r*.36);ctx.lineTo(x+r*.18,r*.14);ctx.fill()}break;
@@ -1123,7 +1139,7 @@ const ACH=[
  ['cocoon','Метаморфоз','Выведите Кокон',()=>found.has(LV.cocoon)],
  ['matka','Матка','Выведите Матку',()=>found.has(LV.queen)],
  ['mm','Каннибализм','Слейте двух Маток',()=>stats.mm>0],
- ['reg','Полный реестр','Откройте все 14 форм',()=>formsFound().length>=FORMS.length],
+ ['reg','Полный реестр','Откройте все 15 форм',()=>formsFound().length>=FORMS.length],
  ['crush1','Давитель','Раздавите паразита',()=>stats.crushed>=1],
  ['p5','Паразитолог','Раздавите 5 паразитов за одну партию',()=>stats.p5>0],
  ['crush25','Санитар','Раздавите 25 паразитов',()=>stats.crushed>=25],
