@@ -73,9 +73,19 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 #hero{width:180px;height:180px;align-self:center}
 .big{min-height:60px;font-size:17px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .big small{font:400 12px var(--f-mono);color:inherit;opacity:.75}
-.toggles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.toggles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .toggles button{font-size:13px;min-height:44px;padding:0 6px}
 .toggles button[aria-pressed="false"]{color:var(--muted)}
+.challenge{background:color-mix(in srgb,var(--blood) 16%,var(--panel));border:1px solid color-mix(in srgb,var(--blood) 55%,var(--line));border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px;text-align:center}
+.challenge b{font-family:var(--f-display);font-weight:400;font-size:22px}
+.challenge p{margin:0;color:var(--fg);line-height:1.45;font-size:14px}
+.clips{display:flex;flex-direction:column;gap:8px}
+.clip{display:grid;grid-template-columns:72px 1fr;gap:10px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:8px}
+.clip video{width:72px;aspect-ratio:9/16;border-radius:8px;background:#000;object-fit:cover}
+.clip .ct{display:flex;flex-direction:column;gap:6px;min-width:0}
+.clip .ct b{font-weight:600;font-size:14px}
+.clip .ct div{display:flex;gap:6px}
+.clip .ct button{min-height:40px;font-size:13px;flex:1;padding:0 8px}
 .streak{text-align:center;font:600 12px var(--f-mono);color:var(--amber);letter-spacing:.06em;line-height:1.5}
 .menugrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .menugrid button{font-size:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.15;padding:0 6px}
@@ -177,6 +187,11 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
     <canvas id="hero" width="360" height="360" aria-hidden="true"></canvas>
     <h1>МУТАЦИЯ</h1>
     <p class="tag">Банка с формалином. Сливай одинаковых — они мутируют.<br>Не дай банке переполниться.</p>
+    <div class="challenge" id="chalCard" hidden>
+      <b>Вас вызвали</b>
+      <p id="chalText"></p>
+      <button class="primary" id="chalBtn">Принять вызов</button>
+    </div>
     <button class="big" id="resumeBtn" hidden>Продолжить<small id="resumeSub"></small></button>
     <button class="big primary" id="playBtn">Классика<small>случайные образцы</small></button>
     <button class="big" id="dailyBtn">Дневной забег<small id="dailySub">одинаковые образцы у всех</small></button>
@@ -190,6 +205,7 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
       <button id="tSound" aria-pressed="true">Звук</button>
       <button id="tScare" aria-pressed="true">Скримеры</button>
       <button id="tVibe" aria-pressed="true">Вибрация</button>
+      <button id="tClips" aria-pressed="true">Запись клипов</button>
     </div>
     <div class="foot">Ведите пальцем по банке и отпустите</div>
   </div>
@@ -247,7 +263,11 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
     <img id="shareImg" alt="Картинка с результатом игры">
     <p class="note" id="shareNote"></p>
     <div class="row"><button class="primary" id="shareNative" hidden>Поделиться</button><button id="shareSave">Сохранить картинку</button></div>
-    <div class="row"><button id="shareCopy">Скопировать текст</button><button id="shareClose">Закрыть</button></div>
+    <div class="row"><button id="shareCopy">Скопировать текст</button><button id="shareChal">Вызвать друга</button></div>
+    <h3 id="clipsHead" hidden>Видео</h3>
+    <p class="note" id="clipNote" hidden></p>
+    <div class="clips" id="clips"></div>
+    <div class="row"><button id="shareClose">Закрыть</button></div>
   </div>
 </div>
 
@@ -291,7 +311,7 @@ const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let found=new Set(store.get('mut.found',[0,1,2]));
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const opts=Object.assign({sound:true,scare:!reduced,vibe:true},store.get('mut.opts',{}));
+const opts=Object.assign({sound:true,scare:!reduced,vibe:true,clips:true},store.get('mut.opts',{}));
 const saveOpts=()=>store.set('mut.opts',opts);
 
 // ---------- day ----------
@@ -305,6 +325,9 @@ const WEEK=(()=>{const d=new Date(WEEK_DAYS[3]+'T00:00:00Z'),y=d.getUTCFullYear(
 const fmtD=(s,o)=>new Date(s+'T12:00:00Z').toLocaleDateString('ru-RU',Object.assign({timeZone:'UTC'},o));
 const WEEK_LABEL=fmtD(WEEK_DAYS[0],{day:'numeric'})+'–'+fmtD(WEEK_DAYS[6],{day:'numeric',month:'long'});
 const PUBLIC_URL=/github\.io$/.test(location.hostname)?location.origin+location.pathname:'';
+const GAME_URL=PUBLIC_URL||'https://claude.ai/artifact/Njo5eJhjmUbe5YmKp7wy1F';
+// challenge link: #vyzov-<seed base36>-<score>
+let challenge=null;{const m=/^#vyzov-([0-9a-z]{1,8})-(\d{1,7})$/.exec(location.hash);if(m)challenge={seed:parseInt(m[1],36)>>>0,target:+m[2]}}
 function hashStr(s){let h=2166136261;for(const ch of s){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
 
 // ---------- helpers ----------
@@ -432,7 +455,7 @@ new ResizeObserver(fit).observe(stage);addEventListener('resize',fit);
 
 // ---------- state ----------
 let engine=null,bodies=[],queue=[],mutQ=[],newForm=-1,shot=null,score=0,aimX=W/2,canDropAt=0,danger=0,over=false,paused=true,topLvl=0,started=false;
-let mode='classic',seq=null,cur=null,nxt=null,drops=0,crushedGame=0;
+let mode='classic',seq=null,cur=null,nxt=null,drops=0,crushedGame=0,gameSeed=0;
 let particles=[],floaters=[],bubbles=[],shake=0,flash=0,idc=1,pointer={x:W/2,y:SPAWN_Y},seenThisGame=new Set();
 let scream=null;
 for(let i=0;i<26;i++)bubbles.push({x:JL+Math.random()*(JR-JL),y:RIM+Math.random()*(FLOOR-RIM),r:1+Math.random()*2.5,v:.15+Math.random()*.35});
@@ -444,12 +467,12 @@ function makeSeq(seed){const R=rng(seed);let lastAnom=true;
       if(a){lastAnom=true;return a}}
     lastAnom=false;return POOL[Math.floor(R()*POOL.length)]}}}
 
-function bestKey(){return mode==='daily'?'mut.daily.'+DAY:'mut.best'}
+function bestKey(){return mode==='daily'?'mut.daily.'+DAY:mode==='challenge'?'mut.chal':'mut.best'}
 function bestScore(){return store.get(bestKey(),0)}
 
 function newGame(m){
   mode=m;drops=0;
-  const seed=m==='daily'?hashStr('mutaciya:'+DAY):(Math.random()*2**32)>>>0;
+  const seed=m==='daily'?hashStr('mutaciya:'+DAY):m==='challenge'&&challenge?challenge.seed:(Math.random()*2**32)>>>0;gameSeed=seed;
   seq=makeSeq(seed);const R0=rng(seed^0x9e3779b9);
   engine=Engine.create();engine.positionIterations=8;engine.velocityIterations=6;
   const o={isStatic:true,friction:.4,restitution:.1};
@@ -459,7 +482,7 @@ function newGame(m){
   for(let i=0;i<5;i++){const l=Math.floor(R0()*3);const b=spawn(l,60+R0()*280,FLOOR-50-i*28);b.born=-1e9}
   cur=seq.next();nxt=seq.next();
   $('over').hidden=true;started=true;
-  $('modeChip').textContent=m==='daily'?`Дневной забег №${DAY_NO}`:'Классика';
+  $('modeChip').textContent=m==='daily'?`Дневной забег №${DAY_NO}`:m==='challenge'?`Вызов · цель ${challenge.target}`:'Классика';
   updHud();drawNext();
 }
 function spawn(kind,x,y){
@@ -497,7 +520,7 @@ function processMerges(){
     removeBody(a);removeBody(b);
     const x=(a.position.x+b.position.x)/2,y=(a.position.y+b.position.y)/2,l=a.lvl;
     splat(x,y,FORMS[l].c,8+l*3,1+l*.25);
-    if(l===MAX){score+=500;shake=14;flash=1;floater(x,y,'+500',true);toast('Две Матки сожрали друг друга','+500');sound(l+2,true);vibe([80,40,160]);stats.mm++;saveStats();checkAch();continue}
+    if(l===MAX){score+=500;shake=14;flash=1;floater(x,y,'+500',true);toast('Две Матки сожрали друг друга','+500');setTimeout(()=>grabClip('Две Матки'),2200);sound(l+2,true);vibe([80,40,160]);stats.mm++;saveStats();checkAch();continue}
     const L=l+1,nb=spawn(L,x,y);
     Body.setVelocity(nb,{x:(a.velocity.x+b.velocity.x)/2,y:Math.min((a.velocity.y+b.velocity.y)/2,-1.2)});
     score+=PTS[L];floater(x,y-10,'+'+PTS[L],L>=6);
@@ -552,20 +575,23 @@ function drop(){
 
 // ---------- audio ----------
 let ac=null;
-function unlockAudio(){if(ac||!opts.sound)return;try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){ac=null}}
+let master=null,recDest=null;
+function unlockAudio(){if(ac||!opts.sound)return;try{ac=new (window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.connect(outNode());
+  try{recDest=ac.createMediaStreamDestination();master.connect(recDest)}catch(e){recDest=null}}catch(e){ac=null}}
+const outNode=()=>master||ac.destination;
 function noiseBuf(len){const b=ac.createBuffer(1,Math.floor(ac.sampleRate*len),ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);return b}
 function sound(l,big){if(!ac||!opts.sound)return;const t=ac.currentTime;
   const o=ac.createOscillator(),g=ac.createGain();o.type='sine';const f=Math.max(50,340-l*26);
   o.frequency.setValueAtTime(f*1.4,t);o.frequency.exponentialRampToValueAtTime(f*.45,t+.22+l*.02);
   g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.3,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+.3+l*.03);
-  o.connect(g).connect(ac.destination);o.start(t);o.stop(t+.5);
+  o.connect(g).connect(outNode());o.start(t);o.stop(t+.5);
   const s=ac.createBufferSource();s.buffer=noiseBuf(.3);const bp=ac.createBiquadFilter();bp.type='bandpass';bp.Q.value=3;
   bp.frequency.setValueAtTime(1400-l*80,t);bp.frequency.exponentialRampToValueAtTime(180,t+.25);
-  const ng=ac.createGain();ng.gain.value=big?.5:.22;s.connect(bp).connect(ng).connect(ac.destination);s.start(t)}
+  const ng=ac.createGain();ng.gain.value=big?.5:.22;s.connect(bp).connect(ng).connect(outNode());s.start(t)}
 function plop(){if(!ac||!opts.sound)return;const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.type='sine';
   o.frequency.setValueAtTime(520,t);o.frequency.exponentialRampToValueAtTime(160,t+.08);g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.0001,t+.1);
-  o.connect(g).connect(ac.destination);o.start(t);o.stop(t+.12)}
-function screech(){if(!ac||!opts.sound)return;const t=ac.currentTime,out=ac.createGain();out.gain.value=.9;out.connect(ac.destination);
+  o.connect(g).connect(outNode());o.start(t);o.stop(t+.12)}
+function screech(){if(!ac||!opts.sound)return;const t=ac.currentTime,out=ac.createGain();out.gain.value=.9;out.connect(outNode());
   [430,457,611,689].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type='sawtooth';
     o.frequency.setValueAtTime(f*.6,t);o.frequency.exponentialRampToValueAtTime(f*1.9,t+.12);o.frequency.exponentialRampToValueAtTime(f*1.2,t+.6);
     g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.09,t+.03);g.gain.exponentialRampToValueAtTime(.0001,t+.75);
@@ -573,11 +599,68 @@ function screech(){if(!ac||!opts.sound)return;const t=ac.currentTime,out=ac.crea
   const s=ac.createBufferSource();s.buffer=noiseBuf(.6);const hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=1800;
   const ng=ac.createGain();ng.gain.setValueAtTime(.55,t);ng.gain.exponentialRampToValueAtTime(.0001,t+.6);s.connect(hp).connect(ng).connect(out);s.start(t)}
 
+// ---------- clip recorder: rolling vertical video of the last seconds ----------
+const CW=540,CH=960,clipCv=document.createElement('canvas');clipCv.width=CW;clipCv.height=CH;const cctx=clipCv.getContext('2d');
+const REC={mime:'',ext:'',slots:[],stream:null,ok:false,clips:[],paused:false};
+(()=>{try{if(!window.MediaRecorder||!clipCv.captureStream)return;
+  for(const m of ['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'])if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m)){REC.mime=m;break}
+  if(!REC.mime)return;REC.ext=REC.mime.startsWith('video/mp4')?'mp4':'webm';REC.stream=clipCv.captureStream(30);REC.ok=true}catch(e){REC.ok=false}})();
+function recActive(){return REC.ok&&opts.clips&&engine&&started}
+function newSlot(){try{const tr=[...REC.stream.getVideoTracks()];if(recDest)tr.push(...recDest.stream.getAudioTracks());
+  const mr=new MediaRecorder(new MediaStream(tr),{mimeType:REC.mime,videoBitsPerSecond:2200000});const sl={mr,chunks:[],t0:performance.now(),act:0};
+  mr.ondataavailable=e=>{if(e.data&&e.data.size)sl.chunks.push(e.data)};mr.start(500);REC.slots.push(sl)}catch(e){REC.ok=false}}
+function stopSlots(){for(const sl of REC.slots){try{sl.mr.stop()}catch(e){}}REC.slots=[]}
+function recTick(dt,live){
+  if(!recActive()){if(REC.slots.length)stopSlots();return}
+  const want=live;if(want===REC.paused){REC.paused=!want;for(const sl of REC.slots){try{want?sl.mr.resume():sl.mr.pause()}catch(e){}}}
+  if(!live)return;
+  for(const sl of REC.slots)sl.act+=dt;
+  if(REC.slots.length===0||(REC.slots.length===1&&REC.slots[0].act>6000))newSlot();
+  if(REC.slots.length===2&&REC.slots[0].act>12500){const old=REC.slots.shift();try{old.mr.stop()}catch(e){}}
+}
+function grabClip(label){
+  if(!recActive()||!REC.slots.length)return;
+  const sl=REC.slots.reduce((a,b)=>a.act>=b.act?a:b);if(sl.act<2500)return;
+  REC.slots=REC.slots.filter(x=>x!==sl);
+  sl.mr.onstop=()=>{const blob=new Blob(sl.chunks,{type:REC.mime.split(';')[0]});if(blob.size<1000)return;
+    REC.clips.unshift({label,blob,url:URL.createObjectURL(blob),secs:Math.round(sl.act/1000)});
+    while(REC.clips.length>3){const c=REC.clips.pop();URL.revokeObjectURL(c.url)}
+    if(!$('shareSheet').hidden)renderClips()};
+  try{sl.mr.stop()}catch(e){}
+}
+function drawClipFrame(){
+  const g=cctx;g.setTransform(1,0,0,1,0,0);g.fillStyle='#13110c';g.fillRect(0,0,CW,CH);
+  g.textAlign='center';g.fillStyle='#ece3cb';g.font='44px "Russo One",sans-serif';g.fillText('МУТАЦИЯ',CW/2,66);
+  g.font='600 18px "IBM Plex Mono",monospace';g.fillStyle='#d3a043';g.fillText(modeLabel().toUpperCase(),CW/2,98);
+  const jh=790,jw=jh*W/H,jx=(CW-jw)/2,jy=118;g.drawImage(cv,jx,jy,jw,jh);
+  g.fillStyle='#ece3cb';g.font='40px "Russo One",sans-serif';g.fillText(String(score),CW/2,946);
+  if(scream&&!sc.hidden){const k=Math.max(CW/sc.width,CH/sc.height);g.drawImage(sc,(CW-sc.width*k)/2,(CH-sc.height*k)/2,sc.width*k,sc.height*k)}
+}
+function renderClips(){
+  const box=$('clips');box.innerHTML='';const has=REC.clips.length>0;
+  $('clipsHead').hidden=!(has||REC.ok);$('clipNote').hidden=has;
+  $('clipNote').textContent=!REC.ok?'':!opts.clips?'Запись клипов выключена в меню.':'Клипы появятся после скримера, слияния двух Маток или в конце партии.';
+  for(const c of REC.clips){const d=document.createElement('div');d.className='clip';
+    d.innerHTML=`<video muted playsinline loop autoplay></video><div class="ct"><b></b><div><button data-a="share">Поделиться</button><button data-a="save">Сохранить</button></div></div>`;
+    d.querySelector('video').src=c.url;d.querySelector('b').textContent=`${c.label} · ${c.secs} с`;
+    const file=new File([c.blob],`mutaciya-klip.${REC.ext}`,{type:c.blob.type});
+    let can=false;try{can=!!(navigator.canShare&&navigator.canShare({files:[file]}))}catch(e){}
+    const sb=d.querySelector('[data-a="share"]');sb.hidden=!can;
+    sb.onclick=async()=>{try{await navigator.share({files:[file],text:shareText()})}catch(e){}};
+    d.querySelector('[data-a="save"]').onclick=()=>saveBlob(c.blob,`mutaciya-klip.${REC.ext}`);
+    box.appendChild(d)}
+}
+async function saveBlob(blob,name){
+  if(window.claude&&window.claude.use){let dl=null;try{dl=await window.claude.use('downloads')}catch(e){}
+    if(dl){try{await dl.save({filename:name,data:blob});shareNote('Файл сохранён.')}catch(e){shareNote(e&&e.code==='declined'?'Сохранение отменено.':'Не удалось сохранить файл.')}return}
+    shareNote('Здесь сохранить файл нельзя.');return}
+  const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);shareNote('Файл сохранён.')}
+
 // ---------- screamer ----------
 const sc=$('scream'),sctx=sc.getContext('2d');
 function fitScream(){const d=Math.min(window.devicePixelRatio||1,2);sc.width=Math.round(innerWidth*d);sc.height=Math.round(innerHeight*d)}
 const SCREAM_MS=820;
-function startScream(lvl){scream={lvl,t0:performance.now()};sc.hidden=false;fitScream();screech();vibe([70,30,140,30,60]);}
+function startScream(lvl){scream={lvl,t0:performance.now()};setTimeout(()=>grabClip('Скример: '+FORMS[lvl].name),SCREAM_MS+1800);sc.hidden=false;fitScream();screech();vibe([70,30,140,30,60]);}
 function drawScream(t){
   const p=(t-scream.t0)/SCREAM_MS;
   if(p>=1){sc.hidden=true;const l=scream.lvl;scream=null;toast('Новая мутация',FORMS[l].name);return}
@@ -603,7 +686,7 @@ const plural=(n,a,b,c)=>{const m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&
 const YDAY=(()=>{const d=new Date(DAY+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10)})();
 let streak=Object.assign({last:'',count:0,best:0},store.get('mut.streak',{}));
 const streakNow=()=>streak.last===DAY||streak.last===YDAY?streak.count:0;
-const stats=Object.assign({crushed:0,rot:0,mut:0,dailies:0,games:0,shares:0,mm:0,best:0,qdays:0,p5:0},store.get('mut.stats',{}));
+const stats=Object.assign({chalWon:0,crushed:0,rot:0,mut:0,dailies:0,games:0,shares:0,mm:0,best:0,qdays:0,p5:0},store.get('mut.stats',{}));
 const saveStats=()=>store.set('mut.stats',stats);
 let ach=store.get('mut.ach',{});
 const LIQ={amber:{name:'Янтарный',c:['#5c4a1d','#2a200b'],days:0},emerald:{name:'Изумрудный',c:['#1f5a44','#0b2219'],days:3},
@@ -628,6 +711,7 @@ const ACH=[
  ['q3','Исполнительный','Выполните все задания дня',()=>stats.qdays>0],
  ['d10','Завсегдатай','Сыграйте 10 дневных забегов',()=>stats.dailies>=10],
  ['share','Хвастун','Поделитесь результатом',()=>stats.shares>0],
+ ['chal','Принято','Выиграйте вызов друга',()=>stats.chalWon>0],
 ];
 function checkAch(){let ch=false;for(const [id,name,desc,ok] of ACH){if(ach[id])continue;let v=false;try{v=ok()}catch(e){}
   if(v){ach[id]=Date.now();ch=true;toast('Достижение',name,desc);vibe([20,40,20])}}
@@ -695,7 +779,7 @@ function renderAch(){
 }
 
 // ---------- HUD & UI ----------
-function updHud(){$('score').textContent=score;$('bestLine').textContent=(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
+function updHud(){$('score').textContent=score;$('bestLine').textContent=mode==='challenge'&&challenge?'цель '+challenge.target:(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
   $('regCount').textContent=formsFound().length+'/'+FORMS.length}
 const nctx=$('next').getContext('2d');
 function drawNext(){if(nxt==null)return;nctx.setTransform(1,0,0,1,0,0);nctx.clearRect(0,0,92,92);nctx.translate(46,46);
@@ -737,22 +821,25 @@ $('achBtn').onclick=()=>{renderAch();openSheet('achSheet')};$('achClose').onclic
 $('boardPlay').onclick=()=>{$('boardSheet').hidden=true;resumeAfterSheet=false;startMode('daily')};
 
 function openMenu(){paused=true;$('menu').hidden=false;updProg();
+  $('chalCard').hidden=!challenge;if(challenge)$('chalText').textContent=`Побейте ${challenge.target} ${plural(challenge.target,'очко','очка','очков')}. У вас будут те же образцы, что и у друга.`;
   $('resumeBtn').hidden=!(started&&!over);$('resumeSub').textContent=(mode==='daily'?`дневной забег · `:'классика · ')+score+' очков'}
 function startMode(m){unlockAudio();$('menu').hidden=true;newGame(m);paused=false;cv.focus({preventScroll:true})}
 $('menuBtn').onclick=openMenu;
 $('resumeBtn').onclick=()=>{$('menu').hidden=true;paused=false;cv.focus({preventScroll:true})};
 $('playBtn').onclick=()=>startMode('classic');
+$('chalBtn').onclick=()=>startMode('challenge');
 $('dailyBtn').onclick=()=>startMode('daily');
 $('again').onclick=()=>startMode(mode);
 $('overMenu').onclick=openMenu;
 $('dailySub').textContent=`№${DAY_NO} · ${DAY_LABEL} · одинаковые образцы у всех`;
 
 function syncToggles(){
-  for(const [id,k] of [['tSound','sound'],['tScare','scare'],['tVibe','vibe']])$(id).setAttribute('aria-pressed',String(opts[k]));
+  for(const [id,k] of [['tSound','sound'],['tScare','scare'],['tVibe','vibe'],['tClips','clips']])$(id).setAttribute('aria-pressed',String(opts[k]));
+  $('tClips').hidden=!REC.ok;
   $('soundBtn').setAttribute('aria-pressed',String(opts.sound));$('soundState').textContent=opts.sound?'вкл':'выкл'}
 function toggle(k){opts[k]=!opts[k];saveOpts();if(k==='sound'&&opts.sound)unlockAudio();syncToggles()}
 $('tSound').onclick=()=>toggle('sound');$('soundBtn').onclick=()=>toggle('sound');
-$('tScare').onclick=()=>toggle('scare');$('tVibe').onclick=()=>{toggle('vibe');vibe(30)};
+$('tScare').onclick=()=>toggle('scare');$('tClips').onclick=()=>toggle('clips');$('tVibe').onclick=()=>{toggle('vibe');vibe(30)};
 syncToggles();
 
 // ---------- shared daily leaderboard ----------
@@ -810,8 +897,10 @@ async function loadBoard(){
   }catch(e){if(req===boardReq)note.textContent='Таблица сейчас недоступна. '+mine}
 }
 
-function modeLabel(){return mode==='daily'?`Дневной забег №${DAY_NO} · ${DAY_LABEL}`:'Классика'}
+function modeLabel(){return mode==='daily'?`Дневной забег №${DAY_NO} · ${DAY_LABEL}`:mode==='challenge'?'Вызов':'Классика'}
+function chalUrl(){return GAME_URL+'#vyzov-'+(gameSeed>>>0).toString(36)+'-'+score}
 function shareText(){return`Мутация: ${score} очков, вывел форму «${FORMS[topLvl].name}». ${modeLabel()}. Сможешь больше?`+(PUBLIC_URL?' '+PUBLIC_URL:'')}
+function chalText(){return`Вызываю тебя в «Мутации»: побей ${score} очков на тех же образцах. ${chalUrl()}`}
 async function makeShareCanvas(){
   try{await Promise.all(['96px "Russo One"','600 34px "IBM Plex Mono"','36px "IBM Plex Sans"'].map(f=>document.fonts.load(f)))}catch(e){}
   const c=document.createElement('canvas');c.width=1080;c.height=1920;const g=c.getContext('2d');
@@ -846,6 +935,7 @@ async function openShare(){
   let can=false;try{can=!!(navigator.canShare&&navigator.canShare({files:[shareFile]}))}catch(e){}
   $('shareNative').hidden=!can;
   shareNote(can?'Отправьте картинку в сторис или мессенджер.':'Сохраните картинку и выложите её в сторис. На телефоне её можно сохранить долгим нажатием.');
+  renderClips();
 }
 $('shareBtn').onclick=openShare;
 $('shareClose').onclick=()=>closeSheet('shareSheet');
@@ -858,6 +948,9 @@ $('shareSave').onclick=async()=>{
       catch(e){shareNote(e&&e.code==='declined'?'Сохранение отменено.':'Не удалось сохранить. Удерживайте картинку, чтобы сохранить её.')}return}
     shareNote('Здесь сохранить файлом нельзя. Удерживайте картинку, чтобы сохранить её.');return}
   const a=document.createElement('a');a.href=shareObjUrl;a.download=`mutaciya-${score}.png`;document.body.appendChild(a);a.click();a.remove();shareNote('Картинка сохранена.')};
+$('shareChal').onclick=async()=>{const t=chalText();
+  try{if(navigator.share&&PUBLIC_URL){await navigator.share({text:t});return}}catch(e){if(e&&e.name==='AbortError')return}
+  navigator.clipboard.writeText(t).then(()=>shareNote('Ссылка на вызов скопирована. Отправьте её другу.'),()=>shareNote(t))};
 $('shareCopy').onclick=()=>{const t=shareText();
   navigator.clipboard.writeText(t).then(()=>shareNote('Текст скопирован.'),()=>shareNote(t))};
 
@@ -870,7 +963,11 @@ function gameOver(){
   if(mode==='daily'){ob.hidden=false;ob.textContent='Отправляю результат в таблицу дня…';
     submitDaily(score,topLvl).then(r=>{ob.textContent={saved:'Результат в таблицах дня и недели.',kept:'В таблице остаётся ваш лучший результат дня.',
       local:'Рекорд дня сохранён на этом устройстве.',anon:'Войдите в claude.ai, чтобы попасть в общую таблицу.',error:'Не удалось отправить результат. Рекорд дня сохранён на устройстве.'}[r]})}
+  else if(mode==='challenge'&&challenge){ob.hidden=false;const d=score-challenge.target;
+    if(d>0){stats.chalWon++;saveStats();checkAch();ob.textContent=`Вызов выигран: на ${d} ${plural(d,'очко','очка','очков')} больше. Отправьте ответный вызов.`}
+    else ob.textContent=d===0?'Ничья. Попробуйте ещё раз.':`Не хватило ${-d} ${plural(-d,'очка','очков','очков')} до ${challenge.target}.`}
   else ob.hidden=true;
+  grabClip('Финал партии');
   $('over').hidden=false;
 }
 
@@ -953,12 +1050,13 @@ function frame(now){
     ctx.restore();
   }
   if(scream)drawScream(now);
+  const live=!!engine&&started&&!paused&&$('menu').hidden;recTick(dt,live&&!over);if(recActive()&&live&&!over)drawClipFrame();
   if(now>nextTick){drawNext();nextTick=now+250}
   requestAnimationFrame(frame);
 }
 
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
