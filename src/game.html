@@ -81,6 +81,8 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .clip .ct b{font-weight:600;font-size:14px}
 .clip .ct div{display:flex;gap:6px}
 .clip .ct button{min-height:40px;font-size:13px;flex:1;padding:0 8px}
+.unlock{text-align:center;font:400 12px var(--f-mono);color:var(--muted);line-height:1.5}
+.unlock b{color:var(--fg);font-weight:600}
 .streak{text-align:center;font:600 12px var(--f-mono);color:var(--amber);letter-spacing:.06em;line-height:1.5}
 .menugrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .menugrid button{font-size:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.15;padding:0 6px}
@@ -308,6 +310,7 @@ body{height:100vh;height:100dvh}
     <button class="jarpick" id="jarBtn">Банка: Обычная</button>
     <button class="big" id="dailyBtn">Дневной забег<small id="dailySub">одинаковые образцы у всех</small></button>
     <div class="streak" id="streakLine"></div>
+    <div class="unlock" id="unlockLine"></div>
     <div class="menugrid">
       <button id="questBtn">Задания<small id="questCount">0/3</small></button>
       <button id="achBtn">Достижения<small id="achCount">0</small></button>
@@ -318,6 +321,7 @@ body{height:100vh;height:100dvh}
       <button id="tScare" aria-pressed="true">Хоррор-эффекты</button>
       <button id="tVibe" aria-pressed="true">Вибрация</button>
       <button id="tClips" aria-pressed="true">Запись клипов</button>
+      <button id="tCalm" aria-pressed="false">Спокойный режим</button>
     </div>
     <div class="foot">Ведите пальцем по банке и отпустите</div>
   </div>
@@ -486,7 +490,7 @@ let loreRead=new Set(store.get('mut.lore',[]));
 if(store.get('mut.formsV',1)<2){const map={8:9,9:11,10:13};found=new Set([...found].map(x=>typeof x==='number'&&map[x]!=null?map[x]:x));store.set('mut.found',[...found]);store.set('mut.formsV',2)}
 if(store.get('mut.formsV',1)<3){const sh=x=>typeof x==='number'&&x>=6?x+1:x;found=new Set([...found].map(sh));loreRead=new Set([...loreRead].map(sh));store.set('mut.found',[...found]);store.set('mut.lore',[...loreRead]);store.set('mut.formsV',3)}
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const opts=Object.assign({sound:true,scare:!reduced,vibe:true,clips:true},store.get('mut.opts',{}));
+const opts=Object.assign({sound:true,scare:!reduced,vibe:true,clips:true,calm:false},store.get('mut.opts',{}));
 const saveOpts=()=>store.set('mut.opts',opts);
 
 // ---------- day ----------
@@ -781,12 +785,21 @@ for(let i=0;i<26;i++)bubbles.push({x:JL+Math.random()*(JR-JL),y:RIM+Math.random(
 function makeSeq(seed){const R=rng(seed);let lastAnom=true;
   return{next(){drops++;const v=R();
     if(!lastAnom){let a=null;
-      let acc=0;for(const [k,pr,min] of ANOM_TABLE){if(v>=acc&&v<acc+pr){if(drops>min)a=k;break}acc+=pr}
+      let acc=0;for(const [k,pr,min] of ANOM_TABLE){if(v>=acc&&v<acc+pr){if(drops>min)a=k;break}acc+=pr}if(a&&!isOpen(a))a=null;
       if(a){lastAnom=true;return a}}
-    lastAnom=false;const vr=R();if(drops>6&&vr<.075)return vr<.02?LV.corona:LV.phage;return POOL[Math.floor(R()*POOL.length)]}}}
+    lastAnom=false;const vr=R();if(drops>6&&vr<.075&&isOpen('virus'))return vr<.02?LV.corona:LV.phage;return POOL[Math.floor(R()*POOL.length)]}}}
 
 const isFall=()=>mode==='fall'||(mode==='challenge'&&!!challenge&&challenge.fall);
-function bestKey(){return mode==='daily'?'mut.daily.'+DAY:mode==='challenge'?'mut.chal':isFall()?'mut.fall':'mut.best'}
+// progressive unlocks: the lab opens anomalies and events one game at a time; daily runs and challenges are always complete
+const UNLOCK={rot:2,mutagen:2,sounds:2,parasite:3,acid:3,gaze:3,whisper:3,lightning:3,mirror:4,magnet:4,worm:4,virus:4,knock:5,hand:5,inspect:5,brood:6,doll:6,leak:6,night:6,blackout:6};
+const UNLOCK_NAMES={rot:'Гниль',mutagen:'Мутаген',sounds:'звуки за кадром',parasite:'Паразит',acid:'Кислота',gaze:'взгляды',whisper:'шёпот',lightning:'молния',
+  mirror:'Зеркало',magnet:'Магнит',worm:'Зубастый червь',virus:'вирусы',knock:'стук в стекло',hand:'рука из формалина',inspect:'проверка',
+  brood:'Матка паразитов',doll:'Кукла',leak:'утечка формалина',night:'ночная смена',blackout:'отключения света'};
+const isCalm=()=>!!opts.calm&&(mode==='classic'||mode==='fall');
+const labLvl=()=>mode==='daily'||mode==='challenge'?99:(typeof stats!=='undefined'?stats.games:0);
+const isOpen=k=>isCalm()?k==='virus':labLvl()>=(UNLOCK[k]||0);
+function unlockedAt(n){return Object.keys(UNLOCK).filter(k=>UNLOCK[k]===n).map(k=>UNLOCK_NAMES[k])}
+function bestKey(){return mode==='daily'?'mut.daily.'+DAY:mode==='challenge'?'mut.chal':(isFall()?'mut.fall':'mut.best')+(isCalm()?'.calm':'')}
 function bestScore(){return store.get(bestKey(),0)}
 
 function newGame(m){
@@ -808,6 +821,8 @@ function newGame(m){
   fallY=SPAWN_Y;fastFall=false;shownLevel=1;$('abDown').hidden=!isFall();
   if(isFall())setTimeout(()=>toast('Режим «Падение»','Ловите!','Мутанты падают сами. Ведите пальцем влево-вправо, смахните вниз или нажмите «Вниз». Каждые 500 очков скорость растёт.'),200);
   if(jarKey!=='normal')setTimeout(()=>toast('Банка: '+jar.name,jar.desc),300);
+  if(isCalm())$('modeChip').textContent+=' · спокойно';
+  else if(labLvl()<99){const nw=unlockedAt(labLvl());if(nw.length)setTimeout(()=>toast('Новое в лаборатории',nw.slice(0,3).join(', ')+(nw.length>3?'…':''),nw.length>3?'И ещё: '+nw.slice(3).join(', '):'Будьте внимательны в этой партии'),700)}
   updHud();drawNext();
 }
 function spawn(kind,x,y){
@@ -887,7 +902,7 @@ function processMerges(){
     crushParasites(x,y,FORMS[L].r);discover(L);ev('make',L);hzMerge(L);
   }
   queue=[];
-  if(newForm>=0){renderReg();if(opts.scare&&newForm>=3)scheduleScream(newForm);else{toast('Новая мутация',FORMS[newForm].name);flash=.6}}
+  if(newForm>=0){renderReg();if(opts.scare&&!isCalm()&&newForm>=3)scheduleScream(newForm);else{toast('Новая мутация',FORMS[newForm].name);flash=.6}}
   if(score>bestScore())store.set(bestKey(),score);
   updHud();checkLevel();
 }
@@ -911,9 +926,9 @@ function parasiteTick(dt){
 function specialTick(dt){
   wormTick(dt);
   const nowB=performance.now();
-  if(!inBlackout&&drops>15&&nowB>blackoutAt-2500&&HZ.preFlicker<nowB-3000){HZ.preFlicker=nowB+2500;buzz()}
+  if(isOpen('blackout')&&!inBlackout&&drops>15&&nowB>blackoutAt-2500&&HZ.preFlicker<nowB-3000){HZ.preFlicker=nowB+2500;buzz()}
   hzTick(dt);
-  if(!inBlackout&&drops>15&&nowB>blackoutAt){inBlackout=true;darkUntil=nowB+6500;flickerUntil=nowB+700;powerDown();vibe([30,60,30]);floater(W/2,RIM+40,'свет погас',true,'#ff8a5a')}
+  if(isOpen('blackout')&&!inBlackout&&drops>15&&nowB>blackoutAt){inBlackout=true;darkUntil=nowB+6500;flickerUntil=nowB+700;powerDown();vibe([30,60,30]);floater(W/2,RIM+40,'свет погас',true,'#ff8a5a')}
   if(inBlackout&&nowB>darkUntil){inBlackout=false;blackoutAt=nowB+60000+Math.random()*45000;stats.blackouts++;saveStats();checkAch();floater(W/2,RIM+40,'свет вернулся',false)}
   if(jar.shaky){shakeT+=dt;if(shakeT>27500&&shakeT-dt<=27500)floater(W/2,RIM+40,'тряска через 2 секунды',true,'#ff8a5a');
     if(shakeT>30000){shakeT=0;doShake(1);toast('Банку трясёт','')}}
@@ -926,7 +941,7 @@ function specialTick(dt){
   for(const q of bodies){
     if(q.anom==='brood'){q.birthT=(q.birthT||0)+dt;if(q.birthT>9000){q.birthT=0;const kids=bodies.filter(x=>x.anom==='parasite'&&x.mom===q).length;
       if(kids<2){const k=spawn('parasite',q.position.x,q.position.y-q.circleRadius-14);k.mom=q;Body.setVelocity(k,{x:(Math.random()-.5)*3,y:-3});floater(q.position.x,q.position.y-30,'родился паразит',false,'#ff6a72')}}}
-    if(q.boss){q.birthT=(q.birthT||0)+dt;if(!bossSeen){bossSeen=true;toast('Матка рожает','Слейте её со второй Маткой, пока банка не переполнилась')}
+    if(q.boss&&!isCalm()){q.birthT=(q.birthT||0)+dt;if(!bossSeen){bossSeen=true;toast('Матка рожает','Слейте её со второй Маткой, пока банка не переполнилась')}
       if(q.birthT>6500){q.birthT=0;const kind=Math.random()<.3?'rot':0;const k=spawn(kind,Math.max(JL+20,Math.min(JR-20,q.position.x+(Math.random()-.5)*40)),q.position.y-q.circleRadius-20);
         Body.setVelocity(k,{x:(Math.random()-.5)*4,y:-4});splat(q.position.x,q.position.y-q.circleRadius,'#b4334f',10,1);sound(1,false)}}
   }
@@ -970,7 +985,7 @@ hzReset();
 function jarFill(){let top=FLOOR;for(const b of bodies)top=Math.min(top,b.position.y-b.circleRadius);return Math.max(0,Math.min(1,(FLOOR-top)/(FLOOR-RIM)))}
 function liquidNow(){const base=(LIQ[opts.liquid]||LIQ.amber).c;const pal=i=>i===0?base:LIQ_CYCLE[(i-1)%LIQ_CYCLE.length];
   const a=pal(HZ.liqFrom),b=pal(HZ.liqTo),k=Math.min(1,HZ.liqK);let c=[hexMix(a[0],b[0],k),hexMix(a[1],b[1],k)];
-  if(opts.scare&&engine){const bl=Math.max(0,(jarFill()-.6)/.4)*.85;if(bl>0)c=[hexMix(c[0],'#5a0b0e',bl),hexMix(c[1],'#1b0203',bl)]}return c}
+  if(opts.scare&&engine&&!isCalm()){const bl=Math.max(0,(jarFill()-.6)/.4)*.85;if(bl>0)c=[hexMix(c[0],'#5a0b0e',bl),hexMix(c[1],'#1b0203',bl)]}return c}
 function hzMerge(L){if(rk(L)>=LV.leech&&HZ.cracks.length){HZ.heal++;if(HZ.heal>=2){HZ.heal=0;const c=HZ.cracks.shift();floater(c.x+c.side*30,c.y,'трещина затянулась',false,'#9fe0a0')}}
   if(rk(L)>=LV.brain&&opts.scare)HZ.glitchUntil=performance.now()+650}
 function scheduleScream(l){HZ.silence=true;setTimeout(()=>{HZ.silence=false;if(!over)startScream(l)},480)}
@@ -992,7 +1007,7 @@ function hzTick(dt){
   if(HZ.shade){HZ.shade.t+=dt;if(HZ.shade.t>520)HZ.shade=null}
   if(ECG.bpm>=160&&!stats.panic){stats.panic=1;saveStats();checkAch()}
   // formalin leak: level drops; creatures above the surface dry into rot; patch costs 200 points
-  if(!HZ.leak&&drops>20&&T>HZ.nextLeak){const side=Math.random()<.5?-1:1;HZ.leak={side,x:side<0?JL:JR,y:rnd(FLOOR-150,FLOOR-50),t:0};
+  if(isOpen('leak')&&!HZ.leak&&drops>20&&T>HZ.nextLeak){const side=Math.random()<.5?-1:1;HZ.leak={side,x:side<0?JL:JR,y:rnd(FLOOR-150,FLOOR-50),t:0};
     HZ.leakPop='show';leakSound();vibe([40,30,40,30,80]);updLeak()}
   if(HZ.leak){const Lk=HZ.leak;Lk.t+=dt;if((Lk.ui=(Lk.ui||0)+dt)>250){Lk.ui=0;updLeak()}HZ.puddle=Math.min(1,HZ.puddle+dt/30000);HZ.liqY=Math.min(RIM+(FLOOR-RIM)*.62,HZ.liqY+dt*.012);if(Math.random()<dt/260)drip();
     if(Lk.t>45000){HZ.leak=null;HZ.nextLeak=T+rnd(70e3,120e3);toast('Утечка остановилась','Формалин медленно возвращается');updLeak()}}
@@ -1001,24 +1016,24 @@ function hzTick(dt){
   for(const b of bodies.slice()){if(b.lvl==null)continue;const above=b.position.y<HZ.liqY;b.dry=above?(b.dry||0)+dt:Math.max(0,(b.dry||0)-dt*2);
     if(b.dry>4000+rk(b.lvl)*600){const x=b.position.x,y=b.position.y;removeBody(b);spawn('rot',x,y);splat(x,y,'#6a5434',14,1.1);floater(x,y-18,'высох',false,'#c8a878');thud()}}
   if(T>HZ.nextLiq){HZ.nextLiq=T+rnd(35e3,48e3);HZ.liqFrom=HZ.liqTo;HZ.liqTo=HZ.liqTo+1;HZ.liqK=0;floater(W/2,RIM+28,'формалин меняется',false,'#d8c9a8')}
-  if(sc&&T>HZ.nextGaze){HZ.nextGaze=T+rnd(40e3,75e3);HZ.gazeUntil=T+1800}
+  if(sc&&isOpen('gaze')&&T>HZ.nextGaze){HZ.nextGaze=T+rnd(40e3,75e3);HZ.gazeUntil=T+1800}
   gazeNow=sc&&HZ.gazeUntil>T;
   if(T>HZ.nextWave){HZ.nextWave=T+rnd(25e3,50e3);HZ.waveT=now/1000}
-  if(sc&&T>HZ.nextWhisper){HZ.nextWhisper=T+rnd(45e3,80e3);const L=formsFound(),i=pick(L);const parts=LORE[i].split(/(?<=\.)\s/);
+  if(sc&&isOpen('whisper')&&T>HZ.nextWhisper){HZ.nextWhisper=T+rnd(45e3,80e3);const L=formsFound(),i=pick(L);const parts=LORE[i].split(/(?<=\.)\s/);
     HZ.whispers.push({x:rnd(JL+70,JR-70),y:rnd(RIM+80,FLOOR-160),text:pick(parts).toLowerCase(),life:1});whisperSound()}
   for(const w of HZ.whispers)w.life-=dt/5200;HZ.whispers=HZ.whispers.filter(w=>w.life>0);
-  if(T>HZ.nextKnock){HZ.nextKnock=T+rnd(22e3,40e3);const big=bodies.filter(b=>b.lvl!=null&&rk(b.lvl)>=LV.teeth);if(big.length)knock(pick(big))}
-  if(drops>20&&!HZ.hand&&T>HZ.nextHand){HZ.nextHand=T+rnd(90e3,150e3);const sm=bodies.filter(b=>b.lvl!=null&&b.lvl<=1);if(sm.length){HZ.hand={b:pick(sm),t:0,x:0,y:FLOOR+80,got:false};handSound()}}
+  if(isOpen('knock')&&T>HZ.nextKnock){HZ.nextKnock=T+rnd(22e3,40e3);const big=bodies.filter(b=>b.lvl!=null&&rk(b.lvl)>=LV.teeth);if(big.length)knock(pick(big))}
+  if(isOpen('hand')&&drops>20&&!HZ.hand&&T>HZ.nextHand){HZ.nextHand=T+rnd(90e3,150e3);const sm=bodies.filter(b=>b.lvl!=null&&b.lvl<=1);if(sm.length){HZ.hand={b:pick(sm),t:0,x:0,y:FLOOR+80,got:false};handSound()}}
   if(HZ.hand){const h=HZ.hand;h.t+=dt;if(!h.got){h.x=h.b.position.x;h.y=FLOOR+80-(FLOOR+80-h.b.position.y)*Math.min(1,h.t/1400)}
     if(!h.got&&h.t>1400){h.got=true;h.lvl=h.b.lvl;if(bodies.includes(h.b)){removeBody(h.b);splat(h.x,h.y,'#120806',14,1)}squelch()}
     if(h.got){h.y+=dt*.25;if(h.t>2800)HZ.hand=null}}
-  if(sc&&T>HZ.nextLight){HZ.nextLight=T+rnd(50e3,95e3);HZ.lightning={t0:now};HZ.figure=Math.min(5,HZ.figure+1);thunder()}
+  if(sc&&isOpen('lightning')&&T>HZ.nextLight){HZ.nextLight=T+rnd(50e3,95e3);HZ.lightning={t0:now};HZ.figure=Math.min(5,HZ.figure+1);thunder()}
   const fill=jarFill(),dg=Math.min(1,danger/2200);
   if(sc&&dg>.6&&Math.random()<dt/900)HZ.glitchUntil=now+250;
-  if(sc&&T>HZ.nextSound){HZ.nextSound=T+rnd(25e3,55e3);pick([footsteps,creak,breathing])()}
-  if(!HZ.nightDone&&!HZ.night&&drops>25&&Math.random()<dt/70000){HZ.night={t:0};toast('Ночная смена','Двойные очки','30 секунд всё падает быстрее');siren()}
+  if(sc&&isOpen('sounds')&&T>HZ.nextSound){HZ.nextSound=T+rnd(25e3,55e3);pick([footsteps,creak,breathing])()}
+  if(isOpen('night')&&!HZ.nightDone&&!HZ.night&&drops>25&&Math.random()<dt/70000){HZ.night={t:0};toast('Ночная смена','Двойные очки','30 секунд всё падает быстрее');siren()}
   if(HZ.night){HZ.night.t+=dt;if(HZ.night.t>30000){HZ.night=null;HZ.nightDone=true;stats.nights++;saveStats();checkAch();toast('Смена окончена','Свет снова обычный')}}
-  if(drops>15&&!HZ.inspect&&T>HZ.nextInspect){HZ.nextInspect=T+rnd(80e3,140e3);HZ.inspect={phase:'warn',t:0};toast('Шаги в коридоре','Проверка!','Через 2 секунды замрите на 5 секунд: ничего не бросайте');footsteps()}
+  if(isOpen('inspect')&&drops>15&&!HZ.inspect&&T>HZ.nextInspect){HZ.nextInspect=T+rnd(80e3,140e3);HZ.inspect={phase:'warn',t:0};toast('Шаги в коридоре','Проверка!','Через 2 секунды замрите на 5 секунд: ничего не бросайте');footsteps()}
   if(HZ.inspect){const I=HZ.inspect;I.t+=dt;if(I.phase==='warn'&&I.t>2000){I.phase='quiet';I.t=0}
     else if(I.phase==='quiet'&&I.t>5000){HZ.inspect=null;score+=50;floater(W/2,RIM+70,'проверка пройдена +50',true);stats.inspect++;saveStats();checkAch();updHud()}}
   for(const q of bodies){if(q.anom!=='doll')continue;const age=now-q.born;if(age<12000)continue;q.dT=(q.dT||0)+dt;
@@ -1026,7 +1041,7 @@ function hzTick(dt){
       if(near.length){const o=pick(near);removeBody(o);spawn('rot',o.position.x,o.position.y);splat(o.position.x,o.position.y,'#6e7550',12,1)}floater(q.position.x,q.position.y-30,'ха-ха-ха',true,'#ff6a72')}}
 }
 function inspectCatch(){if(HZ.inspect&&HZ.inspect.phase==='quiet'){HZ.inspect=null;toast('Заметили!','В банку подкинули гниль');spawn('rot',rnd(JL+40,JR-40),SPAWN_Y);thud();return true}return false}
-function canFake(){return opts.scare&&!store.get('mut.fake',false)&&stats.games>=2}
+function canFake(){return opts.scare&&!isCalm()&&mode!=='daily'&&!store.get('mut.fake',false)&&stats.games>=2}
 function fakeOver(){over=true;HZ.fake=true;store.set('mut.fake',true);$('overTitle').textContent='Банка переполнена';$('overScore').textContent=score;
   $('overText').textContent='Высшая форма: '+FORMS[topLvl].name;$('overBoard').hidden=true;$('over').classList.add('fake');$('over').hidden=false;
   setTimeout(()=>{$('over').hidden=true;$('over').classList.remove('fake');HZ.glitchUntil=performance.now()+900;
@@ -1104,7 +1119,7 @@ function drawHorror(now,t){
 const THOUGHTS=['ты не успеешь','они видят тебя','крышка не выдержит','не смотри на них','ещё одна — и всё','за спиной кто-то есть','ты слышишь, как они дышат?','поздно','они знают твоё имя','это не формалин'];
 const PSY={stress:0};
 function psyTick(dt,live){
-  const target=opts.scare&&live&&!over?Math.max(0,Math.min(1,(ECG.bpm-85)/70)):0;PSY.stress+=(target-PSY.stress)*Math.min(1,dt/700);
+  const target=opts.scare&&!isCalm()&&live&&!over?Math.max(0,Math.min(1,(ECG.bpm-85)/70)):0;PSY.stress+=(target-PSY.stress)*Math.min(1,dt/700);
   if(ac&&earLP){const t=ac.currentTime;earLP.frequency.setTargetAtTime(19000-PSY.stress*15500,t,.25);if(ringG)ringG.gain.setTargetAtTime(opts.sound&&PSY.stress>.75?(PSY.stress-.75)*.035:0,t,.4)}
 }
 function drawPsyPost(now,t){
@@ -1128,7 +1143,7 @@ function ecgTick(dt,live){
   if(live&&!ECG.flat){const prev=ECG.phase;ECG.phase=(ECG.phase+dt*ECG.bpm/60000)%1;if(ECG.phase<prev)beatNow()}
   if(live){const v=ECG.flat?0:ecgWave(ECG.phase)+(Math.random()-.5)*.025;ECG.buf.copyWithin(0,1);ECG.buf[ECG.buf.length-1]=v;ECG.n++}
   drawEcg()}
-function beatNow(){const now=performance.now();ECG.lastBeat=now;if(!ac||!opts.sound)return;
+function beatNow(){const now=performance.now();ECG.lastBeat=now;if(!ac||!opts.sound||isCalm())return;
   tone('sine',ECG.bpm>125?1250:1000,ECG.bpm>125?1240:990,.07,.045);
   if(ECG.bpm>85){heartbeat(Math.min(1,.35+(ECG.bpm-85)/80));HZ.beat=now}}
 function flatline(){tone('sine',1000,995,2.2,.05)}
@@ -1425,7 +1440,12 @@ function bumpStreak(){
   const rw=Object.values(LIQ).find(l=>l.days===streak.count);
   toast('Серия',streak.count+' '+plural(streak.count,'день','дня','дней')+' подряд',rw?'Награда: '+rw.name.toLowerCase()+' формалин. Включите его в «Достижениях».':'Возвращайтесь завтра, чтобы продлить');
 }
-function updProg(){
+function updUnlock(){const el=$('unlockLine');if(!el)return;
+  if(opts.calm){el.textContent='Спокойный режим: только слияния, без аномалий и событий';return}
+  const g=stats.games,next=Object.values(UNLOCK).filter(n=>n>g).sort((a,b)=>a-b)[0];
+  if(next==null){el.textContent='';return}
+  const left=next-g;el.innerHTML='';el.append(`Через ${left} ${plural(left,'партию','партии','партий')} откроется: `);const b=document.createElement('b');b.textContent=unlockedAt(next).join(', ');el.append(b)}
+function updProg(){updUnlock();
   const n=streakNow();
   $('streakLine').textContent=n>0?`Серия: ${n} ${plural(n,'день','дня','дней')}`+(streak.last===DAY?' · сегодня засчитан':' · сыграйте дневной забег, чтобы продлить')
     :'Сыграйте дневной забег, чтобы начать серию';
@@ -1524,12 +1544,12 @@ function updJarBtn(){const k=opts.jar||'normal';$('jarBtn').textContent='Бан�
 $('jarBtn').onclick=()=>{const i=JAR_KEYS.indexOf(opts.jar||'normal');opts.jar=JAR_KEYS[(i+1)%JAR_KEYS.length];saveOpts();updJarBtn();toast('Банка: '+JARS[opts.jar].name,JARS[opts.jar].desc)};updJarBtn();
 
 function syncToggles(){
-  for(const [id,k] of [['tSound','sound'],['tScare','scare'],['tVibe','vibe'],['tClips','clips']])$(id).setAttribute('aria-pressed',String(opts[k]));
+  for(const [id,k] of [['tSound','sound'],['tScare','scare'],['tVibe','vibe'],['tClips','clips'],['tCalm','calm']])$(id).setAttribute('aria-pressed',String(opts[k]));
   $('tClips').hidden=!REC.ok;
   $('soundBtn').setAttribute('aria-pressed',String(opts.sound));$('soundState').textContent=opts.sound?'вкл':'выкл'}
 function toggle(k){opts[k]=!opts[k];saveOpts();if(k==='sound'&&opts.sound)unlockAudio();syncToggles()}
 $('tSound').onclick=()=>toggle('sound');$('soundBtn').onclick=()=>toggle('sound');
-$('tScare').onclick=()=>toggle('scare');$('tClips').onclick=()=>toggle('clips');$('tVibe').onclick=()=>{toggle('vibe');vibe(30)};
+$('tScare').onclick=()=>toggle('scare');$('tClips').onclick=()=>toggle('clips');$('tCalm').onclick=()=>{toggle('calm');updProg();toast(opts.calm?'Спокойный режим':'Обычный режим',opts.calm?'Только слияния':'Аномалии и события вернулись',opts.calm?'Для классики и «Падения»: без аномалий, событий и скримеров. Рекорды отдельные.':'')};$('tVibe').onclick=()=>{toggle('vibe');vibe(30)};
 syncToggles();
 
 // ---------- shared daily leaderboard ----------
@@ -1809,7 +1829,7 @@ for(const evn of ['pointerdown','touchend','click','keydown'])document.addEventL
 document.addEventListener('visibilitychange',()=>{if(document.hidden){try{ac&&ac.suspend()}catch(e){}}else if(ac&&opts.sound){try{ac.resume()}catch(e){}}});
 store.set('mut.lastSeenPrev',store.get('mut.lastSeen',Date.now()));store.set('mut.lastSeen',Date.now());hzMenu();
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
