@@ -273,19 +273,23 @@ const W=400,H=640,FLOOR=618,RIM=104,SPAWN_Y=56,TAU=Math.PI*2,ROT_R=27;let JL=24,
 const $=id=>document.getElementById(id);
 
 const FORMS=[
- {name:'Капля',     r:13, c:'#d3cd86', d:'#7e7838'},
- {name:'Спора',     r:18, c:'#d9a352', d:'#7a4f1c'},
- {name:'Слизень',   r:24, c:'#9fbd5c', d:'#46601f'},
- {name:'Личинка',   r:31, c:'#e6c9a1', d:'#8b6a44'},
- {name:'Глаз',      r:38, c:'#ece3cc', d:'#9a7f6a'},
- {name:'Пиявка',    r:46, c:'#83434f', d:'#3a1820'},
- {name:'Зубастик',  r:55, c:'#c45a42', d:'#5e2116'},
- {name:'Многоглаз', r:64, c:'#8e6ca0', d:'#3d2a4b'},
- {name:'Сгусток',   r:74, c:'#6d2f3b', d:'#2c0f16'},
- {name:'Тварь',     r:86, c:'#56633f', d:'#222a16'},
- {name:'Матка',     r:99, c:'#b4334f', d:'#4c0c1d'},
+ {id:'drop',  name:'Капля',     r:12, c:'#d3cd86', d:'#7e7838'},
+ {id:'spore', name:'Спора',     r:16, c:'#d9a352', d:'#7a4f1c'},
+ {id:'slug',  name:'Слизень',   r:21, c:'#9fbd5c', d:'#46601f'},
+ {id:'larva', name:'Личинка',   r:26, c:'#e6c9a1', d:'#8b6a44'},
+ {id:'eye',   name:'Глаз',      r:32, c:'#ece3cc', d:'#9a7f6a'},
+ {id:'leech', name:'Пиявка',    r:38, c:'#83434f', d:'#3a1820'},
+ {id:'teeth', name:'Зубастик',  r:44, c:'#c45a42', d:'#5e2116'},
+ {id:'multi', name:'Многоглаз', r:51, c:'#8e6ca0', d:'#3d2a4b'},
+ {id:'brain', name:'Мозгляк',   r:58, c:'#d98a96', d:'#6e2f3a'},
+ {id:'clot',  name:'Сгусток',   r:65, c:'#6d2f3b', d:'#2c0f16'},
+ {id:'maw',   name:'Пасть',     r:73, c:'#a8574a', d:'#3e130f'},
+ {id:'beast', name:'Тварь',     r:81, c:'#56633f', d:'#222a16'},
+ {id:'cocoon',name:'Кокон',     r:90, c:'#cdbf9a', d:'#4a3f26'},
+ {id:'queen', name:'Матка',     r:100,c:'#b4334f', d:'#4c0c1d'},
 ];
-const PTS=[0,3,6,10,15,21,28,36,45,55,66];
+const LV=Object.fromEntries(FORMS.map((f,i)=>[f.id,i]));
+const PTS=FORMS.map((f,i)=>i?(i+1)*(i+2)/2:0);
 const MAX=FORMS.length-1;
 const POOL=[0,0,0,1,1,1,2,2,3,4];
 const ANOM={
@@ -312,6 +316,7 @@ const formsFound=()=>[...found].filter(x=>typeof x==='number');
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let found=new Set(store.get('mut.found',[0,1,2]));
+if(store.get('mut.formsV',1)<2){const map={8:9,9:11,10:13};found=new Set([...found].map(x=>typeof x==='number'&&map[x]!=null?map[x]:x));store.set('mut.found',[...found]);store.set('mut.formsV',2)}
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const opts=Object.assign({sound:true,scare:!reduced,vibe:true,clips:true},store.get('mut.opts',{}));
 const saveOpts=()=>store.set('mut.opts',opts);
@@ -365,22 +370,22 @@ function teethRing(ctx,cx,cy,R,n,col){ctx.fillStyle=col;
 function drawCreature(ctx,lvl,r,t,seed,look,noBlink){
   const F=FORMS[lvl],R=rng(seed*997+lvl);
   if(lvl===MAX){const s=1+.035*Math.sin(t*4);ctx.scale(s,s)}
-  if(lvl===9){ctx.fillStyle=F.c;for(let i=0;i<9;i++){const a=i/9*TAU+Math.sin(t+i)*.08;
+  if(F.id==='beast'){ctx.fillStyle=F.c;for(let i=0;i<9;i++){const a=i/9*TAU+Math.sin(t+i)*.08;
     ctx.beginPath();ctx.arc(Math.cos(a)*r*.92,Math.sin(a)*r*.92,r*.24,0,TAU);ctx.fill()}}
   const g=ctx.createRadialGradient(-r*.35,-r*.4,r*.1,0,0,r*1.05);
   g.addColorStop(0,shade(F.c,.28));g.addColorStop(.6,F.c);g.addColorStop(1,F.d);
-  ctx.fillStyle=g;blob(ctx,r,t,seed,lvl===0?.05:.035);ctx.fill();
+  ctx.fillStyle=g;blob(ctx,r,t,seed,lvl===0?.05:F.id==='cocoon'?.02:.035);ctx.fill();
   ctx.strokeStyle='rgba(0,0,0,.45)';ctx.lineWidth=Math.max(1,r*.05);ctx.stroke();
   const lid=shade(F.c,-.15),bl=(k)=>!noBlink&&blinkAt(t,seed,k);
-  switch(lvl){
-    case 0: ctx.fillStyle='rgba(255,255,255,.18)';ctx.beginPath();ctx.arc(r*.25,r*.2,r*.22,0,TAU);ctx.fill();break;
-    case 1: ctx.fillStyle=F.d;for(let i=0;i<6;i++){const a=R()*TAU,d=R()*r*.65;ctx.beginPath();ctx.arc(Math.cos(a)*d,Math.sin(a)*d,r*(.08+R()*.08),0,TAU);ctx.fill()}break;
-    case 2: eye(ctx,-r*.32,-r*.18,r*.22,look,bl(0),'#3b4a19',lid);eye(ctx,r*.32,-r*.18,r*.22,look,bl(0),'#3b4a19',lid);
+  switch(F.id){
+    case'drop': ctx.fillStyle='rgba(255,255,255,.18)';ctx.beginPath();ctx.arc(r*.25,r*.2,r*.22,0,TAU);ctx.fill();break;
+    case'spore': ctx.fillStyle=F.d;for(let i=0;i<6;i++){const a=R()*TAU,d=R()*r*.65;ctx.beginPath();ctx.arc(Math.cos(a)*d,Math.sin(a)*d,r*(.08+R()*.08),0,TAU);ctx.fill()}break;
+    case'slug': eye(ctx,-r*.32,-r*.18,r*.22,look,bl(0),'#3b4a19',lid);eye(ctx,r*.32,-r*.18,r*.22,look,bl(0),'#3b4a19',lid);
       ctx.strokeStyle=F.d;ctx.lineWidth=r*.07;ctx.beginPath();ctx.arc(0,r*.15,r*.25,.2*Math.PI,.8*Math.PI);ctx.stroke();break;
-    case 3: ctx.strokeStyle='rgba(90,60,30,.55)';ctx.lineWidth=r*.06;
+    case'larva': ctx.strokeStyle='rgba(90,60,30,.55)';ctx.lineWidth=r*.06;
       for(let i=-1;i<=1;i++){ctx.beginPath();ctx.arc(i*r*.38+r*.1,0,r*.75,-.9,.9);ctx.stroke()}
       ctx.fillStyle='#1a120a';ctx.beginPath();ctx.arc(-r*.55,-r*.18,r*.09,0,TAU);ctx.arc(-r*.55,r*.18,r*.09,0,TAU);ctx.fill();break;
-    case 4: ctx.strokeStyle='rgba(170,30,30,.55)';ctx.lineWidth=r*.035;
+    case'eye': ctx.strokeStyle='rgba(170,30,30,.55)';ctx.lineWidth=r*.035;
       for(let i=0;i<7;i++){const a=R()*TAU;ctx.beginPath();ctx.moveTo(Math.cos(a)*r*.95,Math.sin(a)*r*.95);
         ctx.quadraticCurveTo(Math.cos(a+.3)*r*.7,Math.sin(a+.3)*r*.7,Math.cos(a)*r*.55,Math.sin(a)*r*.55);ctx.stroke()}
       {const ix=look.x*r*.32,iy=look.y*r*.32;
@@ -388,22 +393,47 @@ function drawCreature(ctx,lvl,r,t,seed,look,noBlink){
        else{ctx.fillStyle='#7a2a1c';ctx.beginPath();ctx.arc(ix,iy,r*.45,0,TAU);ctx.fill();
         ctx.fillStyle='#0a0705';ctx.beginPath();ctx.arc(ix,iy,r*.22,0,TAU);ctx.fill();
         ctx.fillStyle='rgba(255,255,255,.75)';ctx.beginPath();ctx.arc(ix-r*.12,iy-r*.14,r*.08,0,TAU);ctx.fill()}}break;
-    case 5: ctx.fillStyle='#1a0609';ctx.beginPath();ctx.arc(0,r*.08,r*.44,0,TAU);ctx.fill();
+    case'leech': ctx.fillStyle='#1a0609';ctx.beginPath();ctx.arc(0,r*.08,r*.44,0,TAU);ctx.fill();
       teethRing(ctx,0,r*.08,r*.44,12,'#efe2c6');ctx.fillStyle='#4a0d16';ctx.beginPath();ctx.arc(0,r*.08,r*.18,0,TAU);ctx.fill();
       eye(ctx,0,-r*.62,r*.16,look,bl(0),'#5a1a1a',lid);break;
-    case 6: eye(ctx,-r*.33,-r*.33,r*.2,look,bl(0),'#6a4a10',lid);eye(ctx,r*.33,-r*.33,r*.2,look,bl(1),'#6a4a10',lid);
+    case'teeth': eye(ctx,-r*.33,-r*.33,r*.2,look,bl(0),'#6a4a10',lid);eye(ctx,r*.33,-r*.33,r*.2,look,bl(1),'#6a4a10',lid);
       ctx.fillStyle='#1c0705';ctx.beginPath();ctx.moveTo(-r*.68,r*.05);ctx.quadraticCurveTo(0,r*.95,r*.68,r*.05);ctx.quadraticCurveTo(0,r*.3,-r*.68,r*.05);ctx.fill();
       ctx.fillStyle='#f1e6cb';for(let i=0;i<7;i++){const x=-r*.55+i*r*.18;ctx.beginPath();ctx.moveTo(x,r*.14);ctx.lineTo(x+r*.09,r*.36);ctx.lineTo(x+r*.18,r*.14);ctx.fill()}break;
-    case 7: {const ps=[[0,-.1,.3],[-.48,-.38,.18],[.5,-.36,.2],[-.5,.3,.16],[.42,.38,.19],[0,.58,.13],[-.15,-.62,.12]];
+    case'multi': {const ps=[[0,-.1,.3],[-.48,-.38,.18],[.5,-.36,.2],[-.5,.3,.16],[.42,.38,.19],[0,.58,.13],[-.15,-.62,.12]];
       ps.forEach((p,k)=>eye(ctx,p[0]*r,p[1]*r,p[2]*r,look,bl(k),'#2b6a4a',lid))}break;
-    case 8: ctx.strokeStyle='rgba(20,0,5,.55)';ctx.lineWidth=r*.04;
+    case'clot': ctx.strokeStyle='rgba(20,0,5,.55)';ctx.lineWidth=r*.04;
       for(let i=0;i<9;i++){const a=R()*TAU;ctx.beginPath();ctx.moveTo(0,0);ctx.bezierCurveTo(Math.cos(a+.5)*r*.4,Math.sin(a+.5)*r*.4,Math.cos(a-.4)*r*.7,Math.sin(a-.4)*r*.7,Math.cos(a)*r*.95,Math.sin(a)*r*.95);ctx.stroke()}
       eye(ctx,-r*.3,-r*.25,r*.19,look,bl(0),'#a8861a',lid);eye(ctx,r*.35,-r*.15,r*.24,look,bl(1),'#a8861a',lid);eye(ctx,-r*.05,r*.35,r*.14,look,bl(2),'#a8861a',lid);break;
-    case 9: eye(ctx,-r*.3,-r*.3,r*.17,look,bl(0),'#8a1d10',lid);eye(ctx,r*.3,-r*.3,r*.17,look,bl(0),'#8a1d10',lid);eye(ctx,0,-r*.55,r*.12,look,bl(1),'#8a1d10',lid);
+    case'beast': eye(ctx,-r*.3,-r*.3,r*.17,look,bl(0),'#8a1d10',lid);eye(ctx,r*.3,-r*.3,r*.17,look,bl(0),'#8a1d10',lid);eye(ctx,0,-r*.55,r*.12,look,bl(1),'#8a1d10',lid);
       ctx.fillStyle='#120804';ctx.beginPath();ctx.ellipse(0,r*.3,r*.5,r*.3,0,0,TAU);ctx.fill();
       ctx.fillStyle='#e9dcbc';for(let i=0;i<8;i++){const x=-r*.42+i*r*.12;ctx.beginPath();ctx.moveTo(x,r*.04);ctx.lineTo(x+r*.06,r*.22);ctx.lineTo(x+r*.12,r*.04);ctx.fill();
         ctx.beginPath();ctx.moveTo(x,r*.56);ctx.lineTo(x+r*.06,r*.4);ctx.lineTo(x+r*.12,r*.56);ctx.fill()}break;
-    case 10: for(let i=0;i<8;i++){const a=i/8*TAU+t*.15;eye(ctx,Math.cos(a)*r*.66,Math.sin(a)*r*.66,r*.13,look,bl(i),'#d4a020',lid)}
+    case'brain':{ // folded brain with two small eyes underneath
+      ctx.strokeStyle='rgba(110,30,45,.6)';ctx.lineWidth=r*.07;ctx.lineCap='round';
+      for(let i=0;i<7;i++){const y0=-r*.62+i*r*.17;ctx.beginPath();for(let x=-r*.7;x<=r*.7;x+=r*.08){const k=Math.sqrt(Math.max(0,1-(x*x+y0*y0)/(r*r*.8)));
+        const y=y0+Math.sin(x/r*9+i*1.7+t*.8)*r*.05;if(k<=0.05)continue;x===-r*.7?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.stroke()}
+      ctx.strokeStyle='rgba(90,20,35,.7)';ctx.lineWidth=r*.05;ctx.beginPath();ctx.moveTo(0,-r*.85);ctx.quadraticCurveTo(r*.06,0,0,r*.4);ctx.stroke();
+      ctx.fillStyle=shade(F.c,-.25);ctx.beginPath();ctx.ellipse(0,r*.62,r*.5,r*.2,0,0,TAU);ctx.fill();
+      eye(ctx,-r*.22,r*.6,r*.14,look,bl(0),'#3a5a8a',lid);eye(ctx,r*.22,r*.6,r*.14,look,bl(1),'#3a5a8a',lid);break}
+    case'maw':{ // a mouth with a body: lips, tongue, teeth, tiny eyes on top
+      const op=.55+.25*Math.sin(t*2.2+seed);
+      ctx.fillStyle='#7a1f22';ctx.beginPath();ctx.ellipse(0,r*.12,r*.72,r*.5*op+r*.12,0,0,TAU);ctx.fill();
+      ctx.fillStyle='#160405';ctx.beginPath();ctx.ellipse(0,r*.12,r*.62,r*.44*op+r*.06,0,0,TAU);ctx.fill();
+      ctx.fillStyle='#d4646e';ctx.beginPath();ctx.ellipse(r*.05,r*.12+r*.28*op,r*.32,r*.14,.1,0,TAU);ctx.fill();
+      ctx.fillStyle='#f1e6cb';const n=9;for(let i=0;i<n;i++){const x=-r*.5+i*r*1/(n-1)*1;const top=r*.12-r*.44*op;const bot=r*.12+r*.44*op;
+        ctx.beginPath();ctx.moveTo(x-r*.05,top+r*.04);ctx.lineTo(x,top+r*.2);ctx.lineTo(x+r*.05,top+r*.04);ctx.fill();
+        if(i%2){ctx.beginPath();ctx.moveTo(x-r*.05,bot-r*.02);ctx.lineTo(x,bot-r*.16);ctx.lineTo(x+r*.05,bot-r*.02);ctx.fill()}}
+      for(let i=0;i<3;i++)eye(ctx,-r*.3+i*r*.3,-r*.62+(i===1?-r*.06:0),r*.1,look,bl(i),'#6b1a10',lid);break}
+    case'cocoon':{ // veined cocoon with a silhouette and a slit eye
+      ctx.strokeStyle='rgba(120,40,40,.5)';ctx.lineWidth=r*.025;
+      for(let i=0;i<8;i++){const a=R()*TAU;ctx.beginPath();ctx.moveTo(Math.cos(a)*r*.95,Math.sin(a)*r*.95);
+        ctx.bezierCurveTo(Math.cos(a+.6)*r*.6,Math.sin(a+.6)*r*.6,Math.cos(a-.5)*r*.4,Math.sin(a-.5)*r*.4,Math.cos(a+.2)*r*.15,Math.sin(a+.2)*r*.15);ctx.stroke()}
+      const pu=.5+.5*Math.sin(t*3);ctx.fillStyle=`rgba(40,10,15,${.35+.2*pu})`;
+      ctx.beginPath();ctx.ellipse(0,r*.15,r*.32,r*.48,0,0,TAU);ctx.fill();ctx.beginPath();ctx.arc(0,-r*.42,r*.22,0,TAU);ctx.fill();
+      ctx.strokeStyle='rgba(255,255,240,.25)';ctx.lineWidth=r*.04;for(let i=-2;i<=2;i++){ctx.beginPath();ctx.arc(0,0,r*.9,-1.2+i*.08,1.2+i*.08);ctx.stroke()}
+      if(!bl(0)){ctx.fillStyle='#ffd23a';ctx.beginPath();ctx.ellipse(0,-r*.42,r*.13,r*.035+r*.03*pu,0,0,TAU);ctx.fill();
+        ctx.fillStyle='#120804';ctx.beginPath();ctx.ellipse(look.x*r*.05,-r*.42,r*.02,r*.03+r*.02*pu,0,0,TAU);ctx.fill()}break}
+    case'queen': for(let i=0;i<8;i++){const a=i/8*TAU+t*.15;eye(ctx,Math.cos(a)*r*.66,Math.sin(a)*r*.66,r*.13,look,bl(i),'#d4a020',lid)}
       {ctx.save();ctx.shadowColor='#ffb300';ctx.shadowBlur=r*.3;eye(ctx,0,0,r*.36,look,bl(9),'#e8a317',lid);ctx.restore()}break;
   }
 }
@@ -565,7 +595,7 @@ function processMerges(){
     score+=PTS[L];floater(x,y-10,'+'+PTS[L],L>=6);
     shake=Math.max(shake,L>=6?3+L:1.5);sound(L,false);vibe(L>=6?40:12);
     // big births dissolve nearby rot
-    if(L>=4){for(const rb of bodies.filter(q=>q.rot)){const d=Math.hypot(rb.position.x-x,rb.position.y-y);
+    if(L>=LV.eye){for(const rb of bodies.filter(q=>q.rot)){const d=Math.hypot(rb.position.x-x,rb.position.y-y);
       if(d<FORMS[L].r+ROT_R+10){removeBody(rb);splat(rb.position.x,rb.position.y,'#6e7550',14,1.3);score+=10;floater(rb.position.x,rb.position.y,'гниль растворена +10',false);stats.rot++;saveStats();ev('rot')}}}
     crushParasites(x,y,FORMS[L].r);discover(L);ev('make',L);
   }
@@ -758,12 +788,15 @@ let ach=store.get('mut.ach',{});
 const LIQ={amber:{name:'Янтарный',c:['#5c4a1d','#2a200b'],days:0},emerald:{name:'Изумрудный',c:['#1f5a44','#0b2219'],days:3},
   blood:{name:'Кровавый',c:['#5e1c20','#240809'],days:7},black:{name:'Чёрный',c:['#232326','#060607'],days:30}};
 const ACH=[
- ['eye','Глазастый','Выведите Глаз',()=>found.has(4)],
- ['teeth','Зубы','Выведите Зубастика',()=>found.has(6)],
- ['clot','Сгусток','Выведите Сгусток',()=>found.has(8)],
- ['matka','Матка','Выведите Матку',()=>found.has(10)],
+ ['eye','Глазастый','Выведите Глаз',()=>found.has(LV.eye)],
+ ['teeth','Зубы','Выведите Зубастика',()=>found.has(LV.teeth)],
+ ['brain','Мыслитель','Выведите Мозгляка',()=>found.has(LV.brain)],
+ ['clot','Сгусток','Выведите Сгусток',()=>found.has(LV.clot)],
+ ['maw','Голод','Выведите Пасть',()=>found.has(LV.maw)],
+ ['cocoon','Метаморфоз','Выведите Кокон',()=>found.has(LV.cocoon)],
+ ['matka','Матка','Выведите Матку',()=>found.has(LV.queen)],
  ['mm','Каннибализм','Слейте двух Маток',()=>stats.mm>0],
- ['reg','Полный реестр','Откройте все 11 форм',()=>formsFound().length>=FORMS.length],
+ ['reg','Полный реестр','Откройте все 14 форм',()=>formsFound().length>=FORMS.length],
  ['crush1','Давитель','Раздавите паразита',()=>stats.crushed>=1],
  ['p5','Паразитолог','Раздавите 5 паразитов за одну партию',()=>stats.p5>0],
  ['crush25','Санитар','Раздавите 25 паразитов',()=>stats.crushed>=25],
@@ -783,11 +816,12 @@ function checkAch(){let ch=false;for(const [id,name,desc,ok] of ACH){if(ach[id])
   if(v){ach[id]=Date.now();ch=true;toast('Достижение',name,desc);vibe([20,40,20])}}
   if(ch){store.set('mut.ach',ach);updProg()}}
 const QPOOL=[
- {id:'r6',text:'Выведите Зубастика',ev:'make',lvl:6,reach:true,n:1},
- {id:'r7',text:'Выведите Многоглаза',ev:'make',lvl:7,reach:true,n:1},
- {id:'r8',text:'Выведите Сгусток',ev:'make',lvl:8,reach:true,n:1},
- {id:'e5',text:'Выведите 5 Глаз',ev:'make',lvl:4,n:5},
- {id:'l4',text:'Выведите 4 Пиявки',ev:'make',lvl:5,n:4},
+ {id:'r6',text:'Выведите Зубастика',ev:'make',lvl:LV.teeth,reach:true,n:1},
+ {id:'r7',text:'Выведите Многоглаза',ev:'make',lvl:LV.multi,reach:true,n:1},
+ {id:'r8',text:'Выведите Мозгляка',ev:'make',lvl:LV.brain,reach:true,n:1},
+ {id:'r9',text:'Выведите Сгусток',ev:'make',lvl:LV.clot,reach:true,n:1},
+ {id:'e5',text:'Выведите 5 Глаз',ev:'make',lvl:LV.eye,n:5},
+ {id:'l4',text:'Выведите 4 Пиявки',ev:'make',lvl:LV.leech,n:4},
  {id:'c2',text:'Раздавите 2 паразитов',ev:'crush',n:2},
  {id:'rt3',text:'Растворите 3 гнили',ev:'rot',n:3},
  {id:'m2',text:'Используйте 2 мутагена',ev:'mut',n:2},
