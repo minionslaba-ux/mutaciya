@@ -405,6 +405,12 @@ const FORMS=[
  {id:'beast', name:'Тварь',     r:80, c:'#56633f', d:'#222a16'},
  {id:'cocoon',name:'Кокон',     r:89, c:'#cdbf9a', d:'#4a3f26'},
  {id:'queen', name:'Матка',     r:100,c:'#b4334f', d:'#4c0c1d'},
+ // virus branch: drops sometimes, merges inside the branch, two Ebolas mutate into a Clot
+ {id:'phage', name:'Бактериофаг',r:17, c:'#d8d8d4', d:'#5a5a58', virus:1,bw:1,rank:1,pts:8},
+ {id:'corona',name:'Коронавирус',r:23, c:'#9fb0bd', d:'#3d4a55', virus:1,rank:2,pts:14},
+ {id:'flu',   name:'Грипп',      r:29, c:'#7b5aa6', d:'#2e1f45', virus:1,rank:3,pts:22},
+ {id:'rabies',name:'Бешенство',  r:35, c:'#cfcfca', d:'#4d4d4a', virus:1,bw:1,rank:4,pts:32},
+ {id:'ebola', name:'Эбола',      r:42, c:'#e2e2de', d:'#555552', virus:1,bw:1,rank:5,pts:45},
 ];
 const LORE=[
  'Сегодня привезли банку с формалином. На дне что-то шевелится. Списываю на конвекцию.',
@@ -421,10 +427,18 @@ const LORE=[
  'Она всё время голодна. Вчера пропал хомяк из соседней лаборатории. Банка была закрыта.',
  'Щупальца упираются в стенки. Стекло выдержит ещё неделю. Заказал банку побольше. Заказ отклонили.',
  'Внутри кто-то есть. Глаз открывается, когда гаснет свет. Я больше не выключаю свет.',
- 'Последняя запись. Она рожает: капли, гниль, снова капли. Банка — не тюрьма. Банка — гнездо. Если вы это читаете, закройте крышку.'];
+ 'Последняя запись. Она рожает: капли, гниль, снова капли. Банка — не тюрьма. Банка — гнездо. Если вы это читаете, закройте крышку.',
+ 'Приложение А. Под микроскопом — головка-многогранник на ножках. Оно садится на клетку и впрыскивает себя внутрь. Сегодня оно впервые посмотрело в окуляр.',
+ 'Приложение Б. Шар в короне шипов. Шипы поворачиваются к тому, кто дышит рядом. Я надел вторую маску.',
+ 'Приложение В. Каждый год оно другое. Сегодня оно запомнило мой голос и чихнуло в ответ.',
+ 'Приложение Г. Форма пули. Внутри — спираль, которая сжимается, когда я пью воду. Я перестал пить воду.',
+ 'Приложение Д. Нить, свёрнутая пастушьим посохом. Она разворачивается по ночам и пишет на стекле буквы. Пока только одну: Я.'];
 const LV=Object.fromEntries(FORMS.map((f,i)=>[f.id,i]));
-const PTS=FORMS.map((f,i)=>i?(i+1)*(i+2)/2:0);
-const MAX=FORMS.length-1;
+const PTS=FORMS.map((f,i)=>f.pts!=null?f.pts:i?(i+1)*(i+2)/2:0);
+const MAX=FORMS.findIndex(f=>f.id==='queen');
+const VSTART=FORMS.findIndex(f=>f.virus);
+const NEXT=FORMS.map((f,i)=>f.id==='queen'?null:f.id==='ebola'?FORMS.findIndex(g=>g.id==='clot'):i+1);
+const rk=i=>FORMS[i].rank!=null?FORMS[i].rank:i;
 const POOL=[0,0,0,1,1,1,2,2,3,4];
 const ANOM={
   rot:{r:27,name:'Гниль',rule:'Не сливается. Растворяется, если рядом родится Глаз или форма крупнее.'},
@@ -508,7 +522,50 @@ function teethRing(ctx,cx,cy,R,n,col){ctx.fillStyle=col;
   for(let i=0;i<n;i++){const a=i/n*TAU,b=a+TAU/n/2,c=a+TAU/n;
     ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);ctx.lineTo(cx+Math.cos(b)*R*.55,cy+Math.sin(b)*R*.55);ctx.lineTo(cx+Math.cos(c)*R,cy+Math.sin(c)*R);ctx.fill()}}
 
+function emLook(ctx,r,seed,t){ // negative-stain electron micrograph: bright halo and grain
+  ctx.save();ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=r*.12;ctx.beginPath();ctx.arc(0,0,r*1.02,0,TAU);ctx.stroke();
+  const R=rng(seed*13+Math.floor(t*12));for(let i=0;i<Math.round(r*1.6);i++){const a=R()*TAU,d=Math.sqrt(R())*r;ctx.fillStyle=R()<.5?'rgba(0,0,0,.28)':'rgba(255,255,255,.22)';ctx.fillRect(Math.cos(a)*d,Math.sin(a)*d,1.4,1.4)}ctx.restore()}
+function drawVirus(ctx,F,r,t,seed,look,bl,lid){
+  const gs=(v)=>`rgb(${v},${v},${v})`;
+  switch(F.id){
+    case'phage':{ // T4-like: icosahedral head, tail tube, base plate, six legs
+      ctx.fillStyle='rgba(40,40,40,.25)';ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.fill();
+      const hy=-r*.42,hr=r*.46;ctx.fillStyle=gs(225);ctx.strokeStyle=gs(60);ctx.lineWidth=r*.06;ctx.beginPath();
+      for(let i=0;i<6;i++){const a=i/6*TAU+Math.PI/6;const x=Math.cos(a)*hr,y=hy+Math.sin(a)*hr*1.15;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.strokeStyle=gs(120);ctx.lineWidth=r*.03;ctx.beginPath();ctx.moveTo(-hr*.85,hy);ctx.lineTo(hr*.85,hy);ctx.moveTo(0,hy-hr*1.1);ctx.lineTo(0,hy+hr*1.1);ctx.stroke();
+      ctx.fillStyle=gs(190);ctx.fillRect(-r*.09,hy+hr*1.0,r*.18,r*.62);ctx.strokeStyle=gs(80);ctx.lineWidth=r*.025;for(let k=0;k<5;k++){ctx.beginPath();ctx.moveTo(-r*.09,hy+hr+k*r*.12);ctx.lineTo(r*.09,hy+hr+k*r*.12);ctx.stroke()}
+      const by=hy+hr+r*.62;ctx.fillStyle=gs(150);ctx.fillRect(-r*.22,by,r*.44,r*.08);
+      ctx.strokeStyle=gs(70);ctx.lineWidth=r*.05;ctx.lineCap='round';
+      for(const sx of [-1,1])for(let k=0;k<3;k++){const tw=Math.sin(t*5+k+seed)*.12,kx=sx*(r*.32+k*r*.12),ky=by+r*.26+k*r*.04;ctx.beginPath();ctx.moveTo(sx*r*.15,by+r*.05);ctx.lineTo(kx,ky-r*.2+tw*r);ctx.lineTo(kx+sx*r*.1,ky+r*.12);ctx.stroke()}
+      eye(ctx,0,hy,r*.17,look,bl(0),gs(40),gs(160));emLook(ctx,r,seed,t);break}
+    case'corona':{ // sphere with a crown of club-shaped spikes
+      for(let i=0;i<18;i++){const a=i/18*TAU+t*.05;ctx.strokeStyle='#c8232c';ctx.lineWidth=r*.08;ctx.beginPath();ctx.moveTo(Math.cos(a)*r*.7,Math.sin(a)*r*.7);ctx.lineTo(Math.cos(a)*r*.9,Math.sin(a)*r*.9);ctx.stroke();
+        ctx.fillStyle='#e0383f';ctx.beginPath();ctx.arc(Math.cos(a)*r*.95,Math.sin(a)*r*.95,r*.1,0,TAU);ctx.fill()}
+      const g=ctx.createRadialGradient(-r*.25,-r*.3,r*.1,0,0,r*.75);g.addColorStop(0,'#d5dee5');g.addColorStop(.7,F.c);g.addColorStop(1,F.d);ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,r*.74,0,TAU);ctx.fill();
+      const R=rng(seed*5);ctx.fillStyle='#e8a33a';for(let i=0;i<7;i++){const a=R()*TAU,d=R()*r*.55;ctx.beginPath();ctx.arc(Math.cos(a)*d,Math.sin(a)*d,r*.05,0,TAU);ctx.fill()}
+      eye(ctx,-r*.24,-r*.06,r*.15,look,bl(0),'#8a1414',lid);eye(ctx,r*.24,-r*.06,r*.15,look,bl(1),'#8a1414',lid);break}
+    case'flu':{ // dense coat of short spikes (two kinds), segmented RNA inside
+      for(let i=0;i<34;i++){const a=i/34*TAU+Math.sin(t+i)*.02,hv=i%3;ctx.strokeStyle=hv?'#8fd14f':'#f2d24a';ctx.lineWidth=r*.07;ctx.beginPath();ctx.moveTo(Math.cos(a)*r*.72,Math.sin(a)*r*.72);ctx.lineTo(Math.cos(a)*r*(hv?.97:.92),Math.sin(a)*r*(hv?.97:.92));ctx.stroke()}
+      const g=ctx.createRadialGradient(-r*.25,-r*.3,r*.1,0,0,r*.75);g.addColorStop(0,'#a888d4');g.addColorStop(.7,F.c);g.addColorStop(1,F.d);ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,r*.74,0,TAU);ctx.fill();
+      ctx.strokeStyle='rgba(255,170,210,.75)';ctx.lineWidth=r*.05;for(let k=0;k<8;k++){const a=k/8*TAU+.3,x=Math.cos(a)*r*.3,y=Math.sin(a)*r*.3+r*.1;ctx.beginPath();ctx.moveTo(x,y);for(let j=1;j<6;j++)ctx.lineTo(x+Math.sin(j*1.7+k)*r*.06,y-j*r*.05);ctx.stroke()}
+      eye(ctx,0,-r*.28,r*.2,look,bl(0),'#3a7a20',lid);
+      ctx.fillStyle='#1a0a14';ctx.beginPath();ctx.ellipse(0,r*.3,r*.22,r*.08+r*.05*Math.max(0,Math.sin(t*3)),0,0,TAU);ctx.fill();break}
+    case'rabies':{ // bullet shape with glycoprotein fringe and a helical core
+      ctx.save();ctx.rotate(-.5);const L=r*.95,Wd=r*.5;
+      ctx.beginPath();ctx.moveTo(-L,-Wd);ctx.lineTo(L-Wd,-Wd);ctx.arc(L-Wd,0,Wd,-Math.PI/2,Math.PI/2);ctx.lineTo(-L,Wd);ctx.closePath();
+      ctx.fillStyle=gs(205);ctx.fill();ctx.strokeStyle=gs(245);ctx.lineWidth=r*.12;ctx.setLineDash([r*.04,r*.05]);ctx.stroke();ctx.setLineDash([]);
+      ctx.strokeStyle=gs(70);ctx.lineWidth=r*.035;for(let x=-L+r*.1;x<L-Wd*.4;x+=r*.12){const sq=1+.04*Math.sin(t*4+x);ctx.beginPath();ctx.ellipse(x,0,r*.04,Wd*.75*sq,0,0,TAU);ctx.stroke()}
+      eye(ctx,L-Wd*.9,0,r*.16,look,bl(0),gs(30),gs(170));ctx.restore();emLook(ctx,r,seed,t);break}
+    case'ebola':{ // long filament curled into a shepherd's crook
+      const pts=[];for(let i=0;i<=40;i++){const u=i/40;let x,y;if(u<.55){x=-r*.55+u/.55*r*.2;y=r*.85-u/.55*r*1.25}else{const a=Math.PI+(u-.55)/.45*Math.PI*1.6;x=r*.05+Math.cos(a)*r*.42;y=-r*.4+Math.sin(a)*r*.42}
+        x+=Math.sin(t*2+u*9+seed)*r*.03;pts.push([x,y])}
+      ctx.lineCap='round';ctx.lineJoin='round';for(const [c,w] of [[gs(250),.36],[gs(170),.27]]){ctx.strokeStyle=c;ctx.lineWidth=r*w;ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke()}
+      ctx.strokeStyle=gs(70);ctx.lineWidth=r*.03;for(let i=1;i<pts.length;i+=2){const [x0,y0]=pts[i-1],[x1,y1]=pts[i],a=Math.atan2(y1-y0,x1-x0)+Math.PI/2;ctx.beginPath();ctx.moveTo(x1+Math.cos(a)*r*.12,y1+Math.sin(a)*r*.12);ctx.lineTo(x1-Math.cos(a)*r*.12,y1-Math.sin(a)*r*.12);ctx.stroke()}
+      const [ex,ey]=pts[pts.length-1];eye(ctx,ex,ey,r*.14,look,bl(0),gs(20),gs(170));emLook(ctx,r,seed,t);break}
+  }
+}
 function drawCreature(ctx,lvl,r,t,seed,look,noBlink){
+  {const FV=FORMS[lvl];if(FV&&FV.virus){const lidV=shade(FV.c,-.15);drawVirus(ctx,FV,r,t,seed,look,(k)=>!noBlink&&blinkAt(t,seed,k),lidV);return}}
   const F=FORMS[lvl],R=rng(seed*997+lvl);
   if(lvl===MAX){const s=1+.035*Math.sin(t*4);ctx.scale(s,s)}
   if(F.id==='beast'){ctx.fillStyle=F.c;for(let i=0;i<9;i++){const a=i/9*TAU+Math.sin(t+i)*.08;
@@ -664,7 +721,7 @@ function drawDoll(ctx,r,t,look,age){
   if(angry){ctx.arc(0,r*.28,r*.3,.15*Math.PI,.85*Math.PI)}else{ctx.moveTo(-r*.12,r*.42);ctx.lineTo(r*.12,r*.42)}ctx.stroke();
   ctx.restore();
 }
-function shine(ctx,r){ctx.fillStyle='rgba(255,250,230,.22)';ctx.beginPath();ctx.ellipse(-r*.38,-r*.45,r*.22,r*.12,-.7,0,TAU);ctx.fill()}
+function shine(ctx,r){if(shine.skip)return;ctx.fillStyle='rgba(255,250,230,.22)';ctx.beginPath();ctx.ellipse(-r*.38,-r*.45,r*.22,r*.12,-.7,0,TAU);ctx.fill()}
 // toothy worm: segmented body, lamprey head with a round ring of teeth
 function drawWormHead(ctx,x,y,r,dir,t,gape){
   ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(dir.y,dir.x));
@@ -710,7 +767,7 @@ function makeSeq(seed){const R=rng(seed);let lastAnom=true;
     if(!lastAnom){let a=null;
       let acc=0;for(const [k,pr,min] of ANOM_TABLE){if(v>=acc&&v<acc+pr){if(drops>min)a=k;break}acc+=pr}
       if(a){lastAnom=true;return a}}
-    lastAnom=false;return POOL[Math.floor(R()*POOL.length)]}}}
+    lastAnom=false;const vr=R();if(drops>6&&vr<.075)return vr<.02?LV.corona:LV.phage;return POOL[Math.floor(R()*POOL.length)]}}}
 
 const isFall=()=>mode==='fall'||(mode==='challenge'&&!!challenge&&challenge.fall);
 function bestKey(){return mode==='daily'?'mut.daily.'+DAY:mode==='challenge'?'mut.chal':isFall()?'mut.fall':'mut.best'}
@@ -742,7 +799,7 @@ function spawn(kind,x,y){
   const b=Bodies.circle(x,y,r,{restitution:.12,friction:an==='rot'?.8:.35,frictionAir:(an==='parasite'||an==='brood'?.03:.018)*(jar.air||1),density:an==='rot'?.0016:.0012,slop:.03});
   b.anom=an;b.rot=an==='rot';b.lvl=an?null:kind;b.born=performance.now();b.seed=(idc++)*7.31%13;b.stolen=0;b.drainT=0;b.host=null;
   Composite.add(engine.world,b);bodies.push(b);
-  if(!an&&kind>topLvl)topLvl=kind;
+  if(!an&&kind<=MAX&&kind>topLvl)topLvl=kind;
   if(kind===MAX)b.boss=true,b.birthT=0;
   if(an==='worm'){b.segs=[];b.cons=[];b.dir={x:0,y:1};b.eaten=0;for(let i=0;i<5;i++)wormGrow(b,true)}
   return b;
@@ -780,7 +837,7 @@ function pairs(ps){for(const p of ps){const a=p.bodyA,b=p.bodyB;
     if(o.lvl!=null&&!m.used&&!o.merging){m.used=true;if(k==='mirror')o.merging=false;mutQ.push([m,o,k])}}}
   if(a.anom==='acid'||b.anom==='acid'||a.anom==='mirror'||b.anom==='mirror')continue;
   if(a.anom==='mutagen'||b.anom==='mutagen'){const m=a.anom==='mutagen'?a:b,o=m===a?b:a;
-    if(o.lvl!=null&&o.lvl<MAX&&!o.merging&&!m.used){m.used=true;o.merging=true;mutQ.push([m,o])}continue}
+    if(o.lvl!=null&&NEXT[o.lvl]!=null&&!o.merging&&!m.used){m.used=true;o.merging=true;mutQ.push([m,o])}continue}
   if(a.lvl==null||b.lvl==null||a.lvl!==b.lvl||a.merging||b.merging)continue;a.merging=b.merging=true;queue.push([a,b])}}
 
 function processMerges(){
@@ -791,7 +848,7 @@ function processMerges(){
       splat(m.position.x,m.position.y,'#e0ff6a',22,1.4);score+=n*2;floater(m.position.x,m.position.y-10,n?`кислота +${n*2}`:'кислота',n>2);sound(2,false);vibe(25);continue}
     if(k==='mirror'){removeBody(m);const L=o.lvl;const nb=spawn(L,m.position.x,m.position.y);Body.setVelocity(nb,m.velocity);
       splat(m.position.x,m.position.y,'#e6e6ea',14,1);floater(m.position.x,m.position.y-10,'копия: '+FORMS[L].name,false);sound(L,false);vibe(20);continue}
-    removeBody(m);removeBody(o);const L=o.lvl+1,ox=o.position.x,oy=o.position.y;
+    removeBody(m);removeBody(o);const L=NEXT[o.lvl],ox=o.position.x,oy=o.position.y;
     const nb=spawn(L,ox,oy);Body.setVelocity(nb,{x:o.velocity.x,y:Math.min(o.velocity.y,-1)});
     splat(m.position.x,m.position.y,'#7dffc8',18,1.2);score+=PTS[L]*(HZ.night?2:1);floater(ox,oy-10,'мутаген +'+PTS[L]*(HZ.night?2:1),true);
     sound(L,false);vibe(30);flash=Math.max(flash,.4);crushParasites(ox,oy,FORMS[L].r);discover(L);
@@ -804,12 +861,12 @@ function processMerges(){
     const x=(a.position.x+b.position.x)/2,y=(a.position.y+b.position.y)/2,l=a.lvl;
     splat(x,y,FORMS[l].c,8+l*3,1+l*.25);
     if(l===MAX){score+=500;shake=14;flash=1;floater(x,y,'+500',true);toast('Две Матки сожрали друг друга','+500');setTimeout(()=>grabClip('Две Матки'),2200);sound(l+2,true);vibe([80,40,160]);stats.mm++;saveStats();checkAch();continue}
-    const L=l+1,nb=spawn(L,x,y);
+    const L=NEXT[l],nb=spawn(L,x,y);if(FORMS[l].id==='ebola'){floater(x,y-30,'вирус встроился в плоть',true,'#ff6a5e');stats.ebola++;saveStats();checkAch()}
     Body.setVelocity(nb,{x:(a.velocity.x+b.velocity.x)/2,y:Math.min((a.velocity.y+b.velocity.y)/2,-1.2)});
-    const gain=PTS[L]*(HZ.night?2:1);score+=gain;floater(x,y-10,'+'+gain,L>=6);
-    shake=Math.max(shake,L>=6?3+L:1.5);sound(L,false);vibe(L>=6?40:12);
+    const gain=PTS[L]*(HZ.night?2:1);score+=gain;floater(x,y-10,'+'+gain,rk(L)>=6);
+    shake=Math.max(shake,rk(L)>=6?3+rk(L):1.5);sound(rk(L),false);vibe(rk(L)>=6?40:12);
     // big births dissolve nearby rot
-    if(L>=LV.eye){for(const rb of bodies.filter(q=>q.rot)){const d=Math.hypot(rb.position.x-x,rb.position.y-y);
+    if(rk(L)>=LV.eye){for(const rb of bodies.filter(q=>q.rot)){const d=Math.hypot(rb.position.x-x,rb.position.y-y);
       if(d<FORMS[L].r+ROT_R+10){removeBody(rb);splat(rb.position.x,rb.position.y,'#6e7550',14,1.3);score+=10;floater(rb.position.x,rb.position.y,'гниль растворена +10',false);stats.rot++;saveStats();ev('rot')}}}
     crushParasites(x,y,FORMS[L].r);discover(L);ev('make',L);hzMerge(L);
   }
@@ -898,8 +955,8 @@ function jarFill(){let top=FLOOR;for(const b of bodies)top=Math.min(top,b.positi
 function liquidNow(){const base=(LIQ[opts.liquid]||LIQ.amber).c;const pal=i=>i===0?base:LIQ_CYCLE[(i-1)%LIQ_CYCLE.length];
   const a=pal(HZ.liqFrom),b=pal(HZ.liqTo),k=Math.min(1,HZ.liqK);let c=[hexMix(a[0],b[0],k),hexMix(a[1],b[1],k)];
   if(opts.scare&&engine){const bl=Math.max(0,(jarFill()-.6)/.4)*.85;if(bl>0)c=[hexMix(c[0],'#5a0b0e',bl),hexMix(c[1],'#1b0203',bl)]}return c}
-function hzMerge(L){if(L>=LV.leech&&HZ.cracks.length){HZ.heal++;if(HZ.heal>=2){HZ.heal=0;const c=HZ.cracks.shift();floater(c.x+c.side*30,c.y,'трещина затянулась',false,'#9fe0a0')}}
-  if(L>=LV.brain&&opts.scare)HZ.glitchUntil=performance.now()+650}
+function hzMerge(L){if(rk(L)>=LV.leech&&HZ.cracks.length){HZ.heal++;if(HZ.heal>=2){HZ.heal=0;const c=HZ.cracks.shift();floater(c.x+c.side*30,c.y,'трещина затянулась',false,'#9fe0a0')}}
+  if(rk(L)>=LV.brain&&opts.scare)HZ.glitchUntil=performance.now()+650}
 function scheduleScream(l){HZ.silence=true;setTimeout(()=>{HZ.silence=false;if(!over)startScream(l)},480)}
 function knock(b){const side=b.position.x<(JL+JR)/2?-1:1,x=side<0?JL:JR,y=Math.max(RIM+30,Math.min(FLOOR-30,b.position.y+rnd(-20,20)));
   HZ.cracks.push({x,y,side:-side,seed:Math.random()*1e4});shake=Math.max(shake,11);vibe([90,40,140]);thud();
@@ -929,7 +986,7 @@ function hzTick(dt){
   else if(HZ.liqY>RIM){HZ.liqY=Math.max(RIM,HZ.liqY-dt*(HZ.refill?.09:.008));if(HZ.liqY<=RIM)HZ.refill=false}
   if(!HZ.leak)HZ.puddle=Math.max(0,HZ.puddle-dt/60000);
   for(const b of bodies.slice()){if(b.lvl==null)continue;const above=b.position.y<HZ.liqY;b.dry=above?(b.dry||0)+dt:Math.max(0,(b.dry||0)-dt*2);
-    if(b.dry>4000+b.lvl*600){const x=b.position.x,y=b.position.y;removeBody(b);spawn('rot',x,y);splat(x,y,'#6a5434',14,1.1);floater(x,y-18,'высох',false,'#c8a878');thud()}}
+    if(b.dry>4000+rk(b.lvl)*600){const x=b.position.x,y=b.position.y;removeBody(b);spawn('rot',x,y);splat(x,y,'#6a5434',14,1.1);floater(x,y-18,'высох',false,'#c8a878');thud()}}
   if(T>HZ.nextLiq){HZ.nextLiq=T+rnd(35e3,48e3);HZ.liqFrom=HZ.liqTo;HZ.liqTo=HZ.liqTo+1;HZ.liqK=0;floater(W/2,RIM+28,'формалин меняется',false,'#d8c9a8')}
   if(sc&&T>HZ.nextGaze){HZ.nextGaze=T+rnd(40e3,75e3);HZ.gazeUntil=T+1800}
   gazeNow=sc&&HZ.gazeUntil>T;
@@ -937,7 +994,7 @@ function hzTick(dt){
   if(sc&&T>HZ.nextWhisper){HZ.nextWhisper=T+rnd(45e3,80e3);const L=formsFound(),i=pick(L);const parts=LORE[i].split(/(?<=\.)\s/);
     HZ.whispers.push({x:rnd(JL+70,JR-70),y:rnd(RIM+80,FLOOR-160),text:pick(parts).toLowerCase(),life:1});whisperSound()}
   for(const w of HZ.whispers)w.life-=dt/5200;HZ.whispers=HZ.whispers.filter(w=>w.life>0);
-  if(T>HZ.nextKnock){HZ.nextKnock=T+rnd(22e3,40e3);const big=bodies.filter(b=>b.lvl!=null&&b.lvl>=LV.teeth);if(big.length)knock(pick(big))}
+  if(T>HZ.nextKnock){HZ.nextKnock=T+rnd(22e3,40e3);const big=bodies.filter(b=>b.lvl!=null&&rk(b.lvl)>=LV.teeth);if(big.length)knock(pick(big))}
   if(drops>20&&!HZ.hand&&T>HZ.nextHand){HZ.nextHand=T+rnd(90e3,150e3);const sm=bodies.filter(b=>b.lvl!=null&&b.lvl<=1);if(sm.length){HZ.hand={b:pick(sm),t:0,x:0,y:FLOOR+80,got:false};handSound()}}
   if(HZ.hand){const h=HZ.hand;h.t+=dt;if(!h.got){h.x=h.b.position.x;h.y=FLOOR+80-(FLOOR+80-h.b.position.y)*Math.min(1,h.t/1400)}
     if(!h.got&&h.t>1400){h.got=true;h.lvl=h.b.lvl;if(bodies.includes(h.b)){removeBody(h.b);splat(h.x,h.y,'#120806',14,1)}squelch()}
@@ -982,7 +1039,7 @@ function drawHorror(now,t){
       ctx.fillStyle=lc[0];for(let i=0;i<7;i++){const k=((t*2.4+i*.14)%1),dx=x+L.side*40*pres*Math.sqrt(k)+Math.sin(i*3)*4,dy=y+(H-y)*k*k;ctx.beginPath();ctx.arc(dx,dy,2.6,0,TAU);ctx.fill()}}
     ctx.restore()}
   // drying creatures: brown crust grows while they are above the formalin
-  for(const b of bodies){if(!b.dry||b.lvl==null)continue;const k=Math.min(1,b.dry/(4000+b.lvl*600));if(k<.05)continue;const r=b.circleRadius;
+  for(const b of bodies){if(!b.dry||b.lvl==null)continue;const k=Math.min(1,b.dry/(4000+rk(b.lvl)*600));if(k<.05)continue;const r=b.circleRadius;
     ctx.save();ctx.globalAlpha=.65*k;ctx.fillStyle='#5a4228';ctx.beginPath();ctx.arc(b.position.x,b.position.y,r*.98,0,TAU);ctx.fill();
     ctx.globalAlpha=k;ctx.strokeStyle='rgba(30,18,8,.8)';ctx.lineWidth=1.2;const R=rng(b.seed*77);
     for(let i=0;i<3+k*5;i++){const a=R()*TAU,d=R()*r*.6;ctx.beginPath();ctx.moveTo(b.position.x+Math.cos(a)*d,b.position.y+Math.sin(a)*d);ctx.lineTo(b.position.x+Math.cos(a+.5)*(d+r*.35),b.position.y+Math.sin(a+.5)*(d+r*.35));ctx.stroke()}
@@ -1109,6 +1166,7 @@ function drop(px,py,vy){
   const b=spawn(cur,x+(Math.random()-.5)*.5,py!=null?py:SPAWN_Y);if(vy)Body.setVelocity(b,{x:0,y:vy});plop();vibe(6);
   cur=nxt;nxt=seq.next();canDropAt=t+(isFall()?320:420);drawNext();fallY=SPAWN_Y;fastFall=false;
   if(isAnom(nxt)&&!found.has('a:'+nxt)){found.add('a:'+nxt);store.set('mut.found',[...found]);toast('Новая аномалия',ANOM[nxt].name,ANOM[nxt].rule)}
+  else if(!isAnom(nxt)&&FORMS[nxt].virus&&!found.has(nxt)){found.add(nxt);store.set('mut.found',[...found]);renderReg();toast('Вирус в очереди',FORMS[nxt].name,'Вирусы сливаются между собой: Бактериофаг → Коронавирус → Грипп → Бешенство → Эбола. Две Эболы становятся Сгустком.');checkAch()}
 }
 
 // ---------- audio ----------
@@ -1280,7 +1338,7 @@ const plural=(n,a,b,c)=>{const m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&
 const YDAY=(()=>{const d=new Date(DAY+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10)})();
 let streak=Object.assign({last:'',count:0,best:0},store.get('mut.streak',{}));
 const streakNow=()=>streak.last===DAY||streak.last===YDAY?streak.count:0;
-const stats=Object.assign({trips:0,panic:0,leaks:0,worms:0,fake:0,inspect:0,nights:0,dolls:0,fallBest:0,blackouts:0,chalWon:0,crushed:0,rot:0,mut:0,dailies:0,games:0,shares:0,mm:0,best:0,qdays:0,p5:0},store.get('mut.stats',{}));
+const stats=Object.assign({ebola:0,trips:0,panic:0,leaks:0,worms:0,fake:0,inspect:0,nights:0,dolls:0,fallBest:0,blackouts:0,chalWon:0,crushed:0,rot:0,mut:0,dailies:0,games:0,shares:0,mm:0,best:0,qdays:0,p5:0},store.get('mut.stats',{}));
 const saveStats=()=>store.set('mut.stats',stats);
 let ach=store.get('mut.ach',{});
 const LIQ={amber:{name:'Янтарный',c:['#5c4a1d','#2a200b'],days:0},emerald:{name:'Изумрудный',c:['#1f5a44','#0b2219'],days:3},
@@ -1297,7 +1355,7 @@ const ACH=[
  ['cocoon','Метаморфоз','Выведите Кокон',()=>found.has(LV.cocoon)],
  ['matka','Матка','Выведите Матку',()=>found.has(LV.queen)],
  ['mm','Каннибализм','Слейте двух Маток',()=>stats.mm>0],
- ['reg','Полный реестр','Откройте все 15 форм',()=>formsFound().length>=FORMS.length],
+ ['reg','Полный реестр','Откройте все '+FORMS.length+' форм',()=>formsFound().length>=FORMS.length],
  ['crush1','Давитель','Раздавите паразита',()=>stats.crushed>=1],
  ['p5','Паразитолог','Раздавите 5 паразитов за одну партию',()=>stats.p5>0],
  ['crush25','Санитар','Раздавите 25 паразитов',()=>stats.crushed>=25],
@@ -1318,6 +1376,8 @@ const ACH=[
  ['night','Ночная смена','Отработайте ночную смену до конца',()=>stats.nights>0],
  ['trip','Пары формалина','Переживите испарения формалина',()=>stats.trips>0],
  ['panic','Паническая атака','Доведите пульс до 160',()=>stats.panic>0],
+ ['virus','Вирусолог','Откройте все пять вирусов',()=>FORMS.every((f,i)=>!f.virus||found.has(i))],
+ ['ebola','Встроился','Слейте две Эболы в Сгусток',()=>stats.ebola>0],
  ['leak','Сантехник','Залатайте утечку формалина',()=>stats.leaks>0],
  ['worm','Червоточина','Раздавите зубастого червя',()=>stats.worms>0],
  ['doll','Кукловод','Разбейте куклу, пока она не засмеялась',()=>stats.dolls>0],
@@ -1409,6 +1469,7 @@ function renderReg(){
     d.innerHTML=`<span class="n">${n}</span><canvas width="112" height="112"></canvas><span class="nm"></span>`;d.querySelector('.nm').textContent=name;
     const c=d.querySelector('canvas').getContext('2d');c.translate(56,56);draw(c);el.appendChild(d);return d};
   FORMS.forEach((F,i)=>{const k=found.has(i);
+    if(i===VSTART){const sv=document.createElement('div');sv.className='sec';sv.textContent='Вирусы — сливаются между собой, две Эболы становятся Сгустком';el.appendChild(sv)}
     const cd=card('№'+String(i+1).padStart(2,'0'),k?F.name:'???',k?'known':'unk',c=>{const s=Math.min(1.6,46/F.r);c.scale(s,s);
       if(k){drawCreature(c,i,F.r,1.3,2,{x:.3,y:.2});shine(c,F.r)}
       else{c.fillStyle='#2a251a';blob(c,F.r,1,i,.04);c.fill();c.fillStyle='#5a4f38';c.font=`${F.r}px "Rubik Distressed",sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText('?',0,2)}});
@@ -1674,7 +1735,7 @@ function drawDark(now,torch){
 
 // menu hero: the highest form you have found watches you
 const hctx=$('hero').getContext('2d');let heroLook={x:innerWidth/2,y:innerHeight/2};
-function drawHero(t){const lvl=Math.max(...formsFound()),F=FORMS[lvl],rc=$('hero').getBoundingClientRect();
+function drawHero(t){const lvl=Math.max(...formsFound().filter(i=>i<=MAX)),F=FORMS[lvl],rc=$('hero').getBoundingClientRect();
   const dx=heroLook.x-(rc.left+rc.width/2),dy=heroLook.y-(rc.top+rc.height/2),d=Math.hypot(dx,dy)||1,k=Math.min(1,d/200);
   hctx.setTransform(1,0,0,1,0,0);hctx.clearRect(0,0,360,360);hctx.translate(180,180);const s=150/F.r;hctx.scale(s,s);
   drawCreature(hctx,lvl,F.r,t,6,{x:dx/d*k,y:dy/d*k});shine(hctx,F.r)}
