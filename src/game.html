@@ -970,8 +970,19 @@ function drop(px,py,vy){
 // ---------- audio ----------
 let ac=null;
 let master=null,recDest=null;
-function unlockAudio(){if(ac||!opts.sound)return;try{ac=new (window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.connect(outNode());
-  try{recDest=ac.createMediaStreamDestination();master.connect(recDest)}catch(e){recDest=null}}catch(e){ac=null}}
+// Mobile audio: create and resume inside a user gesture, play a silent buffer (old iOS unlock),
+// ask iOS to treat the page as media playback so the ring/silent switch does not mute it.
+let silentEl=null;
+function unlockAudio(){
+  if(!opts.sound)return;
+  try{if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback'}catch(e){}
+  if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=1;master.connect(ac.destination);
+    try{recDest=ac.createMediaStreamDestination();master.connect(recDest)}catch(e){recDest=null}}catch(e){ac=null;return}}
+  if(ac.state!=='running'){try{ac.resume()}catch(e){}}
+  try{const b=ac.createBuffer(1,1,22050),src=ac.createBufferSource();src.buffer=b;src.connect(ac.destination);src.start(0)}catch(e){}
+  if(!silentEl&&!navigator.audioSession){try{silentEl=new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=');silentEl.loop=true;silentEl.setAttribute('playsinline','');silentEl.volume=0;
+    const pr=silentEl.play();if(pr&&pr.catch)pr.catch(()=>{})}catch(e){}}
+}
 const outNode=()=>master||ac.destination;
 let amb=null;
 function loopNoise(){const s=ac.createBufferSource();s.buffer=noiseBuf(2);s.loop=true;s.start();return s}
@@ -1578,7 +1589,8 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 
-document.addEventListener('pointerdown',()=>unlockAudio(),{once:true});
+for(const evn of ['pointerdown','touchend','click','keydown'])document.addEventListener(evn,()=>{if(!ac||ac.state!=='running')unlockAudio()},{capture:true,passive:true});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){try{ac&&ac.suspend()}catch(e){}}else if(ac&&opts.sound){try{ac.resume()}catch(e){}}});
 store.set('mut.lastSeenPrev',store.get('mut.lastSeen',Date.now()));store.set('mut.lastSeen',Date.now());hzMenu();
 // test hook, only with #test in the address
 if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
