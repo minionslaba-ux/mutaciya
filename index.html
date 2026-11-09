@@ -357,6 +357,7 @@ body{height:100vh;height:100dvh}
       <button id="tVibe" aria-pressed="true">Вибрация</button>
       <button id="tClips" aria-pressed="true">Запись клипов</button>
       <button id="tCalm" aria-pressed="false">Спокойный режим</button>
+      <button id="tStats" aria-pressed="true">Статистика</button>
     </div>
     <div class="foot">Ведите пальцем по банке и отпустите</div>
   </div>
@@ -525,7 +526,7 @@ let loreRead=new Set(store.get('mut.lore',[]));
 if(store.get('mut.formsV',1)<2){const map={8:9,9:11,10:13};found=new Set([...found].map(x=>typeof x==='number'&&map[x]!=null?map[x]:x));store.set('mut.found',[...found]);store.set('mut.formsV',2)}
 if(store.get('mut.formsV',1)<3){const sh=x=>typeof x==='number'&&x>=6?x+1:x;found=new Set([...found].map(sh));loreRead=new Set([...loreRead].map(sh));store.set('mut.found',[...found]);store.set('mut.lore',[...loreRead]);store.set('mut.formsV',3)}
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const opts=Object.assign({sound:true,scare:!reduced,vibe:true,clips:true,calm:false},store.get('mut.opts',{}));
+const opts=Object.assign({sound:true,scare:!reduced,vibe:true,clips:true,calm:false,stats:true},store.get('mut.opts',{}));
 const saveOpts=()=>store.set('mut.opts',opts);
 
 // ---------- day ----------
@@ -892,7 +893,7 @@ function wormTick(dt){const now=performance.now();
     h.gape=Math.max(0,(h.gape||0)-dt/300)}}
 function chomp(){tone('square',260,90,.12,.06);noise(.12,'bandpass',900,3,.25)}
 function removeBody(b){Composite.remove(engine.world,b);bodies=bodies.filter(x=>x!==b)}
-function discover(L){if(!found.has(L)){found.add(L);store.set('mut.found',[...found]);newForm=Math.max(newForm,L)}}
+function discover(L){if(!found.has(L)){found.add(L);track('discover',{form:FORMS[L].id});store.set('mut.found',[...found]);newForm=Math.max(newForm,L)}}
 function crushParasites(x,y,R){
   if(R>=FORMS[LV.eye].r)for(const h of bodies.filter(q=>q.anom==='worm'))if(Math.hypot(h.position.x-x,h.position.y-y)<R+30)killWorm(h,30,'червь раздавлен +30');for(const q of bodies.filter(q=>q.anom==='parasite'||q.anom==='brood')){
   if(Math.hypot(q.position.x-x,q.position.y-y)<R+q.circleRadius+8){removeBody(q);const g=q.anom==='brood'?60:q.stolen*2+15;score+=g;
@@ -1043,7 +1044,7 @@ function hzTick(dt){
   if(ECG.bpm>=160&&!stats.panic){stats.panic=1;saveStats();checkAch()}
   // formalin leak: level drops; creatures above the surface dry into rot; patch costs 200 points
   if(isOpen('leak')&&!HZ.leak&&drops>20&&T>HZ.nextLeak){const side=Math.random()<.5?-1:1;HZ.leak={side,x:side<0?JL:JR,y:rnd(FLOOR-150,FLOOR-50),t:0};
-    HZ.leakPop='show';leakSound();vibe([40,30,40,30,80]);updLeak()}
+    HZ.leakPop='show';leakSound();track('leak_start',{score});vibe([40,30,40,30,80]);updLeak()}
   if(HZ.leak){const Lk=HZ.leak;Lk.t+=dt;if((Lk.ui=(Lk.ui||0)+dt)>250){Lk.ui=0;updLeak()}HZ.puddle=Math.min(1,HZ.puddle+dt/30000);HZ.liqY=Math.min(RIM+(FLOOR-RIM)*.62,HZ.liqY+dt*.012);if(Math.random()<dt/260)drip();
     if(Lk.t>45000){HZ.leak=null;HZ.nextLeak=T+rnd(70e3,120e3);toast('Утечка остановилась','Формалин медленно возвращается');updLeak()}}
   else if(HZ.liqY>RIM){HZ.liqY=Math.max(RIM,HZ.liqY-dt*(HZ.refill?.09:.008));if(HZ.liqY<=RIM)HZ.refill=false}
@@ -1066,18 +1067,18 @@ function hzTick(dt){
   const fill=jarFill(),dg=Math.min(1,danger/2200);
   if(sc&&dg>.6&&Math.random()<dt/900)HZ.glitchUntil=now+250;
   if(sc&&isOpen('sounds')&&T>HZ.nextSound){HZ.nextSound=T+rnd(25e3,55e3);pick([footsteps,creak,breathing])()}
-  if(isOpen('night')&&!HZ.nightDone&&!HZ.night&&drops>25&&Math.random()<dt/70000){HZ.night={t:0};toast('Ночная смена','Двойные очки','30 секунд всё падает быстрее');siren()}
+  if(isOpen('night')&&!HZ.nightDone&&!HZ.night&&drops>25&&Math.random()<dt/70000){HZ.night={t:0};track('night',{});toast('Ночная смена','Двойные очки','30 секунд всё падает быстрее');siren()}
   if(HZ.night){HZ.night.t+=dt;if(HZ.night.t>30000){HZ.night=null;HZ.nightDone=true;stats.nights++;saveStats();checkAch();toast('Смена окончена','Свет снова обычный')}}
   if(isOpen('inspect')&&drops>15&&!HZ.inspect&&T>HZ.nextInspect){HZ.nextInspect=T+rnd(80e3,140e3);HZ.inspect={phase:'warn',t:0};toast('Шаги в коридоре','Проверка!','Через 2 секунды замрите на 5 секунд: ничего не бросайте');footsteps()}
   if(HZ.inspect){const I=HZ.inspect;I.t+=dt;if(I.phase==='warn'&&I.t>2000){I.phase='quiet';I.t=0}
-    else if(I.phase==='quiet'&&I.t>5000){HZ.inspect=null;score+=50;floater(W/2,RIM+70,'проверка пройдена +50',true);stats.inspect++;saveStats();checkAch();updHud()}}
+    else if(I.phase==='quiet'&&I.t>5000){HZ.inspect=null;score+=50;floater(W/2,RIM+70,'проверка пройдена +50',true);track('inspect',{ok:true});stats.inspect++;saveStats();checkAch();updHud()}}
   for(const q of bodies){if(q.anom!=='doll')continue;const age=now-q.born;if(age<12000)continue;q.dT=(q.dT||0)+dt;
     if(!q.laughed||q.dT>8000){q.laughed=true;q.dT=0;laugh();const near=bodies.filter(o=>o.lvl!=null&&o.lvl<=3&&Math.hypot(o.position.x-q.position.x,o.position.y-q.position.y)<130);
       if(near.length){const o=pick(near);removeBody(o);spawn('rot',o.position.x,o.position.y);splat(o.position.x,o.position.y,'#6e7550',12,1)}floater(q.position.x,q.position.y-30,'ха-ха-ха',true,'#ff6a72')}}
 }
-function inspectCatch(){if(HZ.inspect&&HZ.inspect.phase==='quiet'){HZ.inspect=null;toast('Заметили!','В банку подкинули гниль');spawn('rot',rnd(JL+40,JR-40),SPAWN_Y);thud();return true}return false}
+function inspectCatch(){if(HZ.inspect&&HZ.inspect.phase==='quiet'){HZ.inspect=null;track('inspect',{ok:false});toast('Заметили!','В банку подкинули гниль');spawn('rot',rnd(JL+40,JR-40),SPAWN_Y);thud();return true}return false}
 function canFake(){return opts.scare&&!isCalm()&&mode!=='daily'&&!store.get('mut.fake',false)&&stats.games>=2}
-function fakeOver(){over=true;HZ.fake=true;store.set('mut.fake',true);$('overTitle').textContent='Банка переполнена';$('overScore').textContent=score;
+function fakeOver(){over=true;track('fake_over',{score});HZ.fake=true;store.set('mut.fake',true);$('overTitle').textContent='Банка переполнена';$('overScore').textContent=score;
   $('overText').textContent='Высшая форма: '+FORMS[topLvl].name;$('overBoard').hidden=true;$('over').classList.add('fake');$('over').hidden=false;
   setTimeout(()=>{$('over').hidden=true;$('over').classList.remove('fake');HZ.glitchUntil=performance.now()+900;
     for(const b of bodies.filter(b=>b.position.y-b.circleRadius<RIM+50)){removeBody(b);splat(b.position.x,b.position.y,'#5a0b0e',10,1)}
@@ -1096,7 +1097,7 @@ function updLeak(){const b=$('abLeak'),pop=$('leakPop');b.hidden=!HZ.leak;
     :`Не хватает ${need} ${plural(need,'очка','очков','очков')}. Сливайте мутантов — окно вернётся, как только наберёте 200.`;
   const pay=$('leakPay');pay.disabled=!ok;pay.textContent=ok?'Залатать за 200':`Нужно ещё ${need}`}
 function patchLeak(){if(!HZ.leak||score<200||over||paused)return;score-=200;HZ.leak=null;HZ.refill=true;HZ.nextLeak=HZ.t+rnd(70e3,120e3);
-  floater(W/2,RIM+60,'утечка залатана −200',true,'#9fe0a0');toast('Утечка залатана','Формалин возвращается');stats.leaks++;saveStats();checkAch();sound(4,false);vibe(40);updHud();updLeak();cv.focus({preventScroll:true})}
+  floater(W/2,RIM+60,'утечка залатана −200',true,'#9fe0a0');track('leak_patched',{t:Math.round(HZ.t/1000)});toast('Утечка залатана','Формалин возвращается');stats.leaks++;saveStats();checkAch();sound(4,false);vibe(40);updHud();updLeak();cv.focus({preventScroll:true})}
 $('abLeak').onclick=patchLeak;$('leakPay').onclick=patchLeak;
 $('leakLater').onclick=()=>{HZ.leakPop=score>=200?'later':'poorLater';updLeak();cv.focus({preventScroll:true})};
 function leakSound(){noise(1.6,'highpass',3200,.7,.22);for(let i=0;i<4;i++)setTimeout(drip,200+i*180)}
@@ -1349,7 +1350,7 @@ function renderClips(){
     const file=new File([c.blob],`mutaciya-klip.${REC.ext}`,{type:c.blob.type});
     let can=false;try{can=!!(navigator.canShare&&navigator.canShare({files:[file]}))}catch(e){}
     const sb=d.querySelector('[data-a="share"]');sb.hidden=!can;
-    sb.onclick=async()=>{try{await navigator.share({files:[file],text:shareText()})}catch(e){}};
+    sb.onclick=async()=>{track('share',{kind:'video'});try{await navigator.share({files:[file],text:shareText()})}catch(e){}};
     d.querySelector('[data-a="save"]').onclick=()=>saveBlob(c.blob,`mutaciya-klip.${REC.ext}`);
     box.appendChild(d)}
 }
@@ -1363,7 +1364,7 @@ async function saveBlob(blob,name){
 const sc=$('scream'),sctx=sc.getContext('2d');
 function fitScream(){const d=Math.min(window.devicePixelRatio||1,2);sc.width=Math.round(innerWidth*d);sc.height=Math.round(innerHeight*d)}
 const SCREAM_MS=820;
-function startScream(lvl){scream={lvl,t0:performance.now()};ECG.spike=Math.max(ECG.spike,70);setTimeout(()=>grabClip('Скример: '+FORMS[lvl].name),SCREAM_MS+1800);sc.hidden=false;fitScream();screech();vibe([70,30,140,30,60]);}
+function startScream(lvl){scream={lvl,t0:performance.now()};track('scream',{form:FORMS[lvl].id});ECG.spike=Math.max(ECG.spike,70);setTimeout(()=>grabClip('Скример: '+FORMS[lvl].name),SCREAM_MS+1800);sc.hidden=false;fitScream();screech();vibe([70,30,140,30,60]);}
 function drawScream(t){
   const p=(t-scream.t0)/SCREAM_MS;
   if(p>=1){sc.hidden=true;const l=scream.lvl;scream=null;toast('Новая мутация',FORMS[l].name);return}
@@ -1564,13 +1565,13 @@ $('boardPlay').onclick=()=>{$('boardSheet').hidden=true;resumeAfterSheet=false;s
 function openMenu(){paused=true;$('menu').hidden=false;updProg();pausedAt=Date.now();$('pauseNote').hidden=true;
   $('chalCard').hidden=!challenge;if(challenge)$('chalText').textContent=`Побейте ${challenge.target} ${plural(challenge.target,'очко','очка','очков')}`+(challenge.fall?' в режиме «Падение»: мутанты падают сами':'')+`. У вас будут те же образцы, что и у друга`+((JARS[challenge.jar]&&challenge.jar!=='normal')?`, банка: ${JARS[challenge.jar].name.toLowerCase()}.`:'.');
   $('resumeBtn').hidden=!(started&&!over);$('resumeSub').textContent=(mode==='daily'?`дневной забег · `:isFall()?'падение · ':'классика · ')+score+' очков'}
-function startMode(m){unlockAudio();$('menu').hidden=true;newGame(m);paused=false;cv.focus({preventScroll:true})}
+function startMode(m){unlockAudio();$('menu').hidden=true;newGame(m);paused=false;track('game_start',{jar:jarKey,lab:Math.min(labLvl(),9),games:stats.games});cv.focus({preventScroll:true})}
 $('menuBtn').onclick=openMenu;
 $('resumeBtn').onclick=()=>{$('menu').hidden=true;paused=false;cv.focus({preventScroll:true})};
 $('playBtn').onclick=()=>startMode('classic');
 $('fallBtn').onclick=()=>startMode('fall');
 $('abDown').onclick=()=>{if(isFall()&&!over&&!paused){fastFall=true;cv.focus({preventScroll:true})}};
-$('chalBtn').onclick=()=>startMode('challenge');
+$('chalBtn').onclick=()=>{track('challenge_accept',{target:challenge&&challenge.target});startMode('challenge')};
 $('dailyBtn').onclick=()=>startMode('daily');
 $('again').onclick=()=>startMode(mode);
 $('overMenu').onclick=openMenu;
@@ -1579,12 +1580,13 @@ function updJarBtn(){const k=opts.jar||'normal';$('jarBtn').textContent='Бан�
 $('jarBtn').onclick=()=>{const i=JAR_KEYS.indexOf(opts.jar||'normal');opts.jar=JAR_KEYS[(i+1)%JAR_KEYS.length];saveOpts();updJarBtn();toast('Банка: '+JARS[opts.jar].name,JARS[opts.jar].desc)};updJarBtn();
 
 function syncToggles(){
-  for(const [id,k] of [['tSound','sound'],['tScare','scare'],['tVibe','vibe'],['tClips','clips'],['tCalm','calm']])$(id).setAttribute('aria-pressed',String(opts[k]));
+  for(const [id,k] of [['tSound','sound'],['tScare','scare'],['tVibe','vibe'],['tClips','clips'],['tCalm','calm'],['tStats','stats']])$(id).setAttribute('aria-pressed',String(opts[k]));
   $('tClips').hidden=!REC.ok;
   $('soundBtn').setAttribute('aria-pressed',String(opts.sound));$('soundState').textContent=opts.sound?'вкл':'выкл'}
-function toggle(k){opts[k]=!opts[k];saveOpts();if(k==='sound'&&opts.sound)unlockAudio();syncToggles()}
+function toggle(k){if(k==='stats'&&opts.stats)track('setting',{k,v:false});opts[k]=!opts[k];saveOpts();if(k!=='stats')track('setting',{k,v:opts[k]});if(k==='sound'&&opts.sound)unlockAudio();syncToggles()}
 $('tSound').onclick=()=>toggle('sound');$('soundBtn').onclick=()=>toggle('sound');
-$('tScare').onclick=()=>toggle('scare');$('tClips').onclick=()=>toggle('clips');$('tCalm').onclick=()=>{toggle('calm');updProg();toast(opts.calm?'Спокойный режим':'Обычный режим',opts.calm?'Только слияния':'Аномалии и события вернулись',opts.calm?'Для классики и «Падения»: без аномалий, событий и скримеров. Рекорды отдельные.':'')};$('tVibe').onclick=()=>{toggle('vibe');vibe(30)};
+$('tScare').onclick=()=>toggle('scare');$('tClips').onclick=()=>toggle('clips');$('tStats').onclick=()=>{toggle('stats');toast(opts.stats?'Статистика включена':'Статистика выключена',opts.stats?'Анонимно: только игровые действия':'Игра ничего не отправляет')};
+$('tCalm').onclick=()=>{toggle('calm');updProg();toast(opts.calm?'Спокойный режим':'Обычный режим',opts.calm?'Только слияния':'Аномалии и события вернулись',opts.calm?'Для классики и «Падения»: без аномалий, событий и скримеров. Рекорды отдельные.':'')};$('tVibe').onclick=()=>{toggle('vibe');vibe(30)};
 syncToggles();
 
 // ---------- shared daily leaderboard ----------
@@ -1598,6 +1600,19 @@ function withTimeout(p,ms){return Promise.race([p,new Promise((_,rej)=>setTimeou
 function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('mut.daily.'+d,0);if(v>0){sum+=v;n++}}return{sum,n}}
 // github.io: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
+// ---------- anonymous analytics (github.io only): game actions, random device id, no personal data ----------
+const APP_VER='2026.11.09';
+function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
+  return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
+const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
+function anDevice(){let d=store.get('mut.dev',null);if(!d){d=uid4();store.set('mut.dev',d)}return d}
+function track(ev,data){try{if(!opts.stats||!useSupa())return;AN.q.push({ev,mode:mode+(isCalm()?'_calm':''),data:data||{},t:Date.now()});if(AN.q.length>=25)anFlush()}catch(e){}}
+function anFlush(keep){if(!AN.q.length)return;if(!opts.stats||!useSupa()){AN.q=[];return}const batch=AN.q.splice(0,50);
+  try{fetch(SUPA.url+'/rest/v1/rpc/mutaciya_log',{method:'POST',keepalive:!!keep,headers:{apikey:SUPA.key,'Content-Type':'application/json'},
+    body:JSON.stringify({p_device:anDevice(),p_session:AN.session,p_ver:APP_VER,p_events:batch})}).catch(()=>{})}catch(e){}}
+setInterval(()=>anFlush(),15000);
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(started&&!over&&!paused)track('leave',{score,dur:Math.round(HZ.t/1000),drops});anFlush(true)}});
+addEventListener('pagehide',()=>anFlush(true));
 const useSupa=()=>!db&&!(window.claude&&window.claude.use)&&/^https?:$/.test(location.protocol);
 function randHex(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return[...a].map(x=>x.toString(16).padStart(2,'0')).join('')}
 function player(){let p=store.get('mut.player',null);
@@ -1694,6 +1709,7 @@ async function makeShareCanvas(){
 let shareBlob=null,shareObjUrl=null,shareFile=null;
 const shareNote=t=>{$('shareNote').textContent=t};
 async function openShare(){
+  track('share',{kind:'open',score});
   stats.shares++;saveStats();checkAch();
   openSheet('shareSheet');shareNote('Готовлю картинку…');$('shareNative').hidden=true;
   const c=await makeShareCanvas();
@@ -1716,13 +1732,14 @@ $('shareSave').onclick=async()=>{
       catch(e){shareNote(e&&e.code==='declined'?'Сохранение отменено.':'Не удалось сохранить. Удерживайте картинку, чтобы сохранить её.')}return}
     shareNote('Здесь сохранить файлом нельзя. Удерживайте картинку, чтобы сохранить её.');return}
   const a=document.createElement('a');a.href=shareObjUrl;a.download=`mutaciya-${score}.png`;document.body.appendChild(a);a.click();a.remove();shareNote('Картинка сохранена.')};
-$('shareChal').onclick=async()=>{const t=chalText();
+$('shareChal').onclick=async()=>{track('challenge_send',{score,fall:isFall()});const t=chalText();
   try{if(navigator.share&&PUBLIC_URL){await navigator.share({text:t});return}}catch(e){if(e&&e.name==='AbortError')return}
   navigator.clipboard.writeText(t).then(()=>shareNote('Ссылка на вызов скопирована. Отправьте её другу.'),()=>shareNote(t))};
 $('shareCopy').onclick=()=>{const t=shareText();
   navigator.clipboard.writeText(t).then(()=>shareNote('Текст скопирован.'),()=>shareNote(t))};
 
 function gameOver(reason){
+  track('game_end',{score,top:topLvl,dur:Math.round(HZ.t/1000),drops,reason:reason||'overflow',lab:Math.min(labLvl(),9),cracks:HZ.cracks.length});anFlush();
   $('leakPop').hidden=true;
   $('overTitle').textContent=reason==='crack'?'Банка лопнула':'Банка переполнена';
   over=true;stats.games++;stats.best=Math.max(stats.best,score);if(isFall())stats.fallBest=Math.max(stats.fallBest,score);if(mode==='daily'){stats.dailies++;bumpStreak()}saveStats();
@@ -1863,8 +1880,9 @@ function frame(now){
 for(const evn of ['pointerdown','touchend','click','keydown'])document.addEventListener(evn,()=>{if(!ac||ac.state!=='running')unlockAudio()},{capture:true,passive:true});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){try{ac&&ac.suspend()}catch(e){}}else if(ac&&opts.sound){try{ac.resume()}catch(e){}}});
 store.set('mut.lastSeenPrev',store.get('mut.lastSeen',Date.now()));store.set('mut.lastSeen',Date.now());hzMenu();
+track('session_start',{first:AN.firstRun,games:stats.games,app:!!(matchMedia('(display-mode: standalone)').matches||navigator.standalone),w:innerWidth,h:innerHeight,lang:(navigator.language||'').slice(0,5),challenge:!!challenge});
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
