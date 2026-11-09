@@ -36,6 +36,7 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .nextbox{display:flex;flex-direction:column;align-items:center;gap:2px}
 .nextbox .k{font-family:var(--f-mono);font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
 #next{width:46px;height:46px}
+#ecg{display:block;width:100%;max-width:190px;height:24px;margin:4px auto 0}
 .stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center}
 #cv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block;touch-action:none;border-radius:10px;outline:none;cursor:crosshair}
 #cv:focus-visible{box-shadow:0 0 0 2px var(--amber)}
@@ -209,7 +210,7 @@ button:disabled{filter:grayscale(1) brightness(.7)}
 <div class="shell" id="shell">
   <div class="hud">
     <button class="iconbtn" id="menuBtn" aria-label="Меню и пауза"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <div class="scorebox"><div class="v" id="score">0</div><div class="k" id="bestLine">рекорд 0</div></div>
+    <div class="scorebox"><div class="v" id="score">0</div><div class="k" id="bestLine">рекорд 0</div><canvas id="ecg" aria-label="Кардиомонитор: пульс"></canvas></div>
     <div class="nextbox"><span class="k">дальше</span><canvas id="next" width="92" height="92" aria-label="Следующий образец"></canvas></div>
   </div>
   <div class="stage" id="stage">
@@ -899,7 +900,6 @@ function hzTick(dt){
     if(h.got){h.y+=dt*.25;if(h.t>2800)HZ.hand=null}}
   if(sc&&T>HZ.nextLight){HZ.nextLight=T+rnd(50e3,95e3);HZ.lightning={t0:now};HZ.figure=Math.min(5,HZ.figure+1);thunder()}
   const fill=jarFill(),dg=Math.min(1,danger/2200);
-  if(fill>.7||dg>0){const bpm=58+90*Math.max((fill-.7)/.3,dg);HZ.heartT+=dt;if(HZ.heartT>60000/bpm){HZ.heartT=0;heartbeat(.6+.4*Math.max((fill-.7)/.3,dg));HZ.beat=now}}
   if(sc&&dg>.6&&Math.random()<dt/900)HZ.glitchUntil=now+250;
   if(sc&&T>HZ.nextSound){HZ.nextSound=T+rnd(25e3,55e3);pick([footsteps,creak,breathing])()}
   if(!HZ.nightDone&&!HZ.night&&drops>25&&Math.random()<dt/70000){HZ.night={t:0};toast('Ночная смена','Двойные очки','30 секунд всё падает быстрее');siren()}
@@ -975,6 +975,36 @@ function drawHorror(now,t){
     ctx.save();ctx.fillStyle='#ff3030';ctx.font='600 12px "IBM Plex Mono",monospace';ctx.textAlign='left';const s=Math.floor(HZ.t/1000);
     ctx.fillText('● REC  '+String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'),JL+8,RIM+18);ctx.restore()}
 }
+
+// ---------- cardio monitor: ECG trace under the score, beep per beat, heartbeat when stressed, flatline on death ----------
+const ECG={bpm:62,phase:0,spike:0,flat:false,buf:new Float32Array(150),n:0,lastBeat:0};
+const ecgCv=$('ecg'),ecx=ecgCv.getContext('2d');
+function ecgTarget(){if(!engine||!started)return 62;const now=performance.now(),fill=jarFill(),dg=Math.min(1,danger/2200);
+  let b=62+Math.max(0,fill-.3)*75+dg*55;if(darkUntil>now)b+=25;if(HZ.night)b+=18;if(HZ.leak)b+=15;
+  if(HZ.inspect)b+=HZ.inspect.phase==='quiet'?35:15;if(gazeNow)b+=30;if(HZ.lightning)b+=20;return Math.min(175,b+ECG.spike)}
+function ecgWave(p){const g=(c,w,a)=>a*Math.exp(-((p-c)**2)/(2*w*w));return g(.10,.025,.12)+g(.255,.007,-.16)+g(.275,.008,1)+g(.295,.008,-.28)+g(.48,.045,.26)}
+function ecgTick(dt,live){
+  ECG.spike=Math.max(0,ECG.spike-dt*.012);ECG.bpm+=(ecgTarget()-ECG.bpm)*Math.min(1,dt/1400);
+  if(live&&over&&!ECG.flat){ECG.flat=true;flatline()}else if(!over&&ECG.flat){ECG.flat=false;ECG.spike=60}
+  if(live&&!ECG.flat){const prev=ECG.phase;ECG.phase=(ECG.phase+dt*ECG.bpm/60000)%1;if(ECG.phase<prev)beatNow()}
+  if(live){const v=ECG.flat?0:ecgWave(ECG.phase)+(Math.random()-.5)*.025;ECG.buf.copyWithin(0,1);ECG.buf[ECG.buf.length-1]=v;ECG.n++}
+  drawEcg()}
+function beatNow(){const now=performance.now();ECG.lastBeat=now;if(!ac||!opts.sound)return;
+  tone('sine',ECG.bpm>125?1250:1000,ECG.bpm>125?1240:990,.07,.045);
+  if(ECG.bpm>85){heartbeat(Math.min(1,.35+(ECG.bpm-85)/80));HZ.beat=now}}
+function flatline(){tone('sine',1000,995,2.2,.05)}
+function drawEcg(){const d=Math.min(window.devicePixelRatio||1,2.5),w=ecgCv.clientWidth,h=ecgCv.clientHeight;if(!w)return;
+  if(ecgCv.width!==Math.round(w*d)){ecgCv.width=Math.round(w*d);ecgCv.height=Math.round(h*d)}
+  const g=ecx;g.setTransform(d,0,0,d,0,0);g.clearRect(0,0,w,h);
+  const col=ECG.flat?'#ff3b30':ECG.bpm<90?'#3dff8a':ECG.bpm<125?'#ffcc33':'#ff3b30';
+  g.strokeStyle='rgba(61,255,138,.07)';g.lineWidth=1;for(let x=0;x<w;x+=8){g.beginPath();g.moveTo(x+.5,0);g.lineTo(x+.5,h);g.stroke()}
+  const tw=w-34,base=h*.68,amp=h*.6,L=ECG.buf.length;
+  g.save();g.shadowColor=col;g.shadowBlur=6;g.strokeStyle=col;g.lineWidth=1.6;g.lineJoin='round';g.beginPath();
+  for(let i=0;i<L;i++){const x=i/(L-1)*tw,y=base-ECG.buf[i]*amp;i?g.lineTo(x,y):g.moveTo(x,y)}g.stroke();
+  g.fillStyle=col;g.beginPath();g.arc(tw,base-ECG.buf[L-1]*amp,2,0,TAU);g.fill();g.restore();
+  const beatGlow=Math.max(0,1-(performance.now()-ECG.lastBeat)/250);
+  g.fillStyle=col;g.globalAlpha=.55+.45*beatGlow;g.font='600 11px "IBM Plex Mono",monospace';g.textAlign='right';g.textBaseline='middle';
+  g.fillText(ECG.flat?'0':String(Math.round(ECG.bpm)),w-1,h*.38);g.font='400 8px "IBM Plex Mono",monospace';g.fillText('уд/мин',w-1,h*.82);g.globalAlpha=1}
 
 // ---------- input ----------
 function toLocal(e){const rc=cv.getBoundingClientRect();return{x:(e.clientX-rc.left)/rc.width*W,y:(e.clientY-rc.top)/rc.height*H}}
@@ -1114,6 +1144,7 @@ function drawClipFrame(){
   g.font='600 18px "IBM Plex Mono",monospace';g.fillStyle='#e0302a';g.fillText(modeLabel().toUpperCase(),CW/2,98);
   const jh=790,jw=jh*W/H,jx=(CW-jw)/2,jy=118;g.drawImage(cv,jx,jy,jw,jh);
   g.fillStyle='#ece3cb';g.font='40px "Rubik Distressed",sans-serif';g.fillText(String(score),CW/2,946);
+  try{g.drawImage(ecgCv,16,912,150,150*ecgCv.height/Math.max(1,ecgCv.width))}catch(e){}
   if(scream&&!sc.hidden){const k=Math.max(CW/sc.width,CH/sc.height);g.drawImage(sc,(CW-sc.width*k)/2,(CH-sc.height*k)/2,sc.width*k,sc.height*k)}
 }
 function renderClips(){
@@ -1140,7 +1171,7 @@ async function saveBlob(blob,name){
 const sc=$('scream'),sctx=sc.getContext('2d');
 function fitScream(){const d=Math.min(window.devicePixelRatio||1,2);sc.width=Math.round(innerWidth*d);sc.height=Math.round(innerHeight*d)}
 const SCREAM_MS=820;
-function startScream(lvl){scream={lvl,t0:performance.now()};setTimeout(()=>grabClip('Скример: '+FORMS[lvl].name),SCREAM_MS+1800);sc.hidden=false;fitScream();screech();vibe([70,30,140,30,60]);}
+function startScream(lvl){scream={lvl,t0:performance.now()};ECG.spike=Math.max(ECG.spike,70);setTimeout(()=>grabClip('Скример: '+FORMS[lvl].name),SCREAM_MS+1800);sc.hidden=false;fitScream();screech();vibe([70,30,140,30,60]);}
 function drawScream(t){
   const p=(t-scream.t0)/SCREAM_MS;
   if(p>=1){sc.hidden=true;const l=scream.lvl;scream=null;toast('Новая мутация',FORMS[l].name);return}
@@ -1619,7 +1650,7 @@ function frame(now){
     ctx.restore();
   }
   if(scream)drawScream(now);
-  const live=!!engine&&started&&!paused&&$('menu').hidden;recTick(dt,live&&!over);ambTick(dt,live&&!over);musicTick();
+  const live=!!engine&&started&&!paused&&$('menu').hidden;recTick(dt,live&&!over);ambTick(dt,live&&!over);musicTick();ecgTick(dt,live);
   if(!$('menu').hidden&&started&&!over&&opts.scare&&pausedAt){const w=Date.now()-pausedAt;if(w>20000){$('pauseNote').hidden=false;$('pauseNote').textContent=w>60000?'Они начали без тебя.':'Ты ушёл. Они ждали.'}}if(recActive()&&live&&!over)drawClipFrame();
   if(now>nextTick){drawNext();nextTick=now+250}
   requestAnimationFrame(frame);
@@ -1629,7 +1660,7 @@ for(const evn of ['pointerdown','touchend','click','keydown'])document.addEventL
 document.addEventListener('visibilitychange',()=>{if(document.hidden){try{ac&&ac.suspend()}catch(e){}}else if(ac&&opts.sound){try{ac.resume()}catch(e){}}});
 store.set('mut.lastSeenPrev',store.get('mut.lastSeen',Date.now()));store.set('mut.lastSeen',Date.now());hzMenu();
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
