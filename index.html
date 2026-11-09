@@ -132,6 +132,11 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .reg .card.unk .nm{color:var(--muted);font-family:var(--f-mono)}
 .reg .card.anom{border-color:color-mix(in srgb,var(--rot) 60%,var(--line))}
 .reg .rule{font-size:11px;color:var(--muted);line-height:1.35}
+.reg .card.known{cursor:pointer}
+.reg .card .dot{width:8px;height:8px;border-radius:50%;background:var(--blood);align-self:flex-end;margin:-4px 2px -4px 0}
+.lore{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:left}
+.lore canvas{width:120px;height:120px}
+.lore p{margin:0;font-size:15px;line-height:1.6;max-width:36ch;font-family:var(--f-mono);color:var(--fg)}
 .reg .sec{grid-column:1/-1;font:600 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:8px}
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px;margin:4px 0 12px}
 .tabs button{min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:14px}
@@ -226,7 +231,7 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
   <div class="sheet" role="dialog" aria-label="Реестр мутаций">
     <div class="grip"></div>
     <h2>Реестр мутаций</h2>
-    <p class="note">Неизвестные формы откроются, когда вы их выведете. Две Матки уничтожают друг друга и дают +500.</p>
+    <p class="note">Неизвестные формы откроются, когда вы их выведете. Нажмите на открытую форму, чтобы прочитать запись из журнала лаборанта. Две Матки уничтожают друг друга и дают +500.</p>
     <div class="reg" id="reg"></div>
     <div class="row"><button id="regClose">Закрыть</button></div>
   </div>
@@ -240,6 +245,15 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
     <p class="note" id="boardNote">Загрузка…</p>
     <ol class="board" id="board"></ol>
     <div class="row"><button id="boardClose">Закрыть</button><button class="primary" id="boardPlay">Играть забег</button></div>
+  </div>
+</div>
+
+<div class="scrim" id="loreSheet" hidden>
+  <div class="sheet" role="dialog" aria-label="Журнал лаборанта">
+    <div class="grip"></div>
+    <h2 id="loreTitle">Журнал</h2>
+    <div class="lore"><canvas id="loreCv" width="240" height="240" aria-hidden="true"></canvas><p id="loreText"></p></div>
+    <div class="row"><button id="lorePrev">Назад</button><button id="loreNext">Дальше</button><button class="primary" id="loreClose">Закрыть</button></div>
   </div>
 </div>
 
@@ -309,6 +323,21 @@ const FORMS=[
  {id:'cocoon',name:'Кокон',     r:90, c:'#cdbf9a', d:'#4a3f26'},
  {id:'queen', name:'Матка',     r:100,c:'#b4334f', d:'#4c0c1d'},
 ];
+const LORE=[
+ 'Сегодня привезли банку с формалином. На дне что-то шевелится. Списываю на конвекцию.',
+ 'Капли слипаются и покрываются пятнами. Под микроскопом пятна поворачиваются в мою сторону.',
+ 'У него появились глаза. Две штуки. Он улыбается, когда я подхожу к столу. Я больше не подхожу к столу.',
+ 'Сегменты. По ночам слышно, как она скребётся о стекло. Сторож говорит, что тоже слышит.',
+ 'Это просто глаз. Он следит за курсором на моём мониторе. Я сменил мышь. Не помогло.',
+ 'Укус круглый, двенадцать зубов. Завлаб велел не трогать банку голыми руками. Поздно.',
+ 'Он смеётся. Беззвучно, но формалин дрожит. Подал заявление о переводе в другой отдел.',
+ 'Семь глаз, и ни один не моргает одновременно с другим. Они дежурят по очереди.',
+ 'Ночью кто-то расставил банки по размеру. Камеры ничего не записали. Мозгляк выглядит довольным.',
+ 'Вены расходятся от центра, как трещины. Если приложить ухо к стеклу, слышен пульс. Мой пульс.',
+ 'Она всё время голодна. Вчера пропал хомяк из соседней лаборатории. Банка была закрыта.',
+ 'Щупальца упираются в стенки. Стекло выдержит ещё неделю. Заказал банку побольше. Заказ отклонили.',
+ 'Внутри кто-то есть. Глаз открывается, когда гаснет свет. Я больше не выключаю свет.',
+ 'Последняя запись. Она рожает: капли, гниль, снова капли. Банка — не тюрьма. Банка — гнездо. Если вы это читаете, закройте крышку.'];
 const LV=Object.fromEntries(FORMS.map((f,i)=>[f.id,i]));
 const PTS=FORMS.map((f,i)=>i?(i+1)*(i+2)/2:0);
 const MAX=FORMS.length-1;
@@ -337,6 +366,7 @@ const formsFound=()=>[...found].filter(x=>typeof x==='number');
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let found=new Set(store.get('mut.found',[0,1,2]));
+let loreRead=new Set(store.get('mut.lore',[]));
 if(store.get('mut.formsV',1)<2){const map={8:9,9:11,10:13};found=new Set([...found].map(x=>typeof x==='number'&&map[x]!=null?map[x]:x));store.set('mut.found',[...found]);store.set('mut.formsV',2)}
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const opts=Object.assign({sound:true,scare:!reduced,vibe:true,clips:true},store.get('mut.opts',{}));
@@ -533,7 +563,7 @@ new ResizeObserver(fit).observe(stage);addEventListener('resize',fit);
 
 // ---------- state ----------
 let engine=null,bodies=[],queue=[],mutQ=[],newForm=-1,shot=null,score=0,aimX=W/2,canDropAt=0,danger=0,over=false,paused=true,topLvl=0,started=false;
-let mode='classic',seq=null,cur=null,nxt=null,drops=0,crushedGame=0,gameSeed=0,jar=JARS.normal,jarKey='normal',shakeT=0,abil={},targeting=false,bossSeen=false;
+let blackoutAt=0,inBlackout=false,mode='classic',seq=null,cur=null,nxt=null,drops=0,crushedGame=0,gameSeed=0,jar=JARS.normal,jarKey='normal',shakeT=0,abil={},targeting=false,bossSeen=false;
 let particles=[],floaters=[],bubbles=[],shake=0,flash=0,idc=1,pointer={x:W/2,y:SPAWN_Y},seenThisGame=new Set();
 let scream=null;
 for(let i=0;i<26;i++)bubbles.push({x:JL+Math.random()*(JR-JL),y:RIM+Math.random()*(FLOOR-RIM),r:1+Math.random()*2.5,v:.15+Math.random()*.35});
@@ -553,7 +583,7 @@ function newGame(m){
   const seed=m==='daily'?hashStr('mutaciya:'+DAY):m==='challenge'&&challenge?challenge.seed:(Math.random()*2**32)>>>0;gameSeed=seed;
   seq=makeSeq(seed);const R0=rng(seed^0x9e3779b9);
   jarKey=m==='daily'?DAILY_JAR:m==='challenge'&&challenge&&challenge.jar?challenge.jar:(opts.jar||'normal');if(!JARS[jarKey])jarKey='normal';jar=JARS[jarKey];
-  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;abil={shake:1,remove:1,swap:1};targeting=false;bossSeen=false;updAbil();
+  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;blackoutAt=performance.now()+55000+Math.random()*40000;inBlackout=false;darkUntil=0;abil={shake:1,remove:1,swap:1};targeting=false;bossSeen=false;updAbil();
   for(const bb of bubbles){bb.x=JL+8+Math.random()*(JR-JL-16)}
   engine=Engine.create();engine.positionIterations=8;engine.velocityIterations=6;engine.gravity.y=jar.grav||1;
   const o={isStatic:true,friction:.4,restitution:.1};
@@ -643,6 +673,9 @@ function parasiteTick(dt){
 }
 
 function specialTick(dt){
+  const nowB=performance.now();
+  if(!inBlackout&&drops>15&&nowB>blackoutAt){inBlackout=true;darkUntil=nowB+6500;flickerUntil=nowB+700;powerDown();vibe([30,60,30]);floater(W/2,RIM+40,'свет погас',true,'#ff8a5a')}
+  if(inBlackout&&nowB>darkUntil){inBlackout=false;blackoutAt=nowB+60000+Math.random()*45000;stats.blackouts++;saveStats();checkAch();floater(W/2,RIM+40,'свет вернулся',false)}
   if(jar.shaky){shakeT+=dt;if(shakeT>27500&&shakeT-dt<=27500)floater(W/2,RIM+40,'тряска через 2 секунды',true,'#ff8a5a');
     if(shakeT>30000){shakeT=0;doShake(1);toast('Банку трясёт','')}}
   for(const m of bodies){if(m.anom!=='magnet')continue;const age=performance.now()-m.born;
@@ -696,6 +729,24 @@ let master=null,recDest=null;
 function unlockAudio(){if(ac||!opts.sound)return;try{ac=new (window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.connect(outNode());
   try{recDest=ac.createMediaStreamDestination();master.connect(recDest)}catch(e){recDest=null}}catch(e){ac=null}}
 const outNode=()=>master||ac.destination;
+let amb=null;
+function loopNoise(){const s=ac.createBufferSource();s.buffer=noiseBuf(2);s.loop=true;s.start();return s}
+function ambStart(){if(!ac||amb)return;try{const g=ac.createGain();g.gain.value=0;g.connect(outNode());
+  const og=ac.createGain();og.gain.value=.07;og.connect(g);for(const f of [55,58.3,82.4]){const o=ac.createOscillator();o.type='sine';o.frequency.value=f;o.connect(og);o.start()}
+  const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=260;const ng=ac.createGain();ng.gain.value=.05;loopNoise().connect(lp).connect(ng).connect(g);
+  const bp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1700;bp.Q.value=7;const wg=ac.createGain();wg.gain.value=0;loopNoise().connect(bp).connect(wg).connect(g);
+  const lfo=ac.createOscillator();lfo.frequency.value=.31;const lg=ac.createGain();lg.gain.value=500;lfo.connect(lg).connect(bp.frequency);lfo.start();
+  amb={g,wg}}catch(e){amb=null}}
+function drip(){if(!ac||!opts.sound)return;const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.type='sine';const f=1100+Math.random()*900;
+  o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*.55,t+.12);g.gain.setValueAtTime(.045,t);g.gain.exponentialRampToValueAtTime(.0001,t+.18);
+  o.connect(g).connect(outNode());o.start(t);o.stop(t+.2)}
+function ambTick(dt,live){if(!ac)return;if(!amb)ambStart();if(!amb)return;const t=ac.currentTime,on=live&&opts.sound;
+  let top=FLOOR;for(const b of bodies)top=Math.min(top,b.position.y-b.circleRadius);const fill=Math.max(0,Math.min(1,(FLOOR-top)/(FLOOR-RIM)));
+  amb.g.gain.setTargetAtTime(on?.85:0,t,.5);amb.wg.gain.setTargetAtTime(on?Math.max(0,fill-.5)*.55+Math.min(1,danger/2200)*.35+(darkUntil>performance.now()?.25:0):0,t,.35);
+  if(on&&Math.random()<dt/3800)drip()}
+function powerDown(){if(!ac||!opts.sound)return;const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.type='sawtooth';
+  o.frequency.setValueAtTime(120,t);o.frequency.exponentialRampToValueAtTime(30,t+.6);g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.0001,t+.7);
+  o.connect(g).connect(outNode());o.start(t);o.stop(t+.75)}
 function noiseBuf(len){const b=ac.createBuffer(1,Math.floor(ac.sampleRate*len),ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);return b}
 function sound(l,big){if(!ac||!opts.sound)return;const t=ac.currentTime;
   const o=ac.createOscillator(),g=ac.createGain();o.type='sine';const f=Math.max(50,340-l*26);
@@ -803,7 +854,7 @@ const plural=(n,a,b,c)=>{const m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&
 const YDAY=(()=>{const d=new Date(DAY+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10)})();
 let streak=Object.assign({last:'',count:0,best:0},store.get('mut.streak',{}));
 const streakNow=()=>streak.last===DAY||streak.last===YDAY?streak.count:0;
-const stats=Object.assign({chalWon:0,crushed:0,rot:0,mut:0,dailies:0,games:0,shares:0,mm:0,best:0,qdays:0,p5:0},store.get('mut.stats',{}));
+const stats=Object.assign({blackouts:0,chalWon:0,crushed:0,rot:0,mut:0,dailies:0,games:0,shares:0,mm:0,best:0,qdays:0,p5:0},store.get('mut.stats',{}));
 const saveStats=()=>store.set('mut.stats',stats);
 let ach=store.get('mut.ach',{});
 const LIQ={amber:{name:'Янтарный',c:['#5c4a1d','#2a200b'],days:0},emerald:{name:'Изумрудный',c:['#1f5a44','#0b2219'],days:3},
@@ -830,6 +881,8 @@ const ACH=[
  ['st30','Сотрудник месяца','Серия 30 дней — чёрный формалин',()=>streak.best>=30],
  ['q3','Исполнительный','Выполните все задания дня',()=>stats.qdays>0],
  ['d10','Завсегдатай','Сыграйте 10 дневных забегов',()=>stats.dailies>=10],
+ ['lore','Архивариус','Прочитайте весь журнал лаборанта',()=>loreRead.size>=FORMS.length],
+ ['dark','Без света','Переживите отключение света',()=>stats.blackouts>0],
  ['share','Хвастун','Поделитесь результатом',()=>stats.shares>0],
  ['chal','Принято','Выиграйте вызов друга',()=>stats.chalWon>0],
 ];
@@ -901,7 +954,8 @@ function renderAch(){
 
 // ---------- HUD & UI ----------
 function updHud(){$('score').textContent=score;$('bestLine').textContent=mode==='challenge'&&challenge?'цель '+challenge.target:(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
-  $('regCount').textContent=formsFound().length+'/'+FORMS.length}
+  const unread=formsFound().filter(i=>!loreRead.has(i)).length;
+  $('regCount').textContent=formsFound().length+'/'+FORMS.length+(unread?` · ${unread} нов.`:'')}
 const nctx=$('next').getContext('2d');
 function drawNext(){if(nxt==null)return;nctx.setTransform(1,0,0,1,0,0);nctx.clearRect(0,0,92,92);nctx.translate(46,46);
   const r=radiusOf(nxt),s=Math.min(1.3,34/r);nctx.scale(s,s);drawPiece(nctx,nxt,r,performance.now()/1000,3,{x:0,y:0})}
@@ -915,11 +969,14 @@ function renderReg(){
   const el=$('reg');el.innerHTML='';
   const card=(n,name,cls,draw)=>{const d=document.createElement('div');d.className='card '+cls;
     d.innerHTML=`<span class="n">${n}</span><canvas width="112" height="112"></canvas><span class="nm"></span>`;d.querySelector('.nm').textContent=name;
-    const c=d.querySelector('canvas').getContext('2d');c.translate(56,56);draw(c);el.appendChild(d)};
+    const c=d.querySelector('canvas').getContext('2d');c.translate(56,56);draw(c);el.appendChild(d);return d};
   FORMS.forEach((F,i)=>{const k=found.has(i);
-    card('№'+String(i+1).padStart(2,'0'),k?F.name:'???',k?'':'unk',c=>{const s=Math.min(1.6,46/F.r);c.scale(s,s);
+    const cd=card('№'+String(i+1).padStart(2,'0'),k?F.name:'???',k?'known':'unk',c=>{const s=Math.min(1.6,46/F.r);c.scale(s,s);
       if(k){drawCreature(c,i,F.r,1.3,2,{x:.3,y:.2});shine(c,F.r)}
-      else{c.fillStyle='#2a251a';blob(c,F.r,1,i,.04);c.fill();c.fillStyle='#5a4f38';c.font=`${F.r}px "Russo One",sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText('?',0,2)}})});
+      else{c.fillStyle='#2a251a';blob(c,F.r,1,i,.04);c.fill();c.fillStyle='#5a4f38';c.font=`${F.r}px "Russo One",sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText('?',0,2)}});
+    if(k){cd.tabIndex=0;cd.setAttribute('role','button');cd.setAttribute('aria-label','Запись о форме '+F.name);
+      if(!loreRead.has(i)){const dt=document.createElement('span');dt.className='dot';cd.prepend(dt)}
+      cd.onclick=()=>openLore(i);cd.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openLore(i)}}}});
   const sec=document.createElement('div');sec.className='sec';sec.textContent='Аномалии';el.appendChild(sec);
   for(const k of Object.keys(ANOM)){const A=ANOM[k],seen=found.has('a:'+k)||(k==='rot'&&found.has('rot'));
     card('аномалия',seen?A.name:'???',seen?'anom':'anom unk',c=>{const s=40/A.r;c.scale(s,s);
@@ -927,6 +984,15 @@ function renderReg(){
     if(seen){const r=document.createElement('span');r.className='rule';r.textContent=A.rule;el.lastChild.appendChild(r)}}
   updHud();
 }
+let loreIdx=0;
+function openLore(i){loreIdx=i;loreRead.add(i);store.set('mut.lore',[...loreRead]);checkAch();const F=FORMS[i];
+  $('loreTitle').textContent=`Запись ${i+1} · ${F.name}`;$('loreText').textContent=LORE[i];
+  const c=$('loreCv').getContext('2d');c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,240,240);c.translate(120,120);const s=100/F.r;c.scale(s,s);drawCreature(c,i,F.r,1.4,2,{x:0,y:.2});shine(c,F.r);
+  const known=formsFound().sort((a,b)=>a-b),pos=known.indexOf(i);$('lorePrev').disabled=pos<=0;$('loreNext').disabled=pos<0||pos>=known.length-1;
+  $('lorePrev').onclick=()=>openLore(known[pos-1]);$('loreNext').onclick=()=>openLore(known[pos+1]);
+  $('loreSheet').hidden=false;renderReg()}
+$('loreClose').onclick=()=>{$('loreSheet').hidden=true};
+$('loreSheet').addEventListener('click',e=>{if(e.target.id==='loreSheet')$('loreSheet').hidden=true});
 function openSheet(id){$(id).hidden=false;if(!paused&&!over){paused=true;resumeAfterSheet=true}}
 let resumeAfterSheet=false;
 function closeSheet(id){$(id).hidden=true;if(resumeAfterSheet&&$('menu').hidden){paused=false}resumeAfterSheet=false}
@@ -1123,17 +1189,17 @@ function localLook(b){
   const wx=dx/d,wy=dy/d,c=Math.cos(-b.angle),s=Math.sin(-b.angle);return{x:wx*c-wy*s,y:wx*s+wy*c}}
 
 // darkness: dark jar (flashlight) and blackout events (only eyes)
-let darkUntil=0;const dk=document.createElement('canvas'),dkx=dk.getContext('2d');
+let darkUntil=0,flickerUntil=0;const dk=document.createElement('canvas'),dkx=dk.getContext('2d');
 function drawDark(now,torch){
   const sx=cv.width/W,sy=cv.height/H;if(dk.width!==cv.width||dk.height!==cv.height){dk.width=cv.width;dk.height=cv.height}
   dkx.setTransform(1,0,0,1,0,0);dkx.clearRect(0,0,dk.width,dk.height);dkx.globalCompositeOperation='source-over';
-  dkx.fillStyle='rgba(4,3,2,.96)';dkx.fillRect(JL*sx,(RIM+2)*sy,(JR-JL)*sx,(FLOOR-RIM)*sy);
+  const fl=flickerUntil>now&&!torch?(Math.random()<.5?.25:.96):.96;dkx.fillStyle=`rgba(4,3,2,${fl})`;dkx.fillRect(JL*sx,(RIM+2)*sy,(JR-JL)*sx,(FLOOR-RIM)*sy);
   if(torch){const lx=Math.max(JL,Math.min(JR,aimX)),ly=Math.max(RIM+50,Math.min(FLOOR-50,pointer.y>RIM?pointer.y:RIM+180)),R=118+6*Math.sin(now/170);
     dkx.globalCompositeOperation='destination-out';const g=dkx.createRadialGradient(lx*sx,ly*sy,R*.35*sx,lx*sx,ly*sy,R*sx);
     g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(1,'rgba(0,0,0,0)');dkx.fillStyle=g;dkx.beginPath();dkx.arc(lx*sx,ly*sy,R*sx,0,TAU);dkx.fill();
     dkx.globalCompositeOperation='source-over'}
   ctx.drawImage(dk,0,0,W,H);
-  ctx.save();ctx.shadowBlur=6;
+  ctx.save();ctx.shadowBlur=6;if(!torch&&flickerUntil>now){ctx.restore();return}
   for(const b of bodies){const r=b.circleRadius;let col=null;if(b.anom==='parasite'||b.anom==='brood')col='#ff3344';else if(b.lvl!=null&&b.lvl>=2)col=b.lvl>=8?'#ffcc40':'#f3e2a0';if(!col)continue;
     if(blinkAt(now/1000,b.seed,0))continue;ctx.fillStyle=col;ctx.shadowColor=col;const c=Math.cos(b.angle),s2=Math.sin(b.angle),rr=Math.max(1.6,r*.07);
     for(const [ox,oy] of [[-.3,-.22],[.3,-.22]]){const x=b.position.x+(ox*c-oy*s2)*r,y=b.position.y+(ox*s2+oy*c)*r;ctx.beginPath();ctx.arc(x,y,rr,0,TAU);ctx.fill()}}
@@ -1196,13 +1262,13 @@ function frame(now){
     ctx.restore();
   }
   if(scream)drawScream(now);
-  const live=!!engine&&started&&!paused&&$('menu').hidden;recTick(dt,live&&!over);if(recActive()&&live&&!over)drawClipFrame();
+  const live=!!engine&&started&&!paused&&$('menu').hidden;recTick(dt,live&&!over);ambTick(dt,live&&!over);if(recActive()&&live&&!over)drawClipFrame();
   if(now>nextTick){drawNext();nextTick=now+250}
   requestAnimationFrame(frame);
 }
 
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
