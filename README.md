@@ -32,7 +32,16 @@
 
 ## Запуск
 
-Откройте `index.html` в браузере. Сборка не нужна. Физика: [Matter.js](https://brm.io/matter-js/) 0.19.0 с cdnjs, все существа рисуются кодом на Canvas.
+Откройте `index.html` в браузере. Сборка не нужна: все файлы уже в репозитории, внешние сервисы игре не нужны.
+
+## Структура
+
+- `index.html` — готовая игра для GitHub Pages. Собирается скриптом, руками не правится.
+- `src/game.html` — исходник страницы. Эта же версия публикуется на claude.ai.
+- `build.py` — собирает `index.html` из исходника и подменяет внешние ресурсы локальными: `python3 build.py`.
+- `vendor/` — физика [Matter.js](https://brm.io/matter-js/) 0.19.0 (MIT).
+- `fonts/` — шрифты Russo One, IBM Plex Sans и IBM Plex Mono (SIL OFL), кириллица и латиница.
+- `licenses/` — лицензии библиотеки и шрифтов.
 
 ## GitHub Pages
 
