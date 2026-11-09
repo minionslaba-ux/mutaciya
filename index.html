@@ -233,6 +233,16 @@ button:disabled{filter:grayscale(1) brightness(.7)}
 .lore p{font-family:var(--f-mono);color:#e9dcc2;text-shadow:0 0 1px rgba(255,255,255,.2)}
 .reg .card .dot{background:#ff2d2d;box-shadow:0 0 8px #ff2d2d}
 @media (prefers-reduced-motion:reduce){body::after,.menu h1{animation:none}}
+/* leak popup in the middle of the jar */
+.leakpop{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;pointer-events:none;padding:16px}
+.leakcard{pointer-events:auto;width:min(88%,300px);display:flex;flex-direction:column;gap:10px;text-align:center;padding:16px;border-radius:4px;
+  background:linear-gradient(180deg,#2c0d0d,#120606);border:1px solid #b3181e;box-shadow:0 0 0 1px #000,0 0 44px rgba(210,20,20,.4);animation:popin .25s ease-out}
+.leakcard b{font-family:var(--f-glitch);font-weight:400;font-size:26px;color:#ff3b30;line-height:1.05}
+.leakcard p{margin:0;color:var(--fg);font-size:13px;line-height:1.45}
+.leakcard .primary{min-height:54px;font-size:17px}
+.leakcard #leakLater{min-height:40px;font-size:13px;color:var(--muted)}
+@keyframes popin{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.leakcard{animation:none}}
 /* ===== fit every screen ===== */
 body{height:100vh;height:100dvh}
 .shell{min-height:0}
@@ -266,6 +276,11 @@ body{height:100vh;height:100dvh}
 @media (orientation:landscape) and (max-height:500px){.rotate{display:flex}}
 
 </style>
+<style>
+.shell{padding-top:max(8px,env(safe-area-inset-top,0px));padding-bottom:max(8px,env(safe-area-inset-bottom,0px))}
+.bar{padding-bottom:0}
+.screen,.rotate{padding-top:max(16px,env(safe-area-inset-top,0px))}
+</style>
 </head>
 <body>
 <div class="shell" id="shell">
@@ -277,6 +292,14 @@ body{height:100vh;height:100dvh}
   <div class="stage" id="stage">
     <canvas id="cv" tabindex="0" aria-label="Банка. Ведите пальцем и отпустите, чтобы бросить образец. Стрелки двигают, пробел бросает."></canvas>
     <div class="modechip" id="modeChip">Классика</div>
+    <div class="leakpop" id="leakPop" hidden>
+      <div class="leakcard" role="alertdialog" aria-labelledby="leakTitle">
+        <b id="leakTitle">Утечка формалина!</b>
+        <p id="leakText"></p>
+        <button class="primary" id="leakPay">Залатать за 200</button>
+        <button id="leakLater">Позже</button>
+      </div>
+    </div>
     <div class="toast" id="toast"><div class="k">Новая мутация</div><div class="v" id="toastName">—</div><div class="d" id="toastDesc" hidden></div></div>
     <div class="over" id="over" hidden>
       <div class="card-over">
@@ -1005,8 +1028,8 @@ function hzTick(dt){
   if(ECG.bpm>=160&&!stats.panic){stats.panic=1;saveStats();checkAch()}
   // formalin leak: level drops; creatures above the surface dry into rot; patch costs 200 points
   if(!HZ.leak&&drops>20&&T>HZ.nextLeak){const side=Math.random()<.5?-1:1;HZ.leak={side,x:side<0?JL:JR,y:rnd(FLOOR-150,FLOOR-50),t:0};
-    toast('Утечка формалина!','Банка протекает','Залатайте за 200 очков, иначе всё над жидкостью высохнет в гниль');leakSound();vibe([40,30,40,30,80]);updLeak()}
-  if(HZ.leak){const Lk=HZ.leak;Lk.t+=dt;HZ.puddle=Math.min(1,HZ.puddle+dt/30000);HZ.liqY=Math.min(RIM+(FLOOR-RIM)*.62,HZ.liqY+dt*.012);if(Math.random()<dt/260)drip();
+    HZ.leakPop='show';leakSound();vibe([40,30,40,30,80]);updLeak()}
+  if(HZ.leak){const Lk=HZ.leak;Lk.t+=dt;if((Lk.ui=(Lk.ui||0)+dt)>250){Lk.ui=0;updLeak()}HZ.puddle=Math.min(1,HZ.puddle+dt/30000);HZ.liqY=Math.min(RIM+(FLOOR-RIM)*.62,HZ.liqY+dt*.012);if(Math.random()<dt/260)drip();
     if(Lk.t>45000){HZ.leak=null;HZ.nextLeak=T+rnd(70e3,120e3);toast('Утечка остановилась','Формалин медленно возвращается');updLeak()}}
   else if(HZ.liqY>RIM){HZ.liqY=Math.max(RIM,HZ.liqY-dt*(HZ.refill?.09:.008));if(HZ.liqY<=RIM)HZ.refill=false}
   if(!HZ.leak)HZ.puddle=Math.max(0,HZ.puddle-dt/60000);
@@ -1048,9 +1071,19 @@ function hzMenu(){const n=Math.floor((Date.now()-(store.get('mut.lastSeenPrev',D
   if(opts.scare&&n>=1){const nm=typeof player==='function'&&store.get('mut.player',null)&&store.get('mut.player').name;tag.classList.add('whisper');
     tag.textContent=(nm?nm+'. ':'')+`Ты вернулся. Мы считали дни: ${n}.`}}
 let pausedAt=0;
-function updLeak(){const b=$('abLeak');b.hidden=!HZ.leak;if(!HZ.leak)return;const ok=score>=200;b.disabled=!ok;b.innerHTML='Залатать<small></small>';b.querySelector('small').textContent=ok?'−200 очков':`ещё ${200-score}`}
-$('abLeak').onclick=()=>{if(!HZ.leak||score<200||over||paused)return;score-=200;HZ.leak=null;HZ.refill=true;HZ.nextLeak=HZ.t+rnd(70e3,120e3);
-  floater(W/2,RIM+60,'утечка залатана −200',true,'#9fe0a0');toast('Утечка залатана','Формалин возвращается');stats.leaks++;saveStats();checkAch();sound(4,false);vibe(40);updHud();updLeak();cv.focus({preventScroll:true})};
+function updLeak(){const b=$('abLeak'),pop=$('leakPop');b.hidden=!HZ.leak;
+  if(!HZ.leak||over){pop.hidden=true;return}
+  const ok=score>=200,need=200-score,left=Math.max(0,Math.ceil((45000-HZ.leak.t)/1000));
+  b.disabled=!ok;b.innerHTML='Залатать<small></small>';b.querySelector('small').textContent=ok?'−200 очков':`ещё ${need}`;
+  if(HZ.leakPop==='poorLater'&&ok)HZ.leakPop='show';
+  pop.hidden=HZ.leakPop!=='show';if(pop.hidden)return;
+  $('leakText').textContent=ok?`Уровень падает. Всё, что окажется над жидкостью, высохнет в гниль. Сама утечка стихнет через ${left} с.`
+    :`Не хватает ${need} ${plural(need,'очка','очков','очков')}. Сливайте мутантов — окно вернётся, как только наберёте 200.`;
+  const pay=$('leakPay');pay.disabled=!ok;pay.textContent=ok?'Залатать за 200':`Нужно ещё ${need}`}
+function patchLeak(){if(!HZ.leak||score<200||over||paused)return;score-=200;HZ.leak=null;HZ.refill=true;HZ.nextLeak=HZ.t+rnd(70e3,120e3);
+  floater(W/2,RIM+60,'утечка залатана −200',true,'#9fe0a0');toast('Утечка залатана','Формалин возвращается');stats.leaks++;saveStats();checkAch();sound(4,false);vibe(40);updHud();updLeak();cv.focus({preventScroll:true})}
+$('abLeak').onclick=patchLeak;$('leakPay').onclick=patchLeak;
+$('leakLater').onclick=()=>{HZ.leakPop=score>=200?'later':'poorLater';updLeak();cv.focus({preventScroll:true})};
 function leakSound(){noise(1.6,'highpass',3200,.7,.22);for(let i=0;i<4;i++)setTimeout(drip,200+i*180)}
 function drawHorror(now,t){
   // leak: hole in the glass, stream out of the jar, puddle on the bench
@@ -1670,6 +1703,7 @@ $('shareCopy').onclick=()=>{const t=shareText();
   navigator.clipboard.writeText(t).then(()=>shareNote('Текст скопирован.'),()=>shareNote(t))};
 
 function gameOver(reason){
+  $('leakPop').hidden=true;
   $('overTitle').textContent=reason==='crack'?'Банка лопнула':'Банка переполнена';
   over=true;stats.games++;stats.best=Math.max(stats.best,score);if(isFall())stats.fallBest=Math.max(stats.fallBest,score);if(mode==='daily'){stats.dailies++;bumpStreak()}saveStats();
   ev('game');ev('score',score);if(mode==='daily')ev('daily');updProg();try{shot=document.createElement('canvas');shot.width=cv.width;shot.height=cv.height;shot.getContext('2d').drawImage(cv,0,0)}catch(e){shot=null}sound(9,true);vibe([120,60,200]);

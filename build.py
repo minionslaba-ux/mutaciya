@@ -41,6 +41,14 @@ for family, slug, weights in [
                 f'src:url(fonts/{slug}-{subset}-{w}-normal.woff2) format("woff2");unicode-range:{rng}}}'
             )
 font_css = "<style>\n" + "\n".join(faces) + "\n</style>\n"
+# В приложении с главного экрана (iOS, status-bar black-translucent) страница уходит под строку
+# состояния и «островок»: отступаем на safe-area сверху и снизу. На claude.ai это делает сама платформа.
+safe_css = """<style>
+.shell{padding-top:max(8px,env(safe-area-inset-top,0px));padding-bottom:max(8px,env(safe-area-inset-bottom,0px))}
+.bar{padding-bottom:0}
+.screen,.rotate{padding-top:max(16px,env(safe-area-inset-top,0px))}
+</style>
+"""
 
 assert "http" not in re.sub(r'https?://(brm\.io|github\.com|www\.w3\.org/2000/svg)[^\s"<]*', "", src.split("<script>")[0]), \
     "в разметке остались внешние ссылки"
@@ -68,7 +76,7 @@ if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))addEventLis
 </script>
 """
 cut = src.index("</style>") + len("</style>")
-out = head + font_css + src[:cut] + "\n</head>\n<body>\n" + src[cut:].lstrip("\n") + sw_reg + "</body>\n</html>\n"
+out = head + font_css + src[:cut] + "\n" + safe_css + "</head>\n<body>\n" + src[cut:].lstrip("\n") + sw_reg + "</body>\n</html>\n"
 (ROOT / "index.html").write_text(out, encoding="utf-8")
 
 # service worker: версия кэша = хэш всех файлов, чтобы обновления доходили до игроков
