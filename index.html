@@ -70,6 +70,9 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 #cv:focus-visible{box-shadow:0 0 0 2px var(--amber)}
 .abil{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px}
 .abil #abDown{border-color:var(--amber)}
+.abil #abLeak{animation:flick 1.6s infinite;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+.abil #abLeak small{font:400 10px var(--f-mono);text-transform:none;letter-spacing:0}
+.abil #abLeak:disabled{animation:none}
 .abil button{letter-spacing:.02em;white-space:nowrap;overflow:hidden}
 .abil button{min-height:40px;font-size:13px;border-radius:12px;padding:0 6px;color:var(--fg)}
 .abil button:disabled{opacity:.35;cursor:default}
@@ -259,6 +262,7 @@ button:disabled{filter:grayscale(1) brightness(.7)}
     <button id="abRemove">Удалить</button>
     <button id="abSwap">Заменить</button>
     <button id="abDown" hidden aria-label="Сбросить мутанта вниз">Вниз</button>
+    <button id="abLeak" class="primary" hidden aria-label="Залатать утечку за 200 очков">Залатать −200</button>
   </div>
   <div class="bar">
     <button id="regBtn">Реестр<small id="regCount">3/11</small></button>
@@ -712,7 +716,7 @@ function newGame(m){
   const seed=m==='daily'?hashStr('mutaciya:'+DAY):m==='challenge'&&challenge?challenge.seed:(Math.random()*2**32)>>>0;gameSeed=seed;
   seq=makeSeq(seed);const R0=rng(seed^0x9e3779b9);
   jarKey=m==='daily'?DAILY_JAR:m==='challenge'&&challenge&&challenge.jar?challenge.jar:(opts.jar||'normal');if(!JARS[jarKey])jarKey='normal';jar=JARS[jarKey];
-  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;blackoutAt=performance.now()+55000+Math.random()*40000;inBlackout=false;darkUntil=0;abil={shake:1,remove:1,swap:1};targeting=false;bossSeen=false;updAbil();hzReset();
+  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;blackoutAt=performance.now()+55000+Math.random()*40000;inBlackout=false;darkUntil=0;abil={shake:1,remove:1,swap:1};targeting=false;bossSeen=false;updAbil();hzReset();updLeak();
   for(const bb of bubbles){bb.x=JL+8+Math.random()*(JR-JL-16)}
   engine=Engine.create();engine.positionIterations=8;engine.velocityIterations=6;engine.gravity.y=jar.grav||1;
   const o={isStatic:true,friction:.4,restitution:.1};
@@ -883,7 +887,7 @@ const HZ={t:0,waveT:-99};
 function hzReset(){Object.assign(HZ,{t:0,gazeUntil:0,nextGaze:rnd(35e3,60e3),waveT:-99,nextWave:rnd(18e3,35e3),whispers:[],nextWhisper:rnd(30e3,55e3),
   hand:null,nextHand:rnd(80e3,130e3),lightning:null,nextLight:rnd(45e3,85e3),figure:0,glitchUntil:0,cracks:[],heal:0,nextKnock:rnd(25e3,40e3),
   heartT:0,beat:0,nextSound:rnd(15e3,35e3),night:null,nightDone:false,inspect:null,nextInspect:rnd(70e3,120e3),preFlicker:0,silence:false,
-  liqFrom:0,liqTo:0,liqK:1,nextLiq:40e3,fake:null})}
+  liqFrom:0,liqTo:0,liqK:1,nextLiq:40e3,fake:null,liqY:RIM,leak:null,nextLeak:rnd(60e3,100e3),refill:false,puddle:0})}
 hzReset();
 function jarFill(){let top=FLOOR;for(const b of bodies)top=Math.min(top,b.position.y-b.circleRadius);return Math.max(0,Math.min(1,(FLOOR-top)/(FLOOR-RIM)))}
 function liquidNow(){const base=(LIQ[opts.liquid]||LIQ.amber).c;const pal=i=>i===0?base:LIQ_CYCLE[(i-1)%LIQ_CYCLE.length];
@@ -902,6 +906,15 @@ function hzTick(dt){
   engine.gravity.y=(jar.grav||1)*(HZ.night?1.35:1);
   // liquid colour drifts every ~40 s
   if(HZ.liqK<1)HZ.liqK+=dt/4000;
+  // formalin leak: level drops; creatures above the surface dry into rot; patch costs 200 points
+  if(!HZ.leak&&drops>20&&T>HZ.nextLeak){const side=Math.random()<.5?-1:1;HZ.leak={side,x:side<0?JL:JR,y:rnd(FLOOR-150,FLOOR-50),t:0};
+    toast('Утечка формалина!','Банка протекает','Залатайте за 200 очков, иначе всё над жидкостью высохнет в гниль');leakSound();vibe([40,30,40,30,80]);updLeak()}
+  if(HZ.leak){const Lk=HZ.leak;Lk.t+=dt;HZ.puddle=Math.min(1,HZ.puddle+dt/30000);HZ.liqY=Math.min(RIM+(FLOOR-RIM)*.62,HZ.liqY+dt*.012);if(Math.random()<dt/260)drip();
+    if(Lk.t>45000){HZ.leak=null;HZ.nextLeak=T+rnd(70e3,120e3);toast('Утечка остановилась','Формалин медленно возвращается');updLeak()}}
+  else if(HZ.liqY>RIM){HZ.liqY=Math.max(RIM,HZ.liqY-dt*(HZ.refill?.09:.008));if(HZ.liqY<=RIM)HZ.refill=false}
+  if(!HZ.leak)HZ.puddle=Math.max(0,HZ.puddle-dt/60000);
+  for(const b of bodies.slice()){if(b.lvl==null)continue;const above=b.position.y<HZ.liqY;b.dry=above?(b.dry||0)+dt:Math.max(0,(b.dry||0)-dt*2);
+    if(b.dry>4000+b.lvl*600){const x=b.position.x,y=b.position.y;removeBody(b);spawn('rot',x,y);splat(x,y,'#6a5434',14,1.1);floater(x,y-18,'высох',false,'#c8a878');thud()}}
   if(T>HZ.nextLiq){HZ.nextLiq=T+rnd(35e3,48e3);HZ.liqFrom=HZ.liqTo;HZ.liqTo=HZ.liqTo+1;HZ.liqK=0;floater(W/2,RIM+28,'формалин меняется',false,'#d8c9a8')}
   if(sc&&T>HZ.nextGaze){HZ.nextGaze=T+rnd(40e3,75e3);HZ.gazeUntil=T+1800}
   gazeNow=sc&&HZ.gazeUntil>T;
@@ -939,7 +952,27 @@ function hzMenu(){const n=Math.floor((Date.now()-(store.get('mut.lastSeenPrev',D
   if(opts.scare&&n>=1){const nm=typeof player==='function'&&store.get('mut.player',null)&&store.get('mut.player').name;tag.classList.add('whisper');
     tag.textContent=(nm?nm+'. ':'')+`Ты вернулся. Мы считали дни: ${n}.`}}
 let pausedAt=0;
+function updLeak(){const b=$('abLeak');b.hidden=!HZ.leak;if(!HZ.leak)return;const ok=score>=200;b.disabled=!ok;b.innerHTML='Залатать<small></small>';b.querySelector('small').textContent=ok?'−200 очков':`ещё ${200-score}`}
+$('abLeak').onclick=()=>{if(!HZ.leak||score<200||over||paused)return;score-=200;HZ.leak=null;HZ.refill=true;HZ.nextLeak=HZ.t+rnd(70e3,120e3);
+  floater(W/2,RIM+60,'утечка залатана −200',true,'#9fe0a0');toast('Утечка залатана','Формалин возвращается');stats.leaks++;saveStats();checkAch();sound(4,false);vibe(40);updHud();updLeak();cv.focus({preventScroll:true})};
+function leakSound(){noise(1.6,'highpass',3200,.7,.22);for(let i=0;i<4;i++)setTimeout(drip,200+i*180)}
 function drawHorror(now,t){
+  // leak: hole in the glass, stream out of the jar, puddle on the bench
+  if(HZ.leak||HZ.puddle>0){ctx.save();const lc=liquidNow();
+    if(HZ.puddle>0){ctx.globalAlpha=.85;ctx.fillStyle=lc[0];ctx.beginPath();ctx.ellipse(W/2,H-6,170*HZ.puddle+20,8*HZ.puddle+2,0,0,TAU);ctx.fill();ctx.globalAlpha=1}
+    if(HZ.leak){const L=HZ.leak,x=L.x,y=L.y;ctx.fillStyle='#050302';ctx.beginPath();ctx.ellipse(x,y,4,7,0,0,TAU);ctx.fill();
+      ctx.strokeStyle='rgba(235,235,225,.7)';ctx.lineWidth=1;for(let k=0;k<5;k++){const a=k*1.25;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a)*14,y+Math.sin(a)*14);ctx.stroke()}
+      const pres=Math.max(.35,(y-HZ.liqY)/(FLOOR-RIM)+.5);ctx.lineCap='round';
+      for(const [col,wd] of [['rgba(0,0,0,.45)',9],[lc[0],6.5],['rgba(255,240,200,.35)',2]]){ctx.strokeStyle=col;ctx.lineWidth=wd*(.7+.3*pres);ctx.beginPath();ctx.moveTo(x,y);
+        ctx.quadraticCurveTo(x+L.side*30*pres,y+6,x+L.side*40*pres,H);ctx.stroke()}
+      ctx.fillStyle=lc[0];for(let i=0;i<7;i++){const k=((t*2.4+i*.14)%1),dx=x+L.side*40*pres*Math.sqrt(k)+Math.sin(i*3)*4,dy=y+(H-y)*k*k;ctx.beginPath();ctx.arc(dx,dy,2.6,0,TAU);ctx.fill()}}
+    ctx.restore()}
+  // drying creatures: brown crust grows while they are above the formalin
+  for(const b of bodies){if(!b.dry||b.lvl==null)continue;const k=Math.min(1,b.dry/(4000+b.lvl*600));if(k<.05)continue;const r=b.circleRadius;
+    ctx.save();ctx.globalAlpha=.65*k;ctx.fillStyle='#5a4228';ctx.beginPath();ctx.arc(b.position.x,b.position.y,r*.98,0,TAU);ctx.fill();
+    ctx.globalAlpha=k;ctx.strokeStyle='rgba(30,18,8,.8)';ctx.lineWidth=1.2;const R=rng(b.seed*77);
+    for(let i=0;i<3+k*5;i++){const a=R()*TAU,d=R()*r*.6;ctx.beginPath();ctx.moveTo(b.position.x+Math.cos(a)*d,b.position.y+Math.sin(a)*d);ctx.lineTo(b.position.x+Math.cos(a+.5)*(d+r*.35),b.position.y+Math.sin(a+.5)*(d+r*.35));ctx.stroke()}
+    ctx.restore()}
   // cracks on the glass
   ctx.save();ctx.strokeStyle='rgba(235,235,225,.7)';ctx.lineWidth=1.2;
   for(const c of HZ.cracks){const R=rng(c.seed);for(let k=0;k<5;k++){let x=c.x,y=c.y;ctx.beginPath();ctx.moveTo(x,y);const a=(R()-.5)*2.4;
@@ -1163,7 +1196,7 @@ const plural=(n,a,b,c)=>{const m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&
 const YDAY=(()=>{const d=new Date(DAY+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10)})();
 let streak=Object.assign({last:'',count:0,best:0},store.get('mut.streak',{}));
 const streakNow=()=>streak.last===DAY||streak.last===YDAY?streak.count:0;
-const stats=Object.assign({worms:0,fake:0,inspect:0,nights:0,dolls:0,fallBest:0,blackouts:0,chalWon:0,crushed:0,rot:0,mut:0,dailies:0,games:0,shares:0,mm:0,best:0,qdays:0,p5:0},store.get('mut.stats',{}));
+const stats=Object.assign({leaks:0,worms:0,fake:0,inspect:0,nights:0,dolls:0,fallBest:0,blackouts:0,chalWon:0,crushed:0,rot:0,mut:0,dailies:0,games:0,shares:0,mm:0,best:0,qdays:0,p5:0},store.get('mut.stats',{}));
 const saveStats=()=>store.set('mut.stats',stats);
 let ach=store.get('mut.ach',{});
 const LIQ={amber:{name:'Янтарный',c:['#5c4a1d','#2a200b'],days:0},emerald:{name:'Изумрудный',c:['#1f5a44','#0b2219'],days:3},
@@ -1199,6 +1232,7 @@ const ACH=[
  ['fake','Ещё не конец','Переживите ложный конец игры',()=>stats.fake>0],
  ['inspect','Тише воды','Пройдите проверку, не шелохнувшись',()=>stats.inspect>0],
  ['night','Ночная смена','Отработайте ночную смену до конца',()=>stats.nights>0],
+ ['leak','Сантехник','Залатайте утечку формалина',()=>stats.leaks>0],
  ['worm','Червоточина','Раздавите зубастого червя',()=>stats.worms>0],
  ['doll','Кукловод','Разбейте куклу, пока она не засмеялась',()=>stats.dolls>0],
  ['share','Хвастун','Поделитесь результатом',()=>stats.shares>0],
@@ -1271,7 +1305,7 @@ function renderAch(){
 }
 
 // ---------- HUD & UI ----------
-function updHud(){$('score').textContent=score;$('bestLine').textContent=mode==='challenge'&&challenge?'цель '+challenge.target+(isFall()?` · уровень ${fallLevel()}`:''):isFall()?`уровень ${fallLevel()} · рекорд ${bestScore()}`:(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
+function updHud(){$('score').textContent=score;if(typeof updLeak==='function'&&HZ.leak)updLeak();$('bestLine').textContent=mode==='challenge'&&challenge?'цель '+challenge.target+(isFall()?` · уровень ${fallLevel()}`:''):isFall()?`уровень ${fallLevel()} · рекорд ${bestScore()}`:(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
   const unread=formsFound().filter(i=>!loreRead.has(i)).length;
   $('regCount').textContent=formsFound().length+'/'+FORMS.length+(unread?` · ${unread} нов.`:'')}
 const nctx=$('next').getContext('2d');
@@ -1507,11 +1541,13 @@ function gameOver(reason){
 // ---------- render ----------
 function drawJar(t){
   ctx.fillStyle='#17140e';ctx.fillRect(0,0,W,H);
-  const lc=liquidNow();const lg=ctx.createLinearGradient(0,RIM,0,FLOOR);lg.addColorStop(0,lc[0]);lg.addColorStop(1,lc[1]);
-  ctx.fillStyle=lg;ctx.beginPath();ctx.roundRect(JL,RIM,JR-JL,FLOOR-RIM,[0,0,18,18]);ctx.fill();
+  const lc=liquidNow(),LY=Math.min(FLOOR-4,Math.max(RIM,HZ.liqY||RIM));
+  if(LY>RIM+2){ctx.fillStyle='rgba(120,100,60,.08)';ctx.fillRect(JL,RIM,JR-JL,LY-RIM)}
+  const lg=ctx.createLinearGradient(0,LY,0,FLOOR);lg.addColorStop(0,lc[0]);lg.addColorStop(1,lc[1]);
+  ctx.fillStyle=lg;ctx.beginPath();ctx.roundRect(JL,LY,JR-JL,FLOOR-LY,[0,0,18,18]);ctx.fill();
   ctx.strokeStyle='rgba(230,190,100,.35)';ctx.lineWidth=2;ctx.beginPath();
-  for(let x=JL;x<=JR;x+=6){const y=RIM+Math.sin(x*.05+t*1.5)*1.6;x===JL?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.stroke();
-  for(const b of bubbles){if(!paused){b.y-=b.v;b.x+=Math.sin(t*2+b.r*3)*.15}if(b.y<RIM+4){b.y=FLOOR-4;b.x=JL+8+Math.random()*(JR-JL-16)}
+  for(let x=JL;x<=JR;x+=6){const y=LY+Math.sin(x*.05+t*1.5)*(HZ.leak?2.6:1.6);x===JL?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.stroke();
+  for(const b of bubbles){if(!paused){b.y-=b.v;b.x+=Math.sin(t*2+b.r*3)*.15}if(b.y<LY+4){b.y=FLOOR-4;b.x=JL+8+Math.random()*(JR-JL-16)}
     ctx.strokeStyle='rgba(240,210,140,.28)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,TAU);ctx.stroke()}
 }
 function drawGlass(){
@@ -1623,7 +1659,7 @@ for(const evn of ['pointerdown','touchend','click','keydown'])document.addEventL
 document.addEventListener('visibilitychange',()=>{if(document.hidden){try{ac&&ac.suspend()}catch(e){}}else if(ac&&opts.sound){try{ac.resume()}catch(e){}}});
 store.set('mut.lastSeenPrev',store.get('mut.lastSeen',Date.now()));store.set('mut.lastSeen',Date.now());hzMenu();
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
