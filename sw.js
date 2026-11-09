@@ -1,5 +1,5 @@
 // Офлайн-режим «Мутации». Файл генерирует build.py — правьте src/sw.template.js.
-const CACHE = "mutaciya-226a895f1b93";
+const CACHE = "mutaciya-6c5fac01c228";
 const ASSETS = [
   "./",
   "index.html",
@@ -13,8 +13,12 @@ const ASSETS = [
   "fonts/ibm-plex-sans-cyrillic-600-normal.woff2",
   "fonts/ibm-plex-sans-latin-400-normal.woff2",
   "fonts/ibm-plex-sans-latin-600-normal.woff2",
-  "fonts/russo-one-cyrillic-400-normal.woff2",
-  "fonts/russo-one-latin-400-normal.woff2",
+  "fonts/rubik-distressed-cyrillic-400-normal.woff2",
+  "fonts/rubik-distressed-latin-400-normal.woff2",
+  "fonts/rubik-glitch-cyrillic-400-normal.woff2",
+  "fonts/rubik-glitch-latin-400-normal.woff2",
+  "fonts/rubik-wet-paint-cyrillic-400-normal.woff2",
+  "fonts/rubik-wet-paint-latin-400-normal.woff2",
   "icons/apple-touch-icon.png",
   "icons/icon-192.png",
   "icons/icon-512.png",

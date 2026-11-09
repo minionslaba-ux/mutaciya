@@ -59,7 +59,7 @@
 - `src/sw.template.js` — шаблон service worker; `build.py` подставляет версию и список файлов в `sw.js`.
 - `manifest.webmanifest`, `icons/` — установка игры на главный экран.
 - `vendor/` — физика [Matter.js](https://brm.io/matter-js/) 0.19.0 (MIT).
-- `fonts/` — шрифты Russo One, IBM Plex Sans и IBM Plex Mono (SIL OFL), кириллица и латиница.
+- `fonts/` — шрифты Rubik Distressed, Rubik Wet Paint, Rubik Glitch, IBM Plex Sans и IBM Plex Mono (SIL OFL), кириллица и латиница.
 - `licenses/` — лицензии библиотеки и шрифтов.
 
 ## GitHub Pages

@@ -12,8 +12,12 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
-@font-face{font-family:"Russo One";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/russo-one-cyrillic-400-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
-@font-face{font-family:"Russo One";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/russo-one-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Rubik Distressed";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/rubik-distressed-cyrillic-400-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"Rubik Distressed";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/rubik-distressed-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Rubik Wet Paint";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/rubik-wet-paint-cyrillic-400-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"Rubik Wet Paint";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/rubik-wet-paint-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Rubik Glitch";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/rubik-glitch-cyrillic-400-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"Rubik Glitch";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/rubik-glitch-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-cyrillic-400-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
 @font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-cyrillic-600-normal.woff2) format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
@@ -26,11 +30,15 @@
 <title>Мутация</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* Layout: phone-first game shell — HUD on top, jar fills the middle, thumb bar at the bottom; menus are full screens and bottom sheets. Single dark look by design. */
+/* Horror skin: black, bone and blood; distressed type, dripping logo, glitch for scares, torn buttons, film grain.
+   Layout: phone-first game shell — HUD on top, jar fills the middle, thumb bar at the bottom; menus are full screens and bottom sheets. Single dark look by design. */
 :root{
-  --bg:#13110c; --panel:#1f1b13; --panel2:#2a2418; --line:#3d3524; --fg:#ece3cb; --muted:#9d9174;
-  --amber:#d3a043; --blood:#cc453c; --rot:#7d8456;
-  --f-display:"Russo One","Arial Black",system-ui,sans-serif;
+  --bg:#0c0907; --panel:#17110e; --panel2:#221914; --line:#3a2820; --fg:#efe4cc; --muted:#9a8a78;
+  --amber:#d01c22; --blood:#ff4a3d; --rot:#7d8456;
+  --f-display:"Rubik Distressed","Arial Black",system-ui,sans-serif;
+  --f-logo:"Rubik Wet Paint","Rubik Distressed","Arial Black",sans-serif;
+  --f-glitch:"Rubik Glitch","Rubik Distressed","Arial Black",sans-serif;
+  --grain:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 -.15'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
   --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   color-scheme:dark;
@@ -169,6 +177,52 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .card-over .row button{flex:1}
 #scream{position:fixed;inset:0;z-index:50;pointer-events:none;width:100%;height:100%}
 @media (prefers-reduced-motion:reduce){.toast,.sheet{transition:none;animation:none}}
+/* ===== horror skin ===== */
+body{background:radial-gradient(130% 90% at 50% 38%,#1a120e 0%,#0c0907 62%,#030202 100%) fixed,var(--bg)}
+body::after{content:"";position:fixed;inset:-50%;pointer-events:none;z-index:70;background-image:var(--grain);opacity:.075;animation:grain .5s steps(3) infinite}
+@keyframes grain{0%{transform:translate(0,0)}33%{transform:translate(-4%,3%)}66%{transform:translate(3%,-4%)}100%{transform:translate(0,0)}}
+button{font-family:var(--f-display);font-weight:400;text-transform:uppercase;letter-spacing:.05em;border-radius:2px;position:relative;color:var(--fg);
+  background:linear-gradient(180deg,#1f1612 0%,#110c0a 100%);border:1px solid #3d2a21;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.75),inset 0 -12px 20px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,220,200,.05);
+  clip-path:polygon(0 3px,5% 0,17% 2px,31% 0,46% 3px,62% 0,78% 2px,92% 0,100% 2px,100% calc(100% - 2px),95% 100%,81% calc(100% - 3px),64% 100%,49% calc(100% - 2px),33% 100%,18% calc(100% - 3px),6% 100%,0 calc(100% - 2px))}
+button::before{content:"";position:absolute;inset:0;background-image:var(--grain);opacity:.22;mix-blend-mode:overlay;pointer-events:none}
+button:hover:not(:disabled){border-color:#7a1818;text-shadow:0 0 10px rgba(255,40,40,.55)}
+button:active{background:#0a0706;transform:translateY(1px)}
+button:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber),inset 0 -12px 20px rgba(0,0,0,.55)}
+button.primary{background:linear-gradient(180deg,#a3161b 0%,#5c090c 100%);border-color:#d01c22;color:#f8ecd4;
+  text-shadow:0 1px 0 #000,0 0 12px rgba(255,70,60,.35)}
+button.primary:hover:not(:disabled){text-shadow:0 1px 0 #000,0 0 14px rgba(255,90,80,.7)}
+button small,.big small,.bar button small,.menugrid small{font-family:var(--f-mono);text-transform:none;letter-spacing:.02em}
+button:disabled{filter:grayscale(1) brightness(.7)}
+.abil button,.bar button,.menugrid button,.toggles button,.chips button,.iconbtn,.namerow input{border-radius:2px}
+.chips button[aria-pressed="true"]{border-color:var(--amber);color:#ff6a5e}
+.tabs button{clip-path:none;box-shadow:none;background:transparent}
+.tabs button[aria-selected="true"]{background:#2a1412;color:var(--fg);box-shadow:inset 0 -2px 0 var(--amber)}
+.menu h1{font-family:var(--f-logo);font-weight:400;font-size:62px;letter-spacing:.01em;color:#c8141a;
+  text-shadow:0 0 22px rgba(200,10,10,.35),0 3px 0 #2a0204;animation:flick 8s infinite}
+@keyframes flick{0%,90%,100%{opacity:1;transform:none;filter:none}
+  91%{opacity:.35}92%{opacity:1;transform:translateX(3px) skewX(-8deg);text-shadow:4px 0 rgba(0,220,255,.35),-4px 0 rgba(255,0,0,.7)}
+  93%{opacity:.15;transform:none}94%{opacity:1}96%{opacity:.6;transform:translateX(-2px)}97%{opacity:1;transform:none}}
+.menu .tag{font-family:var(--f-mono);font-size:13px}
+.streak{color:#ff6a5e}
+.sheet{border-radius:6px 6px 0 0;background:linear-gradient(180deg,#1a1210,#110c0a);border-color:#3a2820;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+.sheet h2{font-family:var(--f-display);letter-spacing:.03em;text-transform:uppercase;color:var(--fg)}
+.grip{background:#5a2a24}
+.reg .card,.ach,.qlist li,.board li,.clip,.challenge,.card-over{border-radius:3px}
+.card-over{background:linear-gradient(180deg,#1a1210,#0e0a08);border-color:#5a1a18;box-shadow:0 0 40px rgba(160,10,10,.25)}
+.card-over h2,.over h2{font-family:var(--f-glitch);font-size:30px;color:#e11b22;text-transform:uppercase;letter-spacing:.02em}
+.card-over .sc{color:var(--fg)}
+.toast .k{color:#ff5a4e}
+.toast .v{font-family:var(--f-glitch);font-size:34px;color:#f4e6cc;text-shadow:3px 0 rgba(255,0,0,.55),-3px 0 rgba(0,200,255,.25),0 2px 16px #000}
+.challenge{background:linear-gradient(180deg,#2a0d0d,#160707);border-color:#8a1a1a}
+.challenge b{font-family:var(--f-glitch);font-size:26px;color:#ff3b30}
+.modechip{color:#ff6a5e;border-radius:2px;font-family:var(--f-mono)}
+.qlist li.done .ck{background:var(--amber);border-color:var(--amber);color:#fff}
+.qlist .bar2 i,.chips button i{background:var(--amber)}
+.lore p{font-family:var(--f-mono);color:#e9dcc2;text-shadow:0 0 1px rgba(255,255,255,.2)}
+.reg .card .dot{background:#ff2d2d;box-shadow:0 0 8px #ff2d2d}
+@media (prefers-reduced-motion:reduce){body::after,.menu h1{animation:none}}
+
 </style>
 </head>
 <body>
@@ -537,7 +591,7 @@ function drawAcid(ctx,r,t){
   ctx.save();ctx.shadowColor='#d6ff3a';ctx.shadowBlur=r*1.2;const g=ctx.createRadialGradient(-r*.3,-r*.3,r*.1,0,0,r);
   g.addColorStop(0,'#f4ff9a');g.addColorStop(.6,'#b5d82a');g.addColorStop(1,'#4d6a08');ctx.fillStyle=g;blob(ctx,r,t*2.5,3,.08);ctx.fill();ctx.restore();
   ctx.fillStyle='rgba(255,255,220,.75)';for(let i=0;i<4;i++){const a=t*2+i*1.7,d=r*(.2+.35*((t*.7+i*.3)%1));ctx.beginPath();ctx.arc(Math.cos(a)*d,Math.sin(a)*d,r*.09,0,TAU);ctx.fill()}
-  ctx.fillStyle='rgba(40,50,0,.75)';ctx.font=`${r*.9}px "Russo One",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('!',0,r*.05);
+  ctx.fillStyle='rgba(40,50,0,.75)';ctx.font=`${r*.9}px "Rubik Distressed",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('!',0,r*.05);
 }
 function drawMirror(ctx,r,t){
   const g=ctx.createLinearGradient(-r,-r,r,r);g.addColorStop(0,'#f5f3ee');g.addColorStop(.5,'#8d8f96');g.addColorStop(1,'#e2e0da');
@@ -807,10 +861,10 @@ function grabClip(label){
 }
 function drawClipFrame(){
   const g=cctx;g.setTransform(1,0,0,1,0,0);g.fillStyle='#13110c';g.fillRect(0,0,CW,CH);
-  g.textAlign='center';g.fillStyle='#ece3cb';g.font='44px "Russo One",sans-serif';g.fillText('МУТАЦИЯ',CW/2,66);
-  g.font='600 18px "IBM Plex Mono",monospace';g.fillStyle='#d3a043';g.fillText(modeLabel().toUpperCase(),CW/2,98);
+  g.textAlign='center';g.fillStyle='#c8141a';g.font='52px "Rubik Wet Paint","Rubik Distressed",sans-serif';g.fillText('МУТАЦИЯ',CW/2,68);
+  g.font='600 18px "IBM Plex Mono",monospace';g.fillStyle='#e0302a';g.fillText(modeLabel().toUpperCase(),CW/2,98);
   const jh=790,jw=jh*W/H,jx=(CW-jw)/2,jy=118;g.drawImage(cv,jx,jy,jw,jh);
-  g.fillStyle='#ece3cb';g.font='40px "Russo One",sans-serif';g.fillText(String(score),CW/2,946);
+  g.fillStyle='#ece3cb';g.font='40px "Rubik Distressed",sans-serif';g.fillText(String(score),CW/2,946);
   if(scream&&!sc.hidden){const k=Math.max(CW/sc.width,CH/sc.height);g.drawImage(sc,(CW-sc.width*k)/2,(CH-sc.height*k)/2,sc.width*k,sc.height*k)}
 }
 function renderClips(){
@@ -982,14 +1036,14 @@ function renderReg(){
   FORMS.forEach((F,i)=>{const k=found.has(i);
     const cd=card('№'+String(i+1).padStart(2,'0'),k?F.name:'???',k?'known':'unk',c=>{const s=Math.min(1.6,46/F.r);c.scale(s,s);
       if(k){drawCreature(c,i,F.r,1.3,2,{x:.3,y:.2});shine(c,F.r)}
-      else{c.fillStyle='#2a251a';blob(c,F.r,1,i,.04);c.fill();c.fillStyle='#5a4f38';c.font=`${F.r}px "Russo One",sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText('?',0,2)}});
+      else{c.fillStyle='#2a251a';blob(c,F.r,1,i,.04);c.fill();c.fillStyle='#5a4f38';c.font=`${F.r}px "Rubik Distressed",sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText('?',0,2)}});
     if(k){cd.tabIndex=0;cd.setAttribute('role','button');cd.setAttribute('aria-label','Запись о форме '+F.name);
       if(!loreRead.has(i)){const dt=document.createElement('span');dt.className='dot';cd.prepend(dt)}
       cd.onclick=()=>openLore(i);cd.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openLore(i)}}}});
   const sec=document.createElement('div');sec.className='sec';sec.textContent='Аномалии';el.appendChild(sec);
   for(const k of Object.keys(ANOM)){const A=ANOM[k],seen=found.has('a:'+k)||(k==='rot'&&found.has('rot'));
     card('аномалия',seen?A.name:'???',seen?'anom':'anom unk',c=>{const s=40/A.r;c.scale(s,s);
-      if(seen)drawPiece(c,k,A.r,1.2,3,{x:.6,y:.4});else{c.fillStyle='#2a251a';blob(c,A.r,1,5,.05);c.fill();c.fillStyle='#5a4f38';c.font=`${A.r}px "Russo One",sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText('?',0,2)}});
+      if(seen)drawPiece(c,k,A.r,1.2,3,{x:.6,y:.4});else{c.fillStyle='#2a251a';blob(c,A.r,1,5,.05);c.fill();c.fillStyle='#5a4f38';c.font=`${A.r}px "Rubik Distressed",sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText('?',0,2)}});
     if(seen){const r=document.createElement('span');r.className='rule';r.textContent=A.rule;el.lastChild.appendChild(r)}}
   updHud();
 }
@@ -1123,13 +1177,13 @@ function chalUrl(){return GAME_URL+'#vyzov-'+(gameSeed>>>0).toString(36)+'-'+sco
 function shareText(){return`Мутация: ${score} очков, вывел форму «${FORMS[topLvl].name}». ${modeLabel()}. Сможешь больше?`+(PUBLIC_URL?' '+PUBLIC_URL:'')}
 function chalText(){return`Вызываю тебя в «Мутации»: побей ${score} очков на тех же образцах. ${chalUrl()}`}
 async function makeShareCanvas(){
-  try{await Promise.all(['96px "Russo One"','600 34px "IBM Plex Mono"','36px "IBM Plex Sans"'].map(f=>document.fonts.load(f)))}catch(e){}
+  try{await Promise.all(['112px "Rubik Wet Paint"','96px "Rubik Distressed"','600 34px "IBM Plex Mono"','36px "IBM Plex Sans"'].map(f=>document.fonts.load(f)))}catch(e){}
   const c=document.createElement('canvas');c.width=1080;c.height=1920;const g=c.getContext('2d');
   g.fillStyle='#13110c';g.fillRect(0,0,1080,1920);
   const rg=g.createRadialGradient(540,1080,80,540,1080,900);rg.addColorStop(0,'rgba(211,160,67,.16)');rg.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=rg;g.fillRect(0,0,1080,1920);
-  g.textAlign='center';g.fillStyle='#ece3cb';g.font='96px "Russo One",sans-serif';g.fillText('МУТАЦИЯ',540,160);
-  g.font='600 32px "IBM Plex Mono",monospace';g.fillStyle='#d3a043';g.fillText(modeLabel().toUpperCase(),540,220);
-  g.fillStyle='#ece3cb';g.font='180px "Russo One",sans-serif';g.fillText(String(score),540,410);
+  g.textAlign='center';g.fillStyle='#c8141a';g.font='112px "Rubik Wet Paint","Rubik Distressed",sans-serif';g.fillText('МУТАЦИЯ',540,170);
+  g.font='600 32px "IBM Plex Mono",monospace';g.fillStyle='#e0302a';g.fillText(modeLabel().toUpperCase(),540,220);
+  g.fillStyle='#ece3cb';g.font='180px "Rubik Distressed",sans-serif';g.fillText(String(score),540,410);
   g.font='36px "IBM Plex Sans",sans-serif';g.fillStyle='#9d9174';g.fillText('очков',540,465);
   const jh=1060,jw=jh*W/H,jx=540-jw/2,jy=510;
   g.save();g.beginPath();g.roundRect(jx,jy,jw,jh,28);g.clip();if(shot)g.drawImage(shot,jx,jy,jw,jh);g.restore();
@@ -1137,10 +1191,10 @@ async function makeShareCanvas(){
   // highest form
   const F=FORMS[topLvl];g.save();g.translate(250,1700);const s=70/F.r;g.scale(s,s);drawCreature(g,topLvl,F.r,1.2,4,{x:.4,y:.1});shine(g,F.r);g.restore();
   g.textAlign='left';g.fillStyle='#9d9174';g.font='30px "IBM Plex Sans",sans-serif';g.fillText('Высшая форма',350,1680);
-  g.fillStyle='#ece3cb';g.font='56px "Russo One",sans-serif';g.fillText(F.name,350,1740);
+  g.fillStyle='#ece3cb';g.font='56px "Rubik Distressed",sans-serif';g.fillText(F.name,350,1740);
   g.textAlign='right';g.fillStyle='#9d9174';g.font='30px "IBM Plex Sans",sans-serif';g.fillText('Реестр',900,1680);
-  g.fillStyle='#ece3cb';g.font='56px "Russo One",sans-serif';g.fillText(formsFound().length+'/'+FORMS.length,900,1740);
-  g.textAlign='center';g.fillStyle='#d3a043';g.font='600 36px "IBM Plex Mono",monospace';g.fillText('СМОЖЕШЬ БОЛЬШЕ?',540,1840);
+  g.fillStyle='#ece3cb';g.font='56px "Rubik Distressed",sans-serif';g.fillText(formsFound().length+'/'+FORMS.length,900,1740);
+  g.textAlign='center';g.fillStyle='#e0302a';g.font='600 36px "IBM Plex Mono",monospace';g.fillText('СМОЖЕШЬ БОЛЬШЕ?',540,1840);
   if(PUBLIC_URL){g.fillStyle='#9d9174';g.font='26px "IBM Plex Mono",monospace';g.fillText(PUBLIC_URL.replace(/^https?:\/\//,''),540,1888)}
   return c;
 }
@@ -1287,7 +1341,7 @@ function frame(now){
     ctx.globalAlpha=1;
     if(jar.dark||darkUntil>now)drawDark(now,jar.dark&&!(darkUntil>now));
     drawGlass();
-    ctx.textAlign='center';for(const f of floaters){ctx.globalAlpha=Math.min(1,f.life*1.5);ctx.font=f.big?'22px "Russo One",sans-serif':'600 13px "IBM Plex Mono",monospace';
+    ctx.textAlign='center';for(const f of floaters){ctx.globalAlpha=Math.min(1,f.life*1.5);ctx.font=f.big?'22px "Rubik Distressed",sans-serif':'600 13px "IBM Plex Mono",monospace';
       ctx.fillStyle='#000';ctx.fillText(f.text,f.x+1,f.y+1);ctx.fillStyle=f.col||(f.big?'#f0c060':'#ece3cb');ctx.fillText(f.text,f.x,f.y)}ctx.globalAlpha=1;
     if(flash>.02){ctx.fillStyle=`rgba(255,200,120,${flash*.25})`;ctx.fillRect(0,0,W,H)}
     const v=ctx.createRadialGradient(W/2,H/2,H*.3,W/2,H/2,H*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,.55)');ctx.fillStyle=v;ctx.fillRect(0,0,W,H);
