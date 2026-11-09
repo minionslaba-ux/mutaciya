@@ -374,7 +374,7 @@ button:disabled{filter:grayscale(1) brightness(.7)}
 (()=>{
 if(!window.Matter){const m=document.querySelector('.menu .tag');if(m)m.textContent='Не загрузилась физика игры. Проверьте интернет и обновите страницу.';
   document.querySelectorAll('.menu .big,#menuBoardBtn').forEach(b=>b.disabled=true);return}
-const {Engine,Bodies,Composite,Events,Body}=Matter;
+const {Engine,Bodies,Composite,Events,Body,Constraint}=Matter;
 const W=400,H=640,FLOOR=618,RIM=104,SPAWN_Y=56,TAU=Math.PI*2,ROT_R=27;let JL=24,JR=376;
 const $=id=>document.getElementById(id);
 
@@ -421,8 +421,9 @@ const ANOM={
   mirror:{r:18,name:'Зеркало',rule:'Превращается в копию первого существа, которого коснётся.'},
   magnet:{r:17,name:'Магнит',rule:'8 секунд стягивает одинаковых существ друг к другу, потом рассыпается.'},
   brood:{r:23,name:'Матка паразитов',rule:'Каждые 9 секунд рожает паразита. Раздавите её слиянием рядом: +60.'},
+  worm:{r:14,name:'Зубастый червь',rule:'Ползает и заглатывает Капель, Спор и Слизней, вырастая на звено за каждого. Через 30 секунд уползает. Крупное слияние рядом с головой давит его: +30.'},
   doll:{r:19,name:'Кукла',rule:'Нажмите на неё, пока она не засмеялась (+20). Через 12 секунд смеётся и превращает соседей в гниль.'}};
-const ANOM_TABLE=[['mutagen',.035,8],['parasite',.04,18],['rot',.045,12],['acid',.025,10],['mirror',.025,15],['magnet',.02,15],['brood',.015,35],['doll',.016,20]];
+const ANOM_TABLE=[['mutagen',.035,8],['parasite',.04,18],['rot',.045,12],['acid',.025,10],['mirror',.025,15],['magnet',.02,15],['brood',.015,35],['doll',.016,20],['worm',.035,9]];
 const JARS={
   normal:{name:'Обычная',desc:'Без особых правил'},
   viscous:{name:'Вязкая',desc:'Густой формалин: всё падает медленно',grav:.55,air:2.6},
@@ -637,7 +638,28 @@ function drawDoll(ctx,r,t,look,age){
   ctx.restore();
 }
 function shine(ctx,r){ctx.fillStyle='rgba(255,250,230,.22)';ctx.beginPath();ctx.ellipse(-r*.38,-r*.45,r*.22,r*.12,-.7,0,TAU);ctx.fill()}
-function drawPiece(c,kind,r,t,seed,look){if(kind==='doll')drawDoll(c,r,t,look,0);else if(kind==='acid')drawAcid(c,r,t);else if(kind==='mirror')drawMirror(c,r,t);else if(kind==='magnet')drawMagnet(c,r,t,1);else if(kind==='brood')drawBrood(c,r,t,seed,look);else if(kind==='rot')drawRot(c,r,t,seed);else if(kind==='parasite')drawParasite(c,r,t,seed,look,false);else if(kind==='mutagen')drawMutagen(c,r,t);else{drawCreature(c,kind,r,t,seed,look);shine(c,r)}}
+// toothy worm: segmented body, lamprey head with a round ring of teeth
+function drawWormHead(ctx,x,y,r,dir,t,gape){
+  ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(dir.y,dir.x));
+  const g=ctx.createRadialGradient(-r*.3,-r*.4,r*.1,0,0,r*1.25);g.addColorStop(0,'#f0c0b4');g.addColorStop(.7,'#b77a74');g.addColorStop(1,'#4a1a1e');
+  ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(0,0,r*1.25,r*1.12,0,0,TAU);ctx.fill();ctx.strokeStyle='rgba(0,0,0,.5)';ctx.lineWidth=r*.12;ctx.stroke();
+  const mr=r*(.78+.12*gape);ctx.fillStyle='#160306';ctx.beginPath();ctx.arc(r*.35,0,mr,0,TAU);ctx.fill();
+  teethRing(ctx,r*.35,0,mr,14,'#f4e8cf');teethRing(ctx,r*.35,0,mr*.6,10,'#d8c7a8');
+  ctx.fillStyle='#5a0d16';ctx.beginPath();ctx.arc(r*.35,0,mr*.28,0,TAU);ctx.fill();
+  ctx.restore()}
+function drawWormSeg(ctx,x,y,r,i,t){const g=ctx.createRadialGradient(x-r*.3,y-r*.35,r*.1,x,y,r*1.05);g.addColorStop(0,'#d98a86');g.addColorStop(.7,'#9c4450');g.addColorStop(1,'#43121c');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*(1+.06*Math.sin(t*6-i*.9)),0,TAU);ctx.fill();ctx.strokeStyle='rgba(50,8,15,.6)';ctx.lineWidth=r*.18;ctx.beginPath();ctx.arc(x,y,r*.7,-1,1);ctx.stroke()}
+function drawWormBody(ctx,pts,t){
+  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+  for(const [col,k,dy] of [['#3d1418',1.12,0],['#b77a74',1,0],['#d9a49a',.45,-.32]]){
+    for(let i=pts.length-1;i>0;i--){const a=pts[i],b=pts[i-1];ctx.strokeStyle=col;ctx.lineWidth=2*a.r*k*(1+.05*Math.sin(t*6-i));
+      ctx.beginPath();ctx.moveTo(a.x,a.y+a.r*dy);ctx.lineTo(b.x,b.y+b.r*dy);ctx.stroke()}}
+  ctx.strokeStyle='rgba(70,20,26,.55)';ctx.lineWidth=1.6;
+  for(let i=1;i<pts.length;i++){const a=pts[i],b=pts[i-1],ang=Math.atan2(b.y-a.y,b.x-a.x)+Math.PI/2;
+    ctx.beginPath();ctx.moveTo(a.x+Math.cos(ang)*a.r*.9,a.y+Math.sin(ang)*a.r*.9);ctx.lineTo(a.x-Math.cos(ang)*a.r*.9,a.y-Math.sin(ang)*a.r*.9);ctx.stroke()}
+  ctx.restore()}
+function drawWormIcon(c,r,t){const pts=[{x:0,y:0,r}];for(let i=1;i<=6;i++){const a=i*.95+t*.8,d=r*.32*i;pts.push({x:Math.cos(a)*d,y:Math.sin(a)*d,r:r*(1-i*.07)})}drawWormBody(c,pts,t);drawWormHead(c,0,0,r,{x:Math.cos(t),y:Math.sin(t)},t,.5+.5*Math.sin(t*5))}
+function drawPiece(c,kind,r,t,seed,look){if(kind==='worm')drawWormIcon(c,r,t);else if(kind==='doll')drawDoll(c,r,t,look,0);else if(kind==='acid')drawAcid(c,r,t);else if(kind==='mirror')drawMirror(c,r,t);else if(kind==='magnet')drawMagnet(c,r,t,1);else if(kind==='brood')drawBrood(c,r,t,seed,look);else if(kind==='rot')drawRot(c,r,t,seed);else if(kind==='parasite')drawParasite(c,r,t,seed,look,false);else if(kind==='mutagen')drawMutagen(c,r,t);else{drawCreature(c,kind,r,t,seed,look);shine(c,r)}}
 
 // ---------- canvas sizing ----------
 const cv=$('cv'),ctx=cv.getContext('2d'),stage=$('stage');
@@ -695,11 +717,34 @@ function spawn(kind,x,y){
   Composite.add(engine.world,b);bodies.push(b);
   if(!an&&kind>topLvl)topLvl=kind;
   if(kind===MAX)b.boss=true,b.birthT=0;
+  if(an==='worm'){b.segs=[];b.cons=[];b.dir={x:0,y:1};b.eaten=0;for(let i=0;i<5;i++)wormGrow(b,true)}
   return b;
 }
+function wormGrow(h,init){const prev=h.segs.length?h.segs[h.segs.length-1]:h,r=Math.max(8,12-h.segs.length*.3);
+  const sg=Bodies.circle(prev.position.x+(Math.random()-.5)*2,prev.position.y-r*1.7,r,{restitution:.1,friction:.2,frictionAir:.03*(jar.air||1),density:.001,slop:.03});
+  sg.anom='wormseg';sg.lvl=null;sg.head=h;sg.born=h.born;sg.seed=h.seed;Composite.add(engine.world,sg);bodies.push(sg);
+  const cn=Constraint.create({bodyA:prev,bodyB:sg,length:(prev.circleRadius+r)*1.02,stiffness:.7,damping:.12,render:{visible:false}});Composite.add(engine.world,cn);
+  h.segs.push(sg);h.cons.push(cn)}
+function killWorm(h,gain,label){for(const c of h.cons||[])Composite.remove(engine.world,c);for(const sg of h.segs||[]){removeBody(sg);splat(sg.position.x,sg.position.y,'#9c4450',5,.8)}
+  removeBody(h);splat(h.position.x,h.position.y,'#7a1c28',16,1.2);if(gain){score+=gain;stats.worms++;saveStats();checkAch();updHud()}if(label)floater(h.position.x,h.position.y-16,label,!!gain,gain?null:'#d8c9a8')}
+function wormTick(dt){const now=performance.now();
+  for(const h of bodies.filter(q=>q.anom==='worm')){
+    if(now-h.born>30000){killWorm(h,0,'червь уполз');continue}
+    let tg=null,td=1e9;for(const o of bodies){if(o.lvl==null||o.lvl>2)continue;const d=Math.hypot(o.position.x-h.position.x,o.position.y-h.position.y);if(d<td){td=d;tg=o}}
+    const t=now/1000,f=h.mass*.0019;let dx,dy;
+    if(tg){dx=tg.position.x-h.position.x;dy=tg.position.y-h.position.y}else{dx=Math.sin(t*.7+h.seed)*60;dy=Math.cos(t*.5+h.seed)*40}
+    const d=Math.hypot(dx,dy)||1,nx=dx/d,ny=dy/d,w=Math.sin(t*9+h.seed)*.9;
+    Body.applyForce(h,h.position,{x:(nx-ny*w)*f,y:(ny+nx*w)*f-h.mass*.0011});
+    for(let i=0;i<h.segs.length;i+=2){const sg=h.segs[i];Body.applyForce(sg,sg.position,{x:Math.sin(t*9+i*.8)*sg.mass*.0005,y:-sg.mass*.0004})}
+    h.dir={x:h.dir.x*.85+nx*.15,y:h.dir.y*.85+ny*.15};
+    if(tg&&td<h.circleRadius+tg.circleRadius+3){removeBody(tg);splat(tg.position.x,tg.position.y,FORMS[tg.lvl].c,10,1);h.eaten++;h.gape=1;
+      if(h.segs.length<12)wormGrow(h);floater(h.position.x,h.position.y-18,'ам',false,'#ff8a7a');chomp();vibe(15)}
+    h.gape=Math.max(0,(h.gape||0)-dt/300)}}
+function chomp(){tone('square',260,90,.12,.06);noise(.12,'bandpass',900,3,.25)}
 function removeBody(b){Composite.remove(engine.world,b);bodies=bodies.filter(x=>x!==b)}
 function discover(L){if(!found.has(L)){found.add(L);store.set('mut.found',[...found]);newForm=Math.max(newForm,L)}}
-function crushParasites(x,y,R){for(const q of bodies.filter(q=>q.anom==='parasite'||q.anom==='brood')){
+function crushParasites(x,y,R){
+  if(R>=FORMS[LV.eye].r)for(const h of bodies.filter(q=>q.anom==='worm'))if(Math.hypot(h.position.x-x,h.position.y-y)<R+30)killWorm(h,30,'червь раздавлен +30');for(const q of bodies.filter(q=>q.anom==='parasite'||q.anom==='brood')){
   if(Math.hypot(q.position.x-x,q.position.y-y)<R+q.circleRadius+8){removeBody(q);const g=q.anom==='brood'?60:q.stolen*2+15;score+=g;
     splat(q.position.x,q.position.y,'#b0243a',18,1.2);floater(q.position.x,q.position.y,(q.anom==='brood'?'матка паразитов раздавлена +':'паразит раздавлен +')+g,true);vibe(40);
     stats.crushed++;crushedGame++;if(crushedGame>=5)stats.p5=1;saveStats();ev('crush')}}}
@@ -764,6 +809,7 @@ function parasiteTick(dt){
 }
 
 function specialTick(dt){
+  wormTick(dt);
   const nowB=performance.now();
   if(!inBlackout&&drops>15&&nowB>blackoutAt-2500&&HZ.preFlicker<nowB-3000){HZ.preFlicker=nowB+2500;buzz()}
   hzTick(dt);
@@ -792,6 +838,7 @@ $('abShake').onclick=()=>{if(!abil.shake||over||paused)return;abil.shake=0;doSha
 $('abSwap').onclick=()=>{if(!abil.swap||over||paused)return;abil.swap=0;cur=seq.next();drawNext();updAbil();floater(W/2,SPAWN_Y+40,'образец заменён',false)};
 $('abRemove').onclick=()=>{if(!abil.remove||over||paused)return;targeting=!targeting;updAbil()};
 function removeAt(p){const hit=bodies.find(q=>Math.hypot(q.position.x-p.x,q.position.y-p.y)<q.circleRadius+6);if(!hit)return false;
+  if(hit.anom==='worm'||hit.anom==='wormseg'){killWorm(hit.head||hit,0,'червь удалён');abil.remove=0;targeting=false;updAbil();vibe(30);return true}
   removeBody(hit);splat(hit.position.x,hit.position.y,hit.lvl!=null?FORMS[hit.lvl].c:'#888',16,1.2);floater(hit.position.x,hit.position.y,'удалено',false);
   abil.remove=0;targeting=false;updAbil();vibe(30);return true}
 
@@ -1087,7 +1134,7 @@ const plural=(n,a,b,c)=>{const m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&
 const YDAY=(()=>{const d=new Date(DAY+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10)})();
 let streak=Object.assign({last:'',count:0,best:0},store.get('mut.streak',{}));
 const streakNow=()=>streak.last===DAY||streak.last===YDAY?streak.count:0;
-const stats=Object.assign({fake:0,inspect:0,nights:0,dolls:0,fallBest:0,blackouts:0,chalWon:0,crushed:0,rot:0,mut:0,dailies:0,games:0,shares:0,mm:0,best:0,qdays:0,p5:0},store.get('mut.stats',{}));
+const stats=Object.assign({worms:0,fake:0,inspect:0,nights:0,dolls:0,fallBest:0,blackouts:0,chalWon:0,crushed:0,rot:0,mut:0,dailies:0,games:0,shares:0,mm:0,best:0,qdays:0,p5:0},store.get('mut.stats',{}));
 const saveStats=()=>store.set('mut.stats',stats);
 let ach=store.get('mut.ach',{});
 const LIQ={amber:{name:'Янтарный',c:['#5c4a1d','#2a200b'],days:0},emerald:{name:'Изумрудный',c:['#1f5a44','#0b2219'],days:3},
@@ -1123,6 +1170,7 @@ const ACH=[
  ['fake','Ещё не конец','Переживите ложный конец игры',()=>stats.fake>0],
  ['inspect','Тише воды','Пройдите проверку, не шелохнувшись',()=>stats.inspect>0],
  ['night','Ночная смена','Отработайте ночную смену до конца',()=>stats.nights>0],
+ ['worm','Червоточина','Раздавите зубастого червя',()=>stats.worms>0],
  ['doll','Кукловод','Разбейте куклу, пока она не засмеялась',()=>stats.dolls>0],
  ['share','Хвастун','Поделитесь результатом',()=>stats.shares>0],
  ['chal','Принято','Выиграйте вызов друга',()=>stats.chalWon>0],
@@ -1512,6 +1560,10 @@ function frame(now){
           ctx.lineTo(b.position.x+lk.x*(r+6),b.position.y+lk.y*(r+6));ctx.stroke()}
         ctx.save();ctx.translate(b.position.x,b.position.y);drawParasite(ctx,r,t,b.seed,lk,!!b.host);ctx.restore();continue}
       if(b.anom==='mutagen'){ctx.save();ctx.translate(b.position.x,b.position.y);drawMutagen(ctx,r,t);ctx.restore();continue}
+      if(b.anom==='wormseg')continue;
+      if(b.anom==='worm'){const segs=(b.segs||[]).filter(sg=>bodies.includes(sg));ctx.save();
+        drawWormBody(ctx,[{x:b.position.x,y:b.position.y,r:r*.85},...segs.map(sg=>({x:sg.position.x,y:sg.position.y,r:sg.circleRadius}))],t);
+        drawWormHead(ctx,b.position.x,b.position.y,r,b.dir||{x:0,y:1},t,b.gape||0);ctx.restore();continue}
       if(b.anom==='doll'){const dx=pointer.x-b.position.x,dy=pointer.y-b.position.y,d=Math.hypot(dx,dy)||1;ctx.save();ctx.translate(b.position.x,b.position.y);drawDoll(ctx,r,t,{x:dx/d,y:dy/d},now-b.born);ctx.restore();continue}
       if(b.anom==='acid'||b.anom==='mirror'||b.anom==='magnet'||b.anom==='brood'){ctx.save();ctx.translate(b.position.x,b.position.y);
         if(b.anom==='magnet')drawMagnet(ctx,r,t,Math.max(0,1-(now-b.born)/9000));else if(b.anom==='brood'){const dx=pointer.x-b.position.x,dy=pointer.y-b.position.y,d=Math.hypot(dx,dy)||1;drawBrood(ctx,r,t,b.seed,{x:dx/d,y:dy/d})}
@@ -1541,7 +1593,7 @@ function frame(now){
 document.addEventListener('pointerdown',()=>unlockAudio(),{once:true});
 store.set('mut.lastSeenPrev',store.get('mut.lastSeen',Date.now()));store.set('mut.lastSeen',Date.now());hzMenu();
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),setDrops:n=>{drops=n},knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
