@@ -123,6 +123,11 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .tabs button[aria-selected="true"]{background:var(--panel2);color:var(--fg)}
 #shareImg{display:block;width:min(62%,250px);aspect-ratio:9/16;margin:0 auto 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);-webkit-user-select:auto;user-select:auto;-webkit-touch-callout:default}
 .card-over .share{border-color:var(--amber);color:var(--amber)}
+.namerow{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
+.namerow label{font:600 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.namerow div{display:flex;gap:8px}
+.namerow input{flex:1;min-width:0;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:400 15px var(--f-body);padding:0 12px;-webkit-user-select:text;user-select:text}
+.namerow input:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
 .board{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .board li{display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--bg)}
 .board li.me{outline:1px solid var(--amber)}
@@ -222,6 +227,7 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
     <h2 id="boardTitle">Рекорды</h2>
     <div class="tabs" role="tablist"><button role="tab" id="tabDay" aria-selected="true">Сегодня</button><button role="tab" id="tabWeek" aria-selected="false">Неделя</button></div>
     <p class="note" id="boardNote">Загрузка…</p>
+    <form class="namerow" id="nameForm" hidden><label for="nameInput">Ваше имя в таблице</label><div><input id="nameInput" maxlength="24" autocomplete="nickname" placeholder="Игрок"><button type="submit">Сохранить</button></div></form>
     <ol class="board" id="board"></ol>
     <div class="row"><button id="boardClose">Закрыть</button><button class="primary" id="boardPlay">Играть забег</button></div>
   </div>
@@ -1019,7 +1025,22 @@ let db=null,user=null,uid=null,boardReady=false;
 })();
 function withTimeout(p,ms){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej({code:'timeout'}),ms))])}
 function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('mut.daily.'+d,0);if(v>0){sum+=v;n++}}return{sum,n}}
+// github.io: shared leaderboard in Supabase (only reads, plus writes through checked functions)
+const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
+const useSupa=()=>!db&&!(window.claude&&window.claude.use)&&/^https?:$/.test(location.protocol);
+function randHex(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return[...a].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function player(){let p=store.get('mut.player',null);
+  if(!p||!p.id||!p.secret){const h=randHex(16);p={id:crypto.randomUUID?crypto.randomUUID():`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`,secret:randHex(24),name:''};store.set('mut.player',p)}
+  return p}
+const playerName=()=>{const p=player();return p.name||'Игрок-'+p.id.slice(0,4).toUpperCase()};
+async function supa(path,body){const r=await withTimeout(fetch(SUPA.url+path,{method:body?'POST':'GET',headers:{apikey:SUPA.key,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}),10000);
+  if(!r.ok)throw{code:'http'+r.status};return r.json()}
+async function supaSubmit(sc,top){const p=player();
+  return await supa('/rest/v1/rpc/mutaciya_submit',{p_player:p.id,p_secret:p.secret,p_name:playerName(),p_day:DAY,p_week:WEEK,p_score:sc,p_top:top,p_streak:streakNow()})}
+$('nameForm').addEventListener('submit',async e=>{e.preventDefault();const v=$('nameInput').value.trim().slice(0,24);const p=player();p.name=v;store.set('mut.player',p);
+  $('nameInput').value=v;try{await supa('/rest/v1/rpc/mutaciya_rename',{p_player:p.id,p_secret:p.secret,p_name:playerName()})}catch(err){}loadBoard()});
 async function submitDaily(sc,top){
+  if(useSupa()){try{const r=await supaSubmit(sc,top);return r==='kept'?'kept':'saved'}catch(e){return'error'}}
   if(!db)return'local';if(!uid)return'anon';
   try{const ref=db.doc('scores/'+uid);const s=await withTimeout(ref.get(),10000);const d=(s.exists&&s.data())||{};
     if(d.day===DAY&&Number(d.score)>=sc)return'kept';
@@ -1041,21 +1062,29 @@ async function loadBoard(){
   const myDay=store.get('mut.daily.'+DAY,0),lw=localWeek();
   const mine=wk?`Ваша сумма за неделю: ${lw.sum} (забегов: ${lw.n}).`:`Ваш рекорд дня: ${myDay}.`;
   if(!boardReady){note.textContent='Подключаюсь к таблице…';return}
-  if(!db){note.textContent='Общая таблица работает в версии игры на claude.ai. Здесь хранятся только ваши результаты. '+mine;return}
+  const supaMode=useSupa();$('nameForm').hidden=!supaMode;if(supaMode&&document.activeElement!==$('nameInput'))$('nameInput').value=player().name||'';
+  if(!db&&!supaMode){note.textContent='Общая таблица работает в версии игры в интернете. Здесь хранятся только ваши результаты. '+mine;return}
   note.textContent='Загрузка…';
   try{
-    const q=wk?db.collection('scores').where('week','==',WEEK).orderBy('weekScore','desc').limit(20)
-              :db.collection('scores').where('day','==',DAY).orderBy('score','desc').limit(20);
-    const snap=await withTimeout(q.get(),10000);if(req!==boardReq)return;
-    const rows=snap.docs.map(d=>({id:d.id,...d.data()}));
-    let names={};try{names=user?await user.profiles(rows.map(r=>r.id)):{}}catch(e){}
+    let rows,names={},meId=uid;
+    if(supaMode){meId=player().id;
+      const cols=wk?'player_id,name,week_score,week_top,days,streak':'player_id,name,score,top,streak';
+      const data=await supa(`/rest/v1/mutaciya_scores?select=${cols}&${wk?'week=eq.'+WEEK+'&order=week_score.desc':'day=eq.'+DAY+'&order=score.desc'}&limit=20`);
+      if(req!==boardReq)return;
+      rows=data.map(r=>({id:r.player_id,name:r.name,score:r.score,top:r.top,weekScore:r.week_score,weekTop:r.week_top,days:r.days,streak:r.streak}))}
+    else{
+      const q=wk?db.collection('scores').where('week','==',WEEK).orderBy('weekScore','desc').limit(20)
+                :db.collection('scores').where('day','==',DAY).orderBy('score','desc').limit(20);
+      const snap=await withTimeout(q.get(),10000);if(req!==boardReq)return;
+      rows=snap.docs.map(d=>({id:d.id,...d.data()}));
+      try{names=user?await user.profiles(rows.map(r=>r.id)):{}}catch(e){}}
     if(req!==boardReq)return;
-    const signIn=uid?'':' Войдите в claude.ai, чтобы попасть в таблицу.';
+    const signIn=supaMode||uid?'':' Войдите в claude.ai, чтобы попасть в таблицу.';
     if(!rows.length)note.textContent=(wk?'На этой неделе ещё никто не играл дневные забеги.':`Сегодня ещё никто не играл забег №${DAY_NO}.`)+' Будьте первым.'+signIn;
     else note.textContent=(wk?'Очки недели — сумма лучших результатов каждого дневного забега. Играйте каждый день, чтобы подняться выше.'
                                :`${DAY_LABEL}: у всех одни и те же образцы. В таблицу идёт лучший результат дня.`)+signIn;
-    rows.forEach((r,i)=>{const li=document.createElement('li');if(r.id===uid)li.className='me';
-      const nm=(names[r.id]&&names[r.id].name)||(r.id===uid?'Вы':'Игрок');
+    rows.forEach((r,i)=>{const li=document.createElement('li');if(r.id===meId)li.className='me';
+      const nm=r.name||(names[r.id]&&names[r.id].name)||(r.id===meId?'Вы':'Игрок');
       const val=wk?Number(r.weekScore)||0:Number(r.score)||0,tp=wk?r.weekTop:r.top;
       const st=Number(r.streak)||0;
       const sub=(wk?'забегов: '+Object.keys(r.days||{}).length+' · ':'')+'дошёл до: '+(FORMS[tp]?FORMS[tp].name:'—')+(st>1?' · серия '+st:'');
