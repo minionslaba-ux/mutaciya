@@ -70,6 +70,7 @@
 - `src/game.html` — исходник страницы. Эта же версия публикуется на claude.ai.
 - `build.py` — собирает `index.html` из исходника и подменяет внешние ресурсы локальными: `python3 build.py`.
 - `src/sw.template.js` — шаблон service worker; `build.py` подставляет версию и список файлов в `sw.js`.
+- `favicon.svg`, `favicon.ico`, `icons/favicon-*.png` — значок вкладки: налитый кровью глаз.
 - `manifest.webmanifest`, `icons/` — установка игры на главный экран.
 - `vendor/` — физика [Matter.js](https://brm.io/matter-js/) 0.19.0 (MIT).
 - `fonts/` — шрифты Rubik Distressed, Rubik Wet Paint, Rubik Glitch, IBM Plex Sans и IBM Plex Mono (SIL OFL), кириллица и латиница.

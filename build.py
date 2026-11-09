@@ -57,7 +57,9 @@ head = """<!doctype html>
 <meta name="description" content="Мутация — хоррор-головоломка со слиянием существ в банке с формалином.">
 """
 head += """<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 """
 # офлайн: service worker регистрируется только на http(s), не на file://
@@ -71,7 +73,7 @@ out = head + font_css + src[:cut] + "\n</head>\n<body>\n" + src[cut:].lstrip("\n
 
 # service worker: версия кэша = хэш всех файлов, чтобы обновления доходили до игроков
 import hashlib
-assets = ["./", "index.html", "manifest.webmanifest", "vendor/matter-0.19.0.min.js"]
+assets = ["./", "index.html", "manifest.webmanifest", "favicon.svg", "favicon.ico", "vendor/matter-0.19.0.min.js"]
 assets += sorted("fonts/" + f.name for f in (ROOT / "fonts").glob("*.woff2"))
 assets += sorted("icons/" + f.name for f in (ROOT / "icons").glob("*.png"))
 h = hashlib.sha256()

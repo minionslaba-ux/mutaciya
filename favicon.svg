@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Мутация: налитый кровью глаз с вертикальным зрачком и каплей крови -->
+  <defs>
+    <radialGradient id="white" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#fbf3e2"/>
+      <stop offset=".75" stop-color="#e6d6b8"/>
+      <stop offset="1" stop-color="#a88f74"/>
+    </radialGradient>
+    <radialGradient id="iris" cx="45%" cy="40%" r="60%">
+      <stop offset="0" stop-color="#ff4a3d"/>
+      <stop offset=".7" stop-color="#c8141a"/>
+      <stop offset="1" stop-color="#5c060a"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="#0c0907"/>
+  <circle cx="32" cy="29" r="22" fill="url(#white)"/>
+  <g stroke="#c8141a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".85">
+    <path d="M11 24c5 1 8 3 10 6"/>
+    <path d="M13 37c4-1 7-1 9 1"/>
+    <path d="M52 22c-5 1-8 4-9 7"/>
+    <path d="M50 38c-4-2-7-2-9 0"/>
+    <path d="M30 8c0 4 1 7 3 9"/>
+  </g>
+  <circle cx="32" cy="29" r="11.5" fill="url(#iris)"/>
+  <ellipse cx="32" cy="29" rx="3" ry="9" fill="#050303"/>
+  <circle cx="28" cy="24.5" r="2.4" fill="#fff" opacity=".9"/>
+  <circle cx="32" cy="29" r="22" fill="none" stroke="#3a1a10" stroke-width="1.5"/>
+  <path d="M32 50c-2.6 4-4 6.4-4 8.4a4 4 0 0 0 8 0c0-2-1.4-4.4-4-8.4z" fill="#c8141a"/>
+</svg>
