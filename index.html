@@ -106,6 +106,10 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .menu.newbie #trialBtn,.menu.newbie #fallBtn,.menu.newbie #jarBtn,.menu.newbie #dailyBtn,.menu.newbie .streak,.menu.newbie .unlock,
 .menu.newbie .menugrid,.menu.newbie .toggles,.menu.newbie .foot,.menu.newbie .demo{display:none}
 .menu.newbie #playBtn{min-height:72px;font-size:21px}
+.prankbtn{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-color:#8a1a1a!important}
+.refline{margin:-4px 0 0;font:400 11px/1.5 var(--f-mono);color:var(--muted);text-align:center}
+.menu.newbie .prankbtn,.menu.newbie .refline{display:none}
+.menu.prank #playBtn,.menu.prank #newbieBox{display:none!important}
 .newbie-box{display:flex;flex-direction:column;gap:10px;text-align:center}
 .newbie-box p{margin:0;font:400 12px/1.5 var(--f-mono);color:var(--muted)}
 .newbie-box .warn{color:#ff8a7e}
@@ -340,6 +344,7 @@ body{height:100vh;height:100dvh}
         <p id="overText">Высшая форма: —</p>
         <p id="overBoard" hidden></p>
         <button class="share" id="shareBtn">Поделиться результатом</button>
+        <button class="prankbtn" id="overPrank">😈 Напугать друга</button>
         <div class="row"><button id="overMenu">Меню</button><button class="primary" id="again">Ещё раз</button></div>
       </div>
     </div>
@@ -364,7 +369,7 @@ body{height:100vh;height:100dvh}
     <h1>МУТАЦИЯ</h1>
     <p class="tag">Банка с формалином. Сливай одинаковых — они мутируют.<br>Не дай банке переполниться.</p>
     <div class="challenge" id="chalCard" hidden>
-      <b>Вас вызвали</b>
+      <b id="chalHead">Вас вызвали</b>
       <p id="chalText"></p>
       <button class="primary" id="chalBtn">Принять вызов</button>
     </div>
@@ -387,6 +392,8 @@ body{height:100vh;height:100dvh}
       <button id="achBtn">Достижения<small id="achCount">0</small></button>
       <button id="menuBoardBtn">Рекорды<small>день, неделя</small></button>
     </div>
+    <button class="prankbtn" id="prankBtn">😈 Напугать друга<small>спор на «Глаз», а потом — скример</small></button>
+    <p class="refline" id="refLine" hidden></p>
     <div class="toggles">
       <button id="tSound" aria-pressed="true">Звук</button>
       <button id="tScare" aria-pressed="true">Хоррор-эффекты</button>
@@ -466,6 +473,17 @@ body{height:100vh;height:100dvh}
   </div>
 </div>
 
+<div class="scrim" id="prankSheet" hidden>
+  <div class="sheet" role="dialog" aria-label="Розыгрыш">
+    <div class="grip"></div>
+    <h2>Попался! 😈</h2>
+    <p class="note">Это был розыгрыш: друг прислал тебе банку с сюрпризом. Теперь твоя очередь — отправь её тому, кого не жалко.</p>
+    <p class="note" id="prankNote"></p>
+    <div class="row"><button class="primary" id="prankSend">Напугать друга</button></div>
+    <div class="row"><button id="prankPlay">Играть дальше</button></div>
+    <p class="note">16+. Скримеры выключаются в меню: «Хоррор-эффекты» или «Спокойный режим».</p>
+  </div>
+</div>
 <div class="scrim" id="shareSheet" hidden>
   <div class="sheet" role="dialog" aria-label="Поделиться результатом">
     <div class="grip"></div>
@@ -593,9 +611,12 @@ const PUBLIC_URL=/^https?:$/.test(location.protocol)&&!(window.claude&&window.cl
 const DAILY_JAR=(()=>{const wd=(new Date(DAY+'T00:00:00Z').getUTCDay()+6)%7;return['normal','viscous','narrow','shaky','dark','normal',JAR_KEYS[1+hashStr('jar:'+DAY)%4]][wd]})();
 const GAME_URL=PUBLIC_URL||'https://mutaciya.com/';
 // challenge link: #vyzov-<seed base36>-<score>
-let challenge=null;{const m=/^#vyzov-([0-9a-z]{1,8})-(\d{1,7})((?:-[a-z]{1,10}){0,2})$/.exec(location.hash);
+// реф: 8 hex-символов игрока, пригласившего по ссылке (#vyzov-…-r<ref>, #napugai-<ref>, #ref-<ref>)
+let challenge=null,REF_IN=null,prank=null;{const m=/^#vyzov-([0-9a-z]{1,8})-(\d{1,7})((?:-[a-z0-9]{1,10}){0,3})$/.exec(location.hash);
   if(m){challenge={seed:parseInt(m[1],36)>>>0,target:+m[2],jar:'normal',fall:false};
-    for(const seg of m[3].split('-').filter(Boolean)){if(seg==='pad')challenge.fall=true;else if(JARS[seg])challenge.jar=seg}}}
+    for(const seg of m[3].split('-').filter(Boolean)){if(seg==='pad')challenge.fall=true;else if(/^r[0-9a-f]{8}$/.test(seg))REF_IN=seg.slice(1);else if(JARS[seg])challenge.jar=seg}}
+  const pr=/^#napugai(?:-([0-9a-f]{8}))?$/.exec(location.hash);if(pr){prank={started:false,at:0,done:false};REF_IN=pr[1]||null}
+  const rf=/^#ref-([0-9a-f]{8})$/.exec(location.hash);if(rf)REF_IN=rf[1]}
 function hashStr(s){let h=2166136261;for(const ch of s){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
 
 // ---------- helpers ----------
@@ -878,6 +899,25 @@ function makeSeq(seed){const R=rng(seed);let lastAnom=true;
     // уровень растёт с бросками: образцы крупнее (Глаз → Пиявка → Червивец)
     if(L>=2&&up<Math.min(.42,(L-1)*.06))return Math.min(LV.wormy,Math.max(base+1,LV.larva)+(L>=5&&up<.08?1:0)+(L>=8&&up<.04?1:0));
     return base}}}
+// ---------- розыгрыш «Напугай друга»: спор на «Глаз», через 20–30 с — скример, потом «твоя очередь» ----------
+function myRef(){return player().id.replace(/-/g,'').slice(0,8)}
+function prankUrl(){return GAME_URL+'#napugai-'+myRef()}
+function prankText(){return'Спорим, не выведешь «Глаз» в этой банке быстрее чем за минуту? 🧪👁 '+prankUrl()}
+function startPrank(){prank.started=true;prank.at=performance.now()+20000+Math.random()*10000;track('prank_open',{});startMode('classic');updNewbie()}
+function prankTick(now){if(!prank||!prank.started||prank.done||over||paused||scream||now<prank.at)return;prank.done=true;
+  if(!opts.scare){$('prankSheet').hidden=false;$('prankNote').textContent='Скример не показан: у вас выключены хоррор-эффекты.';paused=true;return}
+  track('prank_scared',{score});startScream(Math.max(LV.maw,topLvl));setTimeout(()=>{paused=true;$('prankSheet').hidden=false},SCREAM_MS+900)}
+async function sendPrank(where){track('prank_send',{where});const t=prankText();
+  try{if(navigator.share){await navigator.share({text:t});return true}}catch(e){if(e&&e.name==='AbortError')return false}
+  try{await navigator.clipboard.writeText(t);return 'copied'}catch(e){return t}}
+// ---------- рефералы: сколько новых игроков пришло по моим ссылкам ----------
+let refCount=store.get('mut.refs',0);
+const REF_REWARDS=[[1,'toxic','ядовитый формалин'],[3,'violet','фиолетовый формалин'],[10,'gold','золотой формалин']];
+function updRefs(){const el=$('refLine');if(!el)return;const nx=REF_REWARDS.find(r=>refCount<r[0]);
+  el.hidden=!PUBLIC_URL&&!refCount;el.textContent=`Друзей пришло по вашим ссылкам: ${refCount}`+(nx?` · за ${nx[0]} — ${nx[2]}`:' · все награды открыты')}
+async function loadRefs(){if(!useSupa())return;try{const n=await supa('/rest/v1/rpc/mutaciya_refs',{p_ref:myRef()});if(typeof n==='number'){
+  const was=refCount;refCount=n;store.set('mut.refs',n);updRefs();const got=REF_REWARDS.filter(r=>was<r[0]&&n>=r[0]);
+  for(const r of got)toast('Друг пришёл по вашей ссылке','Открыт '+r[2],'Выбрать цвет: «Достижения» → внизу «Формалин».')}}catch(e){}}
 // давление, как в тетрисе: «Классика», дневной забег и вызов (не «Падение» и не испытания)
 const isPress=()=>(mode==='classic'||mode==='daily'||mode==='challenge')&&!isFall();
 const PRESS_EVERY=30;
@@ -1475,7 +1515,8 @@ const stats=Object.assign({trialsDone:0,ebola:0,trips:0,panic:0,leaks:0,worms:0,
 const saveStats=()=>store.set('mut.stats',stats);
 let ach=store.get('mut.ach',{});
 const LIQ={amber:{name:'Янтарный',c:['#5c4a1d','#2a200b'],days:0},emerald:{name:'Изумрудный',c:['#1f5a44','#0b2219'],days:3},
-  blood:{name:'Кровавый',c:['#5e1c20','#240809'],days:7},black:{name:'Чёрный',c:['#232326','#060607'],days:30}};
+  blood:{name:'Кровавый',c:['#5e1c20','#240809'],days:7},black:{name:'Чёрный',c:['#232326','#060607'],days:30},
+  toxic:{name:'Ядовитый',c:['#3f6a12','#132205'],refs:1},violet:{name:'Фиолетовый',c:['#3f1d5e','#14081f'],refs:3},gold:{name:'Золотой',c:['#7a5a12','#2a1c04'],refs:10}};
 const LIQ_CYCLE=[['#5a5a16','#1f2106'],['#432060','#140820'],['#1d5c3c','#061d10'],['#62330f','#211004'],['#5c4a1d','#2a200b']];
 function hexMix(a,b,k){const pa=parseInt(a.slice(1),16),pb=parseInt(b.slice(1),16);const m=(sh)=>Math.round(((pa>>sh)&255)*(1-k)+((pb>>sh)&255)*k);
   return'#'+[m(16),m(8),m(0)].map(v=>v.toString(16).padStart(2,'0')).join('')}
@@ -1564,7 +1605,8 @@ function updUnlock(){const el=$('unlockLine');if(!el)return;
   if(next==null){el.textContent='';return}
   const left=next-g;el.innerHTML='';el.append(`Через ${left} ${plural(left,'партию','партии','партий')} откроется: `);const b=document.createElement('b');b.textContent=unlockedAt(next).join(', ');el.append(b)}
 function isNewbie(){return stats.games===0&&!store.get('mut.tut',false)&&!challenge}
-function updNewbie(){const nb=isNewbie();document.querySelector('.menu').classList.toggle('newbie',nb);$('newbieBox').hidden=!nb;
+function prankPending(){return !!(prank&&!prank.started)}
+function updNewbie(){const nb=isNewbie()||prankPending();document.querySelector('.menu').classList.toggle('newbie',nb);document.querySelector('.menu').classList.toggle('prank',prankPending());$('newbieBox').hidden=!nb;updRefs();
   const mid=started&&!over;$('playLbl').textContent=nb?(mid?'Начать заново':'Начать смену'):'Играть';$('playSub').textContent=nb?(mid?'новая смена с обучением':'обучение — 20 секунд'):'классика · случайные образцы';
   const tag=document.querySelector('.menu .tag');if(nb&&tag&&!tag.classList.contains('whisper'))tag.innerHTML='Сливай двух одинаковых мутантов — получишь нового, страшнее.<br>Не дай банке переполниться.'}
 function updProg(){updUnlock();updNewbie();
@@ -1587,8 +1629,8 @@ function renderAch(){
     d.innerHTML='<b></b><span></span>';d.querySelector('b').textContent=name;d.querySelector('span').textContent=desc;g.appendChild(d)}
   $('achNote').textContent=`Получено ${Object.keys(ach).length} из ${ACH.length}. Лучшая серия: ${streak.best} ${plural(streak.best,'день','дня','дней')}.`;
   const lq=$('liquids');lq.innerHTML='';
-  for(const [k,l] of Object.entries(LIQ)){const b=document.createElement('button');const open=streak.best>=l.days;
-    b.innerHTML=`<i style="background:${l.c[0]}"></i>`;b.append(open?l.name:`${l.name} · серия ${l.days}`);b.disabled=!open;
+  for(const [k,l] of Object.entries(LIQ)){const b=document.createElement('button');const open=l.refs?refCount>=l.refs:streak.best>=l.days;
+    b.innerHTML=`<i style="background:${l.c[0]}"></i>`;b.append(open?l.name:l.refs?`${l.name} · ${l.refs} ${plural(l.refs,'друг','друга','друзей')}`:`${l.name} · серия ${l.days}`);b.disabled=!open;
     b.setAttribute('aria-pressed',String((opts.liquid||'amber')===k));b.onclick=()=>{opts.liquid=k;saveOpts();renderAch()};lq.appendChild(b)}
 }
 
@@ -1779,18 +1821,25 @@ $('achBtn').onclick=()=>{renderAch();openSheet('achSheet')};$('achClose').onclic
 $('boardPlay').onclick=()=>{$('boardSheet').hidden=true;resumeAfterSheet=false;startMode('daily')};
 
 function openMenu(){if(window.__DEMO){stopDemo(false);return}paused=true;$('menu').hidden=false;updProg();pausedAt=Date.now();$('pauseNote').hidden=true;
-  $('chalCard').hidden=!challenge;if(challenge)$('chalText').textContent=`Побейте ${challenge.target} ${plural(challenge.target,'очко','очка','очков')}`+(challenge.fall?' в режиме «Падение»: мутанты падают сами':'')+`. У вас будут те же образцы, что и у друга`+((JARS[challenge.jar]&&challenge.jar!=='normal')?`, банка: ${JARS[challenge.jar].name.toLowerCase()}.`:'.');
+  $('chalCard').hidden=!challenge&&!prankPending();
+  if(prankPending()){$('chalHead').textContent='Друг прислал тебе банку';$('chalText').textContent='Спорим, не выведешь «Глаз» быстрее чем за минуту? Сливай одинаковых мутантов — они растут. 16+';$('chalBtn').textContent='Принять спор'}if(challenge)$('chalText').textContent=`Побейте ${challenge.target} ${plural(challenge.target,'очко','очка','очков')}`+(challenge.fall?' в режиме «Падение»: мутанты падают сами':'')+`. У вас будут те же образцы, что и у друга`+((JARS[challenge.jar]&&challenge.jar!=='normal')?`, банка: ${JARS[challenge.jar].name.toLowerCase()}.`:'.');
   $('resumeBtn').hidden=!(started&&!over);$('resumeSub').textContent=(mode==='trial'?`испытание ${trialIdx+1} · `:mode==='daily'?`дневной забег · `:isFall()?'падение · ':'классика · ')+score+' очков'}
 function startMode(m){unlockAudio();toastQ.length=0;setTimeout(tutStart,0);if(m==='trial')track('trial_start',{id:TRIALS[trialIdx].id});$('menu').hidden=true;newGame(m);paused=false;track('game_start',{jar:jarKey,lab:Math.min(labLvl(),9),games:stats.games});cv.focus({preventScroll:true})}
 $('menuBtn').onclick=openMenu;
 $('resumeBtn').onclick=()=>{$('menu').hidden=true;paused=false;cv.focus({preventScroll:true})};
 $('playBtn').onclick=()=>startMode('classic');
+async function prankBtn(noteEl){const r=await sendPrank(noteEl);const n=$(noteEl);if(!n)return;
+  n.textContent=r==='copied'?'Ссылка скопирована — отправьте её другу.':typeof r==='string'?'Скопируйте и отправьте другу: '+r:''}
+$('prankBtn').onclick=()=>prankBtn('refLine');
+$('overPrank').onclick=()=>prankBtn('overText');
+$('prankSend').onclick=()=>prankBtn('prankNote');
+$('prankPlay').onclick=()=>{$('prankSheet').hidden=true;paused=false;cv.focus({preventScroll:true})};
 $('calmStart').onclick=()=>{if(!opts.calm)toggle('calm');startMode('classic');toast('Спокойный режим','Без скримеров и аномалий','Обычный режим включается в меню: «Спокойный режим».')};
 $('trialBtn').onclick=()=>{renderTrials();openSheet('trialSheet')};$('trialClose').onclick=()=>closeSheet('trialSheet');
 $('trialSheet').addEventListener('click',e=>{if(e.target.id==='trialSheet')closeSheet('trialSheet')});
 $('fallBtn').onclick=()=>startMode('fall');
 $('abDown').onclick=()=>{if(isFall()&&!over&&!paused){fastFall=true;cv.focus({preventScroll:true})}};
-$('chalBtn').onclick=()=>{track('challenge_accept',{target:challenge&&challenge.target});startMode('challenge')};
+$('chalBtn').onclick=()=>{if(prankPending()){startPrank();return}track('challenge_accept',{target:challenge&&challenge.target});startMode('challenge')};
 $('dailyBtn').onclick=()=>startMode('daily');
 $('again').onclick=()=>{if(mode==='trial'&&won&&trialIdx<TRIALS.length-1)trialIdx++;startMode(mode)};
 $('overMenu').onclick=openMenu;
@@ -1821,7 +1870,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.10c';
+const APP_VER='2026.11.10d';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -1906,9 +1955,14 @@ async function loadBoard(){
 }
 
 function modeLabel(){return mode==='trial'&&trial?'Испытание: '+trial.def.name:mode==='daily'?`Дневной забег №${DAY_NO} · ${DAY_LABEL}`:mode==='challenge'?(isFall()?'Вызов · Падение':'Вызов'):isFall()?'Падение':'Классика'}
-function chalUrl(){return GAME_URL+'#vyzov-'+(gameSeed>>>0).toString(36)+'-'+score+(jarKey!=='normal'?'-'+jarKey:'')+(isFall()?'-pad':'')}
-function shareText(){return`Мутация: ${score} очков, вывел форму «${FORMS[topLvl].name}». ${modeLabel()}. Сможешь больше?`+(PUBLIC_URL?' '+PUBLIC_URL:'')}
-function chalText(){return`Вызываю тебя в «Мутации»${isFall()?' (режим «Падение»)':''}: побей ${score} очков на тех же образцах. ${chalUrl()}`}
+function chalUrl(){return GAME_URL+'#vyzov-'+(gameSeed>>>0).toString(36)+'-'+score+(jarKey!=='normal'?'-'+jarKey:'')+(isFall()?'-pad':'')+'-r'+myRef()}
+const EMO={drop:'💧',spore:'🍄',slug:'🐌',larva:'🐛',eye:'👁',leech:'🩸',wormy:'🪱',teeth:'🦷',multi:'👀',brain:'🧠',clot:'🫀',maw:'👄',beast:'👹',cocoon:'🥚',queen:'👑'};
+function emoChain(){const top=Math.min(topLvl,MAX);let s='';for(let i=0;i<=top;i++)s+=EMO[FORMS[i].id]||'';
+  const v=FORMS.filter((f,i)=>f.virus&&found.has(i)&&seenThisGame&&seenThisGame.has(i)).length;return s+(v?' '+'🦠'.repeat(Math.min(v,5)):'')}
+function shareText(){const canChal=mode!=='trial';
+  return[`🧪 Мутация · ${modeLabel()}`,`${score} ${plural(score,'очко','очка','очков')}`+(isPress()?` · уровень ${pressLvl()}`:'')+` · ${FORMS[topLvl].name}`,emoChain(),
+    canChal?`Побьёшь на тех же образцах? ${chalUrl()}`:`Сможешь больше? ${GAME_URL}#ref-${myRef()}`].join('\n')}
+function chalText(){return`Вызываю тебя в «Мутации»${isFall()?' (режим «Падение»)':''}: побей ${score} очков на тех же образцах. ${emoChain()} ${chalUrl()}`}
 async function makeShareCanvas(){
   try{await Promise.all(['112px "Rubik Wet Paint"','96px "Rubik Distressed"','600 34px "IBM Plex Mono"','36px "IBM Plex Sans"'].map(f=>document.fonts.load(f)))}catch(e){}
   const c=document.createElement('canvas');c.width=1080;c.height=1920;const g=c.getContext('2d');
@@ -2066,7 +2120,7 @@ function perfTick(dt,live){if(!live||opts.lite||PERF.checked||document.hidden)re
 function frame(now){
   const dt=Math.min(50,now-last);last=now;const t=now/1000;
   if(engine&&!paused&&!over&&!scream){acc+=dt;while(acc>=1000/60){Engine.update(engine,1000/60);acc-=1000/60;if(queue.length||mutQ.length)processMerges()}
-    parasiteTick(dt);specialTick(dt);pressTick(dt);if(isFall())fallTick(dt,now);
+    parasiteTick(dt);specialTick(dt);pressTick(dt);prankTick(now);if(isFall())fallTick(dt,now);
     const bad=bodies.some(b=>now-b.born>1500&&b.position.y-b.circleRadius<RIM&&b.speed<2.5);
     danger=bad?danger+dt:Math.max(0,danger-dt*2);
     if(danger>2400){if(canFake())fakeOver();else gameOver()}
@@ -2130,7 +2184,9 @@ function frame(now){
 for(const evn of ['pointerdown','touchend','click','keydown'])document.addEventListener(evn,()=>{if(!ac||ac.state!=='running')unlockAudio()},{capture:true,passive:true});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){try{ac&&ac.suspend()}catch(e){}}else if(ac&&opts.sound){try{ac.resume()}catch(e){}}});
 store.set('mut.lastSeenPrev',store.get('mut.lastSeen',Date.now()));store.set('mut.lastSeen',Date.now());hzMenu();
-track('session_start',{first:AN.firstRun,games:stats.games,app:!!(matchMedia('(display-mode: standalone)').matches||navigator.standalone),w:innerWidth,h:innerHeight,lang:(navigator.language||'').slice(0,5),challenge:!!challenge});
+if(REF_IN&&!store.get('mut.refIn',null)&&AN.firstRun)store.set('mut.refIn',REF_IN);
+setTimeout(loadRefs,3000);
+track('session_start',{ref:AN.firstRun?REF_IN:null,prank:!!prank,first:AN.firstRun,games:stats.games,app:!!(matchMedia('(display-mode: standalone)').matches||navigator.standalone),w:innerWidth,h:innerHeight,lang:(navigator.language||'').slice(0,5),challenge:!!challenge});
 applyLite();
 // test hook, only with #test in the address
 if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};

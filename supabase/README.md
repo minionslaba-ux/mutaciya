@@ -19,6 +19,7 @@
 | `/mut_funnel` · `/mut_retention` | воронка · удержание на 1-й и 7-й день |
 | `/mut_modes` · `/mut_deaths` · `/mut_forms` · `/mut_devices` | режимы и испытания · чем кончаются партии · мутанты и скримеры · устройства и настройки |
 | `/mut_health` · `/mut_errors` · `/mut_promo` | состояние · ошибки JS у игроков (событие `error`) · пост дня рассылки |
+| `/mut_viral [дней]` | розыгрыши, вызовы, приглашения, кто привёл больше всех (`mutaciya_viral`) |
 | `/mut_hide ID` | сбросить неприличное имя в таблице рекордов |
 
 Посмотреть код функций: `select pg_get_functiondef('public.mutaciya_bot(text,text)'::regprocedure);`
@@ -34,3 +35,10 @@ select public.mutaciya_report_period('2026-11-04', '2026-11-10'); -- за пер
 
 Сменить время: `select cron.alter_job((select jobid from cron.job where jobname='mutaciya-report'), schedule := '7 6 * * *');` (время в UTC).
 Выключить: `select cron.unschedule('mutaciya-report');`
+
+## Вирусные ссылки
+
+- `#napugai-<ref>` — розыгрыш «Напугай друга»: спор на «Глаз», через 20–30 с скример, потом «Твоя очередь».
+- `#vyzov-<seed>-<очки>[-<банка>][-pad]-r<ref>` — вызов на тех же образцах; `#ref-<ref>` — просто приглашение.
+- `<ref>` — первые 8 hex-символов id игрока. Новый игрок, пришедший по ссылке, пишет `ref` в `session_start`;
+  `public.mutaciya_refs(ref)` (доступна всем, отдаёт только число) считает их — за 1/3/10 друзей открываются цвета формалина.
