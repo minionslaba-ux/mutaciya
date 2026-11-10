@@ -873,7 +873,28 @@ function makeSeq(seed){const R=rng(seed);let lastAnom=true;
     if(!lastAnom){let a=null;
       let acc=0;for(const [k,pr,min] of ANOM_TABLE){if(v>=acc&&v<acc+pr){if(drops>min)a=k;break}acc+=pr}if(a&&!isOpen(a))a=null;
       if(a){lastAnom=true;return a}}
-    lastAnom=false;const vr=R();if(drops>6&&vr<.075&&isOpen('virus'))return vr<.02?LV.corona:LV.phage;return POOL[Math.floor(R()*POOL.length)]}}}
+    lastAnom=false;const vr=R();if(drops>6&&vr<.075&&isOpen('virus'))return vr<.02?LV.corona:LV.phage;
+    const base=POOL[Math.floor(R()*POOL.length)],up=R(),L=pressLvl();
+    // уровень растёт с бросками: образцы крупнее (Глаз → Пиявка → Червивец)
+    if(L>=2&&up<Math.min(.42,(L-1)*.06))return Math.min(LV.wormy,Math.max(base+1,LV.larva)+(L>=5&&up<.08?1:0)+(L>=8&&up<.04?1:0));
+    return base}}}
+// давление, как в тетрисе: «Классика», дневной забег и вызов (не «Падение» и не испытания)
+const isPress=()=>(mode==='classic'||mode==='daily'||mode==='challenge')&&!isFall();
+const PRESS_EVERY=30;
+function pressLvl(){return isPress()?1+Math.floor(Math.max(0,drops-2)/PRESS_EVERY):0}
+const PRESS={t:0,warn:null,lvl:1,R:null};
+function pressInterval(L){return Math.max(6000,22000-2000*(L-3))}
+function pressReset(){PRESS.t=0;PRESS.warn=null;PRESS.lvl=1;PRESS.R=rng((gameSeed^0x51ed270b)>>>0)}
+function pressTick(dt){if(!isPress()||window.__DEMO)return;const L=pressLvl();
+  if(L>PRESS.lvl){PRESS.lvl=L;updHud();
+    toast('Уровень '+L,L===2?'Образцы крупнее':L===3?'Лаборатория начала подсыпать образцы':'Подсыпка каждые '+Math.round(pressInterval(L)/1000)+' с',
+      L===2?'Чем дольше смена, тем крупнее то, что падает в банку.':L===3?'Сверху мигнёт метка — туда упадёт лишний образец. Освободите место.':'')}
+  if(L<3)return;PRESS.t+=dt;const iv=pressInterval(L);
+  if(!PRESS.warn&&PRESS.t>iv-1500){const r=PRESS.R;PRESS.warn={x:JL+30+r()*(JR-JL-60),k:Math.floor(r()*3)+(L>=7&&r()<.3?1:0),t0:performance.now()}}
+  if(PRESS.warn&&PRESS.t>=iv){const w=PRESS.warn;PRESS.t=0;PRESS.warn=null;const b=spawn(w.k,w.x,SPAWN_Y+10);b.born=performance.now();floater(w.x,SPAWN_Y+44,'подсыпка',false,'#ff8a7e');plop()}}
+function drawPress(now){const w=PRESS.warn;if(!w||over||paused)return;const k=(now-w.t0)/1500,a=.45+.55*Math.abs(Math.sin(now/110));
+  ctx.save();ctx.globalAlpha=a;ctx.fillStyle='#ff4a3d';ctx.beginPath();ctx.moveTo(w.x-11,RIM-26);ctx.lineTo(w.x+11,RIM-26);ctx.lineTo(w.x,RIM-10);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(255,74,61,.5)';ctx.setLineDash([4,6]);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(w.x,RIM-8);ctx.lineTo(w.x,RIM+40+k*80);ctx.stroke();ctx.restore()}
 
 const isFall=()=>mode==='fall'||(mode==='challenge'&&!!challenge&&challenge.fall);
 // progressive unlocks: the lab opens anomalies and events one game at a time; daily runs and challenges are always complete
@@ -901,7 +922,7 @@ function newGame(m){
   Events.on(engine,'collisionStart',e=>pairs(e.pairs));Events.on(engine,'collisionActive',e=>pairs(e.pairs));
   bodies=[];queue=[];mutQ=[];particles=[];floaters=[];shot=null;crushedGame=0;score=0;danger=0;over=false;topLvl=0;seenThisGame=new Set();
   for(let i=0;i<5;i++){const l=Math.floor(R0()*3);const b=spawn(l,JL+36+R0()*(JR-JL-72),FLOOR-50-i*28);b.born=-1e9}
-  cur=seq.next();nxt=seq.next();
+  cur=seq.next();nxt=seq.next();pressReset();
   $('over').hidden=true;started=true;
   if(m==='trial')trialStart();else{trial=null;won=false}
   $('modeChip').textContent=(m==='trial'?`Испытание ${trialIdx+1}`:m==='daily'?`Дневной забег №${DAY_NO}`:m==='challenge'?`Вызов ${challenge.target}`+(challenge.fall?' · падение':''):m==='fall'?'Падение':'Классика')+(jarKey!=='normal'?' · '+jar.name:'');
@@ -1702,7 +1723,7 @@ function stopDemo(done){if(!window.__DEMO)return;demoTimers.forEach(clearTimeout
 $('demoBtn').onclick=startDemo;$('demoBar').onclick=()=>stopDemo(false);
 
 // ---------- HUD & UI ----------
-function updHud(){$('score').textContent=score;if(typeof updLeak==='function'&&HZ.leak)updLeak();$('bestLine').textContent=mode==='trial'&&trial?trialGoalText():mode==='challenge'&&challenge?'цель '+challenge.target+(isFall()?` · уровень ${fallLevel()}`:''):isFall()?`уровень ${fallLevel()} · рекорд ${bestScore()}`:(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
+function updHud(){$('score').textContent=score;if(typeof updLeak==='function'&&HZ.leak)updLeak();$('bestLine').textContent=mode==='trial'&&trial?trialGoalText():mode==='challenge'&&challenge?'цель '+challenge.target+(isFall()?` · уровень ${fallLevel()}`:''):isFall()?`уровень ${fallLevel()} · рекорд ${bestScore()}`:(isPress()?`уровень ${pressLvl()} · `:'')+(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
   const unread=formsFound().filter(i=>!loreRead.has(i)).length;
   $('regCount').textContent=formsFound().length+'/'+FORMS.length+(unread?` · ${unread} нов.`:'')}
 const nctx=$('next').getContext('2d');
@@ -1800,7 +1821,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.10b';
+const APP_VER='2026.11.10c';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -1943,7 +1964,7 @@ $('shareCopy').onclick=()=>{const t=shareText();
   navigator.clipboard.writeText(t).then(()=>shareNote('Текст скопирован.'),()=>shareNote(t))};
 
 function gameOver(reason){
-  track('game_end',{score,top:topLvl,dur:Math.round(HZ.t/1000),drops,reason:reason||'overflow',lab:Math.min(labLvl(),9),cracks:HZ.cracks.length});anFlush();
+  track('game_end',{lvl:pressLvl(),score,top:topLvl,dur:Math.round(HZ.t/1000),drops,reason:reason||'overflow',lab:Math.min(labLvl(),9),cracks:HZ.cracks.length});anFlush();
   $('leakPop').hidden=true;
   $('overTitle').textContent=reason==='win'?'Испытание пройдено':reason==='crack'?'Банка лопнула':'Банка переполнена';
   if(mode==='trial'&&reason!=='win'&&trial)track('trial_end',{id:trial.def.id,win:false,score,dur:Math.round(HZ.t/1000)});
@@ -2045,7 +2066,7 @@ function perfTick(dt,live){if(!live||opts.lite||PERF.checked||document.hidden)re
 function frame(now){
   const dt=Math.min(50,now-last);last=now;const t=now/1000;
   if(engine&&!paused&&!over&&!scream){acc+=dt;while(acc>=1000/60){Engine.update(engine,1000/60);acc-=1000/60;if(queue.length||mutQ.length)processMerges()}
-    parasiteTick(dt);specialTick(dt);if(isFall())fallTick(dt,now);
+    parasiteTick(dt);specialTick(dt);pressTick(dt);if(isFall())fallTick(dt,now);
     const bad=bodies.some(b=>now-b.born>1500&&b.position.y-b.circleRadius<RIM&&b.speed<2.5);
     danger=bad?danger+dt:Math.max(0,danger-dt*2);
     if(danger>2400){if(canFake())fakeOver();else gameOver()}
@@ -2090,7 +2111,7 @@ function frame(now){
     if(jar.dark||darkUntil>now||isTrial('uv'))drawDark(now,(jar.dark||isTrial('uv'))&&!(darkUntil>now));
     drawGlass();
     drawHorror(now,t);
-    drawTut(now);
+    drawTut(now);drawPress(now);
     ctx.textAlign='center';for(const f of floaters){ctx.globalAlpha=Math.min(1,f.life*1.5);ctx.font=f.big?'22px "Rubik Distressed",sans-serif':'600 13px "IBM Plex Mono",monospace';
       ctx.fillStyle='#000';ctx.fillText(f.text,f.x+1,f.y+1);ctx.fillStyle=f.col||(f.big?'#f0c060':'#ece3cb');ctx.fillText(f.text,f.x,f.y)}ctx.globalAlpha=1;
     if(flash>.02){ctx.fillStyle=`rgba(255,200,120,${flash*.25})`;ctx.fillRect(0,0,W,H)}
