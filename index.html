@@ -566,7 +566,8 @@ const WEEK_DAYS=(()=>{const d=new Date(DAY+'T00:00:00Z'),wd=(d.getUTCDay()+6)%7;
 const WEEK=(()=>{const d=new Date(WEEK_DAYS[3]+'T00:00:00Z'),y=d.getUTCFullYear(),j=new Date(Date.UTC(y,0,1));return y+'-W'+String(1+Math.floor((d-j)/864e5/7)).padStart(2,'0')})();
 const fmtD=(s,o)=>new Date(s+'T12:00:00Z').toLocaleDateString('ru-RU',Object.assign({timeZone:'UTC'},o));
 const WEEK_LABEL=fmtD(WEEK_DAYS[0],{day:'numeric'})+'–'+fmtD(WEEK_DAYS[6],{day:'numeric',month:'long'});
-const PUBLIC_URL=/github\.io$/.test(location.hostname)?location.origin+location.pathname:'';
+// public site: own domain mutaciya.com (and the old github.io address)
+const PUBLIC_URL=/(^|\.)mutaciya\.com$/.test(location.hostname)?'https://mutaciya.com/':/github\.io$/.test(location.hostname)?location.origin+location.pathname:'';
 const DAILY_JAR=(()=>{const wd=(new Date(DAY+'T00:00:00Z').getUTCDay()+6)%7;return['normal','viscous','narrow','shaky','dark','normal',JAR_KEYS[1+hashStr('jar:'+DAY)%4]][wd]})();
 const GAME_URL=PUBLIC_URL||'https://claude.ai/artifact/Njo5eJhjmUbe5YmKp7wy1F';
 // challenge link: #vyzov-<seed base36>-<score>
