@@ -92,7 +92,7 @@ DEMO = '<button class="demo" id="demoBtn">Демо для показа · 60 с�
 assert src.count(DEMO) == 1, "кнопка демо в меню изменилась"
 legal = ('<p class="site-legal"><a href="ob-igre.html" target="_blank" rel="noopener">Об игре</a> · <a href="tseny.html" target="_blank" rel="noopener">Цены</a> · '
          '<a href="oferta.html" target="_blank" rel="noopener">Оферта</a> · <a href="politika.html" target="_blank" rel="noopener">Персональные данные</a> · '
-         '<a href="pravila.html" target="_blank" rel="noopener">Правила</a> · <a href="kontakty.html" target="_blank" rel="noopener">Контакты</a><br>'
+         '<a href="pravila.html" target="_blank" rel="noopener">Правила</a> · <a href="kontakty.html" target="_blank" rel="noopener">Контакты</a> · <a href="karta-sajta.html" target="_blank" rel="noopener">Карта сайта</a><br>'
          'Создатель — Моисеенко Константин Иванович · ИНН 470313493504 · 16+</p>')
 src = src.replace(DEMO, DEMO + "\n    " + legal)
 safe_css += "<style>.site-legal{margin:14px 0 0;font:400 11px/1.7 var(--f-mono);color:var(--muted);text-align:center;letter-spacing:.02em}.site-legal a{color:var(--muted);text-underline-offset:2px}.site-legal a:hover{color:var(--fg)}</style>\n"

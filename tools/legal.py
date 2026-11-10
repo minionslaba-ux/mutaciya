@@ -45,7 +45,7 @@ kbd{font:13px "IBM Plex Mono",monospace;padding:1px 6px;border:1px solid var(--l
 footer{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
 footer a{color:var(--muted)}"""
 
-FOOT = f"""<footer>«Мутация» · <a href="ob-igre.html">Об игре</a> · <a href="tseny.html">Цены</a> · <a href="kontakty.html">Контакты</a> · <a href="oferta.html">Публичная оферта</a> · <a href="politika.html">Персональные данные</a> · <a href="pravila.html">Правила игры</a><br>{OWNER} · ИНН {INN} · <a href="mailto:piter_00000@mail.ru">piter_00000@mail.ru</a></footer>"""
+FOOT = f"""<footer>«Мутация» · <a href="ob-igre.html">Об игре</a> · <a href="tseny.html">Цены</a> · <a href="kontakty.html">Контакты</a> · <a href="oferta.html">Публичная оферта</a> · <a href="politika.html">Персональные данные</a> · <a href="pravila.html">Правила игры</a> · <a href="karta-sajta.html">Карта сайта</a><br>{OWNER} · ИНН {INN} · <a href="mailto:piter_00000@mail.ru">piter_00000@mail.ru</a></footer>"""
 
 
 def page(fn, title, desc, other, body, og=False):
@@ -360,10 +360,35 @@ page('kontakty.html', 'Контакты и реквизиты', f'Контакт
     <li><a href="oferta.html">Публичная оферта</a></li>
     <li><a href="politika.html">Политика обработки персональных данных</a></li>
     <li><a href="pravila.html">Правила игры</a></li>
+    <li><a href="karta-sajta.html">Карта сайта</a></li>
   </ul>
   <p>Вопросы по игре, ошибки, жалобы и предложения — на {MAIL}. Отвечаем в течение 10 рабочих дней, обычно быстрее.</p>""")
 
-PAGES = ['ob-igre.html', 'tseny.html', 'kontakty.html', 'oferta.html', 'politika.html', 'pravila.html']
+# ---------------- карта сайта ----------------
+page('karta-sajta.html', 'Карта сайта', 'Все страницы сайта игры «Мутация»: игра, об игре, цены, контакты, оферта, политика обработки персональных данных, правила.', '<a href="ob-igre.html">Об игре</a>', f"""  <h1>Карта сайта</h1>
+  <p class="lead">Все страницы mutaciya.com.</p>
+  <h2>Игра</h2>
+  <ul>
+    <li><a href="./">Мутация — играть</a> — хоррор-головоломка: сливай одинаковых мутантов в банке с формалином</li>
+    <li><a href="ob-igre.html">Об игре</a> — режимы, мутанты, испытания, управление, частые вопросы, создатель</li>
+  </ul>
+  <h2>Покупателю и игроку</h2>
+  <ul>
+    <li><a href="tseny.html">Цены</a> — игра бесплатна</li>
+    <li><a href="pravila.html">Правила игры</a> — таблица рекордов, честная игра, хоррор-эффекты, {AGE}</li>
+    <li><a href="kontakty.html">Контакты и реквизиты</a> — {OWNER}, ИНН {INN}</li>
+  </ul>
+  <h2>Документы</h2>
+  <ul>
+    <li><a href="oferta.html">Публичная оферта</a></li>
+    <li><a href="politika.html">Политика обработки персональных данных</a></li>
+  </ul>
+  <h2>Для поисковых систем</h2>
+  <ul>
+    <li><a href="sitemap.xml">sitemap.xml</a></li>
+  </ul>""")
+
+PAGES = ['ob-igre.html', 'tseny.html', 'kontakty.html', 'oferta.html', 'politika.html', 'pravila.html', 'karta-sajta.html']
 (OUT / 'robots.txt').write_text(f"User-agent: *\nAllow: /\nDisallow: /src/\nDisallow: /tools/\n\nSitemap: {SITE}sitemap.xml\n", encoding='utf-8')
 urls = [('', '1.0', 'weekly'), ('ob-igre.html', '0.8', 'monthly')] + [(p, '0.3', 'yearly') for p in PAGES[1:]]
 (OUT / 'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + ''.join(
