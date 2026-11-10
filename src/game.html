@@ -70,6 +70,12 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .menu.newbie .menugrid,.menu.newbie .toggles,.menu.newbie .foot,.menu.newbie .demo{display:none}
 .menu.newbie #playBtn{min-height:72px;font-size:21px}
 .prankbtn{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-color:#8a1a1a!important}
+.approw{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.approw button{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.approw button[hidden]+button,.approw button:has(+button[hidden]){grid-column:1/-1}
+.menu.newbie .approw{display:none}
+.steps{margin:4px 0 8px;padding-left:22px;line-height:1.6;color:var(--fg)}
+.steps li{margin:6px 0}
 .refline{margin:-4px 0 0;font:400 11px/1.5 var(--f-mono);color:var(--muted);text-align:center}
 .menu.newbie .prankbtn,.menu.newbie .refline{display:none}
 .menu.prank #playBtn,.menu.prank #newbieBox{display:none!important}
@@ -367,6 +373,7 @@ body{height:100vh;height:100dvh}
     </div>
     <button class="prankbtn" id="prankBtn">😈 Напугать друга<small>спор на «Глаз», а потом — скример</small></button>
     <p class="refline" id="refLine" hidden></p>
+    <div class="approw" id="appRow" hidden><button id="installBtn" hidden>📲 На телефон<small>как приложение</small></button><button id="pushBtn" hidden>🔔 Напоминания<small id="pushSub">в 19:00</small></button></div>
     <div class="toggles">
       <button id="tSound" aria-pressed="true">Звук</button>
       <button id="tScare" aria-pressed="true">Хоррор-эффекты</button>
@@ -445,6 +452,16 @@ body{height:100vh;height:100dvh}
   </div>
 </div>
 
+<div class="scrim" id="installSheet" hidden>
+  <div class="sheet" role="dialog" aria-label="Установка на телефон">
+    <div class="grip"></div>
+    <h2>Установить «Мутацию»</h2>
+    <p class="note" id="installWhy" hidden></p>
+    <ol class="steps" id="installSteps"></ol>
+    <p class="note">Иконка появится рядом с приложениями. Игра откроется во весь экран, без адресной строки, и будет работать без интернета. Магазин приложений не нужен.</p>
+    <div class="row"><button class="primary" id="installClose">Понятно</button></div>
+  </div>
+</div>
 <div class="scrim" id="prankSheet" hidden>
   <div class="sheet" role="dialog" aria-label="Розыгрыш">
     <div class="grip"></div>
@@ -938,6 +955,42 @@ function prankTick(now){if(!prank||!prank.started||prank.done||over||paused||scr
 async function sendPrank(where){track('prank_send',{where});const t=prankText();
   try{if(navigator.share){await navigator.share({text:t});return true}}catch(e){if(e&&e.name==='AbortError')return false}
   try{await navigator.clipboard.writeText(t);return 'copied'}catch(e){return t}}
+// ---------- установка на телефон и пуш-напоминания (только mutaciya.com) ----------
+const IS_IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const IS_APP=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const PUSH_OK=!!(PUBLIC_URL&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window);
+const PUSH_FN=()=>SUPA.url+'/functions/v1/mutaciya-push';
+let installEvt=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;updApp()});
+addEventListener('appinstalled',()=>{track('install',{via:'prompt'});installEvt=null;store.set('mut.installed',true);updApp()});
+function pushOn(){return PUSH_OK&&store.get('mut.push',false)&&Notification.permission==='granted'}
+function updApp(){const row=$('appRow');if(!row)return;
+  const showI=!!PUBLIC_URL&&!IS_APP&&!store.get('mut.installed',false)&&(!!installEvt||IS_IOS||/Android/.test(navigator.userAgent));
+  const showP=!!PUBLIC_URL&&(PUSH_OK||(IS_IOS&&!IS_APP));
+  $('installBtn').hidden=!showI;$('pushBtn').hidden=!showP;row.hidden=!showI&&!showP;
+  if(showP)$('pushSub').textContent=pushOn()?'включены · выключить':PUSH_OK&&Notification.permission==='denied'?'запрещены в браузере':'в 19:00, если не играли'}
+function openInstall(forPush){const and=/Android/.test(navigator.userAgent);
+  const steps=IS_IOS?['Нажмите «Поделиться» внизу Safari — квадрат со стрелкой вверх','Пролистайте и выберите «На экран „Домой“»','Нажмите «Добавить»']
+    :and?['Откройте меню браузера — ⋮ справа вверху','Выберите «Установить приложение» или «Добавить на главный экран»','Подтвердите']
+    :['В адресной строке Chrome или Edge нажмите значок установки (монитор со стрелкой)','Или меню ⋮ → «Установить Мутацию»'];
+  $('installSteps').innerHTML='';for(const t of steps){const li=document.createElement('li');li.textContent=t;$('installSteps').appendChild(li)}
+  $('installWhy').hidden=!forPush;$('installWhy').textContent='На iPhone напоминания работают только у установленной игры: установите её, откройте с экрана «Домой» и включите «Напоминания».';
+  track('install_help',{ios:IS_IOS,push:!!forPush});openSheet('installSheet')}
+async function pushApi(body){const r=await fetch(PUSH_FN(),body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});return r.json()}
+function u8(b64){const s=atob(b64.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((b64.length+3)%4));return Uint8Array.from(s,c=>c.charCodeAt(0))}
+async function togglePush(){
+  if(IS_IOS&&!IS_APP&&!PUSH_OK){openInstall(true);return}
+  if(!PUSH_OK){toast('Напоминания','Этот браузер их не поддерживает');return}
+  try{const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();
+    if(pushOn()){if(sub){pushApi({a:'unsub',endpoint:sub.endpoint}).catch(()=>{});await sub.unsubscribe().catch(()=>{})}
+      store.set('mut.push',false);track('push',{on:false});updApp();toast('Напоминания выключены','Включить снова можно той же кнопкой');return}
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){track('push',{on:false,denied:true});updApp();toast('Уведомления запрещены','Разрешите их для mutaciya.com в настройках браузера');return}
+    if(!sub){const {pub}=await pushApi(null);sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(pub)})}
+    const r=await pushApi({a:'sub',sub:sub.toJSON(),device:anDevice(),tz:-new Date().getTimezoneOffset(),streak:streakNow()});if(!r||!r.ok)throw new Error('sub');
+    store.set('mut.push',true);track('push',{on:true,app:IS_APP});updApp();toast('Напоминания включены','В 19:00, если вы ещё не играли','Не чаще раза в день. Выключить — той же кнопкой в меню.')}
+  catch(e){toast('Не получилось включить','Попробуйте ещё раз позже')}}
+function pushTouch(){if(!pushOn())return;navigator.serviceWorker.ready.then(r=>r.pushManager.getSubscription()).then(s=>{if(s)pushApi({a:'touch',endpoint:s.endpoint,streak:streakNow()}).catch(()=>{})}).catch(()=>{})}
 // ---------- рефералы: сколько новых игроков пришло по моим ссылкам ----------
 let refCount=store.get('mut.refs',0);
 const REF_REWARDS=[[1,'toxic','ядовитый формалин'],[3,'violet','фиолетовый формалин'],[10,'gold','золотой формалин']];
@@ -1701,7 +1754,7 @@ function prankPending(){return !!(prank&&!prank.started)}
 function updNewbie(){const nb=isNewbie()||prankPending();document.querySelector('.menu').classList.toggle('newbie',nb);document.querySelector('.menu').classList.toggle('prank',prankPending());$('newbieBox').hidden=!nb;updRefs();
   const mid=started&&!over;$('playLbl').textContent=nb?(mid?'Начать заново':'Начать смену'):'Играть';$('playSub').textContent=nb?(mid?'новая смена с обучением':'обучение — 20 секунд'):'классика · случайные образцы';
   const tag=document.querySelector('.menu .tag');if(nb&&tag&&!tag.classList.contains('whisper'))tag.innerHTML='Сливай двух одинаковых мутантов — получишь нового, страшнее.<br>Не дай банке переполниться.'}
-function updProg(){updUnlock();updNewbie();
+function updProg(){updUnlock();updNewbie();updApp();
   const n=streakNow();
   $('streakLine').textContent=n>0?`Серия: ${n} ${plural(n,'день','дня','дней')}`+(streak.last===DAY?' · сегодня засчитан':' · сыграйте дневной забег, чтобы продлить')
     :'Сыграйте дневной забег, чтобы начать серию';
@@ -1926,6 +1979,10 @@ function startMode(m){unlockAudio();toastQ.length=0;setTimeout(tutStart,0);if(m=
 $('menuBtn').onclick=openMenu;
 $('resumeBtn').onclick=()=>{$('menu').hidden=true;paused=false;cv.focus({preventScroll:true})};
 $('playBtn').onclick=()=>startMode('classic');
+$('installBtn').onclick=async()=>{if(installEvt){const ev=installEvt;installEvt=null;ev.prompt();try{const r=await ev.userChoice;track('install_prompt',{outcome:r.outcome});if(r.outcome==='accepted')store.set('mut.installed',true)}catch(e){}updApp()}else openInstall(false)};
+$('pushBtn').onclick=togglePush;
+$('installClose').onclick=()=>closeSheet('installSheet');
+$('installSheet').addEventListener('click',e=>{if(e.target.id==='installSheet')closeSheet('installSheet')});
 $('discShare').onclick=e=>{e.stopPropagation();$('disc').hidden=true;if(discCur)shareForm(discCur.i,discCur.H)};
 async function prankBtn(noteEl){const r=await sendPrank(noteEl);const n=$(noteEl);if(!n)return;
   n.textContent=r==='copied'?'Ссылка скопирована — отправьте её другу.':typeof r==='string'?'Скопируйте и отправьте другу: '+r:''}
@@ -1969,7 +2026,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.11';
+const APP_VER='2026.11.11b';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -2117,6 +2174,8 @@ $('shareCopy').onclick=()=>{const t=shareText();
   navigator.clipboard.writeText(t).then(()=>shareNote('Текст скопирован.'),()=>shareNote(t))};
 
 function gameOver(reason){
+  if(stats.games===2&&PUBLIC_URL&&!IS_APP&&!store.get('mut.installTip',false)&&(installEvt||IS_IOS||/Android/.test(navigator.userAgent))){store.set('mut.installTip',true);
+    setTimeout(()=>toast('Совет','Установите игру на телефон','Меню → «На телефон»: иконка рядом с приложениями, работает без интернета.'),1800)}
   track('game_end',{lvl:pressLvl(),score,top:topLvl,dur:Math.round(HZ.t/1000),drops,reason:reason||'overflow',lab:Math.min(labLvl(),9),cracks:HZ.cracks.length});anFlush();
   $('leakPop').hidden=true;
   $('overTitle').textContent=reason==='win'?'Испытание пройдено':reason==='crack'?'Банка лопнула':'Банка переполнена';
@@ -2284,7 +2343,7 @@ for(const evn of ['pointerdown','touchend','click','keydown'])document.addEventL
 document.addEventListener('visibilitychange',()=>{if(document.hidden){try{ac&&ac.suspend()}catch(e){}}else if(ac&&opts.sound){try{ac.resume()}catch(e){}}});
 store.set('mut.lastSeenPrev',store.get('mut.lastSeen',Date.now()));store.set('mut.lastSeen',Date.now());hzMenu();
 if(REF_IN&&!store.get('mut.refIn',null)&&AN.firstRun)store.set('mut.refIn',REF_IN);
-setTimeout(loadRefs,3000);
+setTimeout(loadRefs,3000);setTimeout(pushTouch,4000);
 track('session_start',{ref:AN.firstRun?REF_IN:null,prank:!!prank,first:AN.firstRun,games:stats.games,app:!!(matchMedia('(display-mode: standalone)').matches||navigator.standalone),w:innerWidth,h:innerHeight,lang:(navigator.language||'').slice(0,5),challenge:!!challenge});
 applyLite();
 // test hook, only with #test in the address
