@@ -14,7 +14,7 @@ import random
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-URL = "https://minionslaba-ux.github.io/mutaciya/"
+URL = "https://mutaciya.com/"
 IMG = URL + "promo/daily/"
 START = datetime.date.fromisoformat(sys.argv[1]) if len(sys.argv) > 1 else datetime.date(2026, 11, 10)
 rnd = random.Random(2026)

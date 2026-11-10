@@ -24,7 +24,7 @@ const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
       centri:`<div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 6px,transparent 6px 60px)"></div>`,
       disinf:`<div style="position:absolute;left:0;right:0;top:30%;height:30%;background:linear-gradient(rgba(130,255,160,0),rgba(150,255,170,.45),rgba(130,255,160,0))"></div>`}[a.trial]||'';
     const top=`<div class="m" style="position:absolute;top:34px;left:44px;font-size:22px">Смена лаборанта №${a.day}</div><div class="logo" style="position:absolute;top:24px;right:44px;font-size:52px">МУТАЦИЯ</div>`;
-    const foot=`<div class="ch"><span>ЗАДАНИЕ ДНЯ</span>${esc(a.challenge)}</div><div class="m" style="position:absolute;bottom:26px;left:0;right:0;text-align:center;font-size:20px;color:#9a8a78">minionslaba-ux.github.io/mutaciya</div>`;
+    const foot=`<div class="ch"><span>ЗАДАНИЕ ДНЯ</span>${esc(a.challenge)}</div><div class="m" style="position:absolute;bottom:26px;left:0;right:0;text-align:center;font-size:20px;color:#9a8a78">mutaciya.com</div>`;
     let body;
     if(a.kind==='intro')body=`<div style="text-align:center;padding-top:110px"><div class="logo" style="font-size:170px;line-height:1">МУТАЦИЯ</div><img src="${img}" style="width:440px;margin-top:6px"><div class="d" style="font-size:44px;margin:0 80px">${esc(a.sub)}</div></div>`;
     else if(a.layout===0)body=`<div style="text-align:center;padding-top:110px"><div class="d h" style="font-size:${a.headline.length>16?64:84}px">${esc(a.headline)}</div><img src="${img}" style="width:470px;margin-top:4px"><div class="s" style="font-size:${subFs}px;margin:0 90px">${esc(a.sub)}</div></div>`;
