@@ -11,6 +11,7 @@ src/game.html — исходник страницы (та же версия пу
 """
 import pathlib
 import re
+import runpy
 
 ROOT = pathlib.Path(__file__).resolve().parent
 src = (ROOT / "src" / "game.html").read_text(encoding="utf-8")
@@ -62,7 +63,15 @@ head = """<!doctype html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="description" content="Мутация — хоррор-головоломка со слиянием существ в банке с формалином.">
+<meta name="description" content="Мутация — бесплатная хоррор-головоломка в браузере: сливай одинаковых мутантов в банке с формалином, выведи Матку и не дай банке переполниться. Без регистрации, работает на телефоне.">
+<link rel="canonical" href="https://mutaciya.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Мутация">
+<meta property="og:title" content="Мутация — хоррор-головоломка">
+<meta property="og:description" content="Сливай одинаковых мутантов в банке с формалином. Не дай банке переполниться.">
+<meta property="og:url" content="https://mutaciya.com/">
+<meta property="og:image" content="https://mutaciya.com/promo/1-mutaciya.jpg">
+<meta name="twitter:card" content="summary_large_image">
 """
 head += """<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="favicon.ico" sizes="48x48">
@@ -75,9 +84,22 @@ sw_reg = """<script>
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script>
 """
+# заголовок вкладки и поисковиков
+assert src.count("<title>Мутация</title>") == 1
+src = src.replace("<title>Мутация</title>", "<title>Мутация — хоррор-головоломка со слиянием мутантов</title>")
+# подвал меню: создатель и документы (страницы делает tools/legal.py)
+DEMO = '<button class="demo" id="demoBtn">Демо для показа · 60 секунд</button>'
+assert src.count(DEMO) == 1, "кнопка демо в меню изменилась"
+legal = ('<p class="site-legal"><a href="ob-igre.html" target="_blank" rel="noopener">Об игре</a> · <a href="tseny.html" target="_blank" rel="noopener">Цены</a> · '
+         '<a href="oferta.html" target="_blank" rel="noopener">Оферта</a> · <a href="politika.html" target="_blank" rel="noopener">Персональные данные</a> · '
+         '<a href="pravila.html" target="_blank" rel="noopener">Правила</a> · <a href="kontakty.html" target="_blank" rel="noopener">Контакты</a><br>'
+         'Создатель — Моисеенко Константин Иванович · ИНН 470313493504 · 16+</p>')
+src = src.replace(DEMO, DEMO + "\n    " + legal)
+safe_css += "<style>.site-legal{margin:14px 0 0;font:400 11px/1.7 var(--f-mono);color:var(--muted);text-align:center;letter-spacing:.02em}.site-legal a{color:var(--muted);text-underline-offset:2px}.site-legal a:hover{color:var(--fg)}</style>\n"
 cut = src.index("</style>") + len("</style>")
 out = head + font_css + src[:cut] + "\n" + safe_css + "</head>\n<body>\n" + src[cut:].lstrip("\n") + sw_reg + "</body>\n</html>\n"
 (ROOT / "index.html").write_text(out, encoding="utf-8")
+runpy.run_path(str(ROOT / "tools" / "legal.py"))  # об игре, оферта, политика, правила, цены, контакты, robots, sitemap
 
 # service worker: версия кэша = хэш всех файлов, чтобы обновления доходили до игроков
 import hashlib

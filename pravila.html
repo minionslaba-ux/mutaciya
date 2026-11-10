@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#13110c">
+<title>Правила игры — «Мутация»</title>
+<meta name="description" content="Правила онлайн-игры «Мутация»: таблица рекордов, имена, честная игра, хоррор-эффекты и возраст.">
+<link rel="canonical" href="https://mutaciya.com/pravila.html">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+@font-face{font-family:"Rubik Wet Paint";font-weight:400;font-display:swap;src:url(fonts/rubik-wet-paint-cyrillic-400-normal.woff2) format("woff2");unicode-range:U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"Rubik Wet Paint";font-weight:400;font-display:swap;src:url(fonts/rubik-wet-paint-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+2000-206F,U+20AC,U+2122,U+2212}
+@font-face{font-family:"IBM Plex Sans";font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-cyrillic-400-normal.woff2) format("woff2");unicode-range:U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"IBM Plex Sans";font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+2000-206F,U+20AC,U+2122,U+2212}
+@font-face{font-family:"IBM Plex Sans";font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-cyrillic-600-normal.woff2) format("woff2");unicode-range:U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"IBM Plex Sans";font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-latin-600-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+2000-206F,U+20AC,U+2122,U+2212}
+@font-face{font-family:"IBM Plex Mono";font-weight:400;font-display:swap;src:url(fonts/ibm-plex-mono-cyrillic-400-normal.woff2) format("woff2");unicode-range:U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"IBM Plex Mono";font-weight:400;font-display:swap;src:url(fonts/ibm-plex-mono-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+2000-206F,U+20AC,U+2122,U+2212}
+:root{--bg:#0c0907;--text:#efe4cf;--muted:#ad9f88;--blood:#d42a22;--formalin:#9fbf5a;--line:rgba(239,228,207,.13)}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:radial-gradient(700px 420px at 0% 0%,rgba(212,42,34,.16),transparent 60%),radial-gradient(700px 480px at 100% 30%,rgba(159,191,90,.10),transparent 60%),var(--bg);color:var(--text);font:17px/1.65 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:max(24px,env(safe-area-inset-top)) 16px 64px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;font:14px "IBM Plex Mono",monospace;flex-wrap:wrap}
+.top a{color:var(--muted);text-decoration:none}.top a:hover{color:var(--blood)}
+h1{font:400 clamp(32px,8vw,50px)/1.1 "Rubik Wet Paint",Impact,sans-serif;margin:26px 0 10px;color:var(--blood);text-shadow:0 0 24px rgba(212,42,34,.35)}
+h2{font-size:21px;font-weight:600;margin:40px 0 10px;color:var(--formalin);scroll-margin-top:16px}
+h3{font-size:18px;font-weight:600;margin:22px 0 6px}
+p,li{color:var(--muted)}b,strong{color:var(--text)}a{color:var(--blood)}
+.lead{font-size:19px}
+ol.cl{padding-left:0;list-style:none}ol.cl li{margin:8px 0}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--text)}td{color:var(--muted)}.req td:first-child{color:var(--text);white-space:nowrap}
+.wrap{overflow-x:auto}
+.note{padding:12px 16px;border-left:3px solid var(--blood);background:rgba(212,42,34,.08);border-radius:0 12px 12px 0}
+.play{display:inline-block;margin:18px 0 8px;padding:14px 28px;border-radius:999px;background:var(--blood);color:#fff4e6;font-weight:600;font-size:18px;text-decoration:none;box-shadow:0 0 28px rgba(212,42,34,.45)}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.shots img{width:100%;height:auto;border-radius:12px;border:1px solid var(--line);display:block}
+figure{margin:0}figcaption{font-size:13px;color:var(--muted);margin-top:4px}
+kbd{font:13px "IBM Plex Mono",monospace;padding:1px 6px;border:1px solid var(--line);border-radius:6px;color:var(--text)}
+footer{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <nav class="top"><a href="./">← В игру</a><a href="politika.html">Персональные данные</a></nav>
+  <h1>Правила игры</h1>
+  <p class="lead">«Мутация» — хоррор-головоломка со слиянием существ в банке с формалином. Возрастная маркировка 16+.</p>
+  <p>Редакция от 10 ноября 2026 года. Правила — часть <a href="oferta.html">публичной оферты</a>: открывая Игру, игрок их принимает.</p>
+  <h2>1. Прогресс</h2>
+  <ol class="cl">
+    <li>1.1. Регистрация не нужна. Прогресс, рекорды и достижения хранятся на устройстве, в браузере, в котором вы играете.</li>
+    <li>1.2. При очистке данных браузера, в режиме «инкогнито» или на другом устройстве прогресс начинается заново.</li>
+  </ol>
+  <h2>2. Таблица рекордов</h2>
+  <ol class="cl">
+    <li>2.1. В таблицу дня и недели попадают результаты «Дневного забега»: у всех игроков в этот день одинаковые образцы.</li>
+    <li>2.2. Имя в таблице видно всем. Запрещены имена с оскорблениями, матом, рекламой, ссылками, политическими призывами, чужими персональными данными, а также выдача себя за других людей и за администрацию.</li>
+    <li>2.3. Нарушающие имена и подозрительные результаты администрация вправе удалить без предупреждения.</li>
+  </ol>
+  <h2>3. Честная игра</h2>
+  <ol class="cl">
+    <li>3.1. Запрещено использовать читы, программы и скрипты, изменяющие Игру, отправлять результаты в обход Игры и вмешиваться в работу сервера.</li>
+    <li>3.2. Найденную ошибку лучше сообщить на <a href="mailto:piter_00000@mail.ru">piter_00000@mail.ru</a>. Спасибо!</li>
+  </ol>
+  <h2>4. Хоррор-эффекты и здоровье</h2>
+  <ol class="cl">
+    <li>4.1. В Игре есть скримеры (внезапные пугающие изображения и звуки), мерцание и затемнение экрана, вибрация, звуки сердцебиения.</li>
+    <li>4.2. Их можно отключить: «Хоррор-эффекты», «Вибрация» и «Спокойный режим» в меню. Людям со светочувствительной эпилепсией, заболеваниями сердца и беременным рекомендуется играть только в спокойном режиме.</li>
+    <li>4.3. Делайте перерывы. Если стало нехорошо — закройте Игру.</li>
+  </ol>
+  <h2>5. Сюжет и персонажи</h2>
+  <ol class="cl">
+    <li>5.1. Лаборатория, мутанты, журнал лаборанта и события Игры вымышлены. Любые совпадения с реальными людьми, организациями и событиями случайны.</li>
+    <li>5.2. Вирусная ветка мутантов лишь стилизована под изображения настоящих вирусов и не является медицинской информацией.</li>
+  </ol>
+  <h2>6. Изменение Правил</h2>
+  <ol class="cl"><li>6.1. Правила могут меняться. Новая редакция действует с момента публикации на этой странице.</li></ol>
+  <footer>«Мутация» · <a href="ob-igre.html">Об игре</a> · <a href="tseny.html">Цены</a> · <a href="kontakty.html">Контакты</a> · <a href="oferta.html">Публичная оферта</a> · <a href="politika.html">Персональные данные</a> · <a href="pravila.html">Правила игры</a><br>Моисеенко Константин Иванович · ИНН 470313493504 · <a href="mailto:piter_00000@mail.ru">piter_00000@mail.ru</a></footer>
+</main>
+</body>
+</html>

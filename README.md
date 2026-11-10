@@ -146,6 +146,10 @@ select * from mutaciya_report_deaths;     -- причины проигрыша �
 - `fonts/` — шрифты Rubik Distressed, Rubik Wet Paint, Rubik Glitch, IBM Plex Sans и IBM Plex Mono (SIL OFL), кириллица и латиница.
 - `licenses/` — лицензии библиотеки и шрифтов.
 
+## Страницы сайта и документы
+
+`tools/legal.py` (запускается из `build.py`) делает страницы по образцу «Ночного тарифа»: `ob-igre.html` (об игре и создателе), `tseny.html` (цены — игра бесплатна), `oferta.html` (публичная оферта), `politika.html` (политика обработки персональных данных), `pravila.html` (правила, 16+), `kontakty.html` (контакты и реквизиты самозанятого), а также `robots.txt` и `sitemap.xml`. Ссылки на них стоят внизу главного меню игры на сайте. Реквизиты и дата редакции — в начале `tools/legal.py`.
+
 ## Сайт mutaciya.com
 
 Игра живёт на https://mutaciya.com/ — это GitHub Pages (ветка `main`, папка `/ (root)`, домен задан файлом `CNAME`). Старый адрес на github.io автоматически перенаправляет на домен. На телефоне игру можно добавить на главный экран, она откроется во весь экран.
