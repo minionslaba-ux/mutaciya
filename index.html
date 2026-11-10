@@ -1776,7 +1776,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.09';
+const APP_VER='2026.11.10';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -1786,6 +1786,11 @@ function anFlush(keep){if(!AN.q.length)return;if(!opts.stats||!useSupa()){AN.q=[
   try{fetch(SUPA.url+'/rest/v1/rpc/mutaciya_log',{method:'POST',keepalive:!!keep,headers:{apikey:SUPA.key,'Content-Type':'application/json'},
     body:JSON.stringify({p_device:anDevice(),p_session:AN.session,p_ver:APP_VER,p_events:batch})}).catch(()=>{})}catch(e){}}
 setInterval(()=>anFlush(),15000);
+// ошибки JS у игроков (для /mut_errors в боте): не больше 5 разных за заход, без личных данных
+const anErr=new Set();function anError(msg,src,line){try{msg=String(msg||'').slice(0,200);const k=msg+'|'+line;if(!msg||anErr.has(k)||anErr.size>=5)return;anErr.add(k);
+  track('error',{msg,src:String(src||'').replace(/^.*\//,'').slice(0,60),line:line||0,ua:/iPhone|iPad/.test(navigator.userAgent)?'ios':/Android/.test(navigator.userAgent)?'android':'desktop'})}catch(e){}}
+addEventListener('error',e=>anError(e.message,e.filename,e.lineno));
+addEventListener('unhandledrejection',e=>anError('promise: '+((e.reason&&(e.reason.message||e.reason))||''),'',0));
 document.addEventListener('visibilitychange',()=>{if(document.hidden){if(started&&!over&&!paused)track('leave',{score,dur:Math.round(HZ.t/1000),drops});anFlush(true)}});
 addEventListener('pagehide',()=>anFlush(true));
 const useSupa=()=>!db&&!(window.claude&&window.claude.use)&&/^https?:$/.test(location.protocol);
