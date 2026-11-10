@@ -225,6 +225,10 @@ button:disabled{filter:grayscale(1) brightness(.7)}
 .trial .st{color:#ffcc33;letter-spacing:2px;font-size:14px;margin-top:4px}
 .trial button{min-height:44px;padding:0 14px;font-size:14px}
 .trial.locked{opacity:.5}
+/* demo + lite */
+.demo{min-height:40px;font-size:12px;color:var(--muted);align-self:center;padding:0 14px}
+body.lite::after{display:none}
+.demobar{position:absolute;left:8px;right:8px;bottom:8px;z-index:6;text-align:center;font:600 12px var(--f-mono);color:#ffcc33;background:rgba(0,0,0,.65);padding:6px;border-radius:3px;pointer-events:auto}
 /* ===== fit every screen ===== */
 body{height:100vh;height:100dvh}
 .shell{min-height:0}
@@ -276,6 +280,7 @@ body{height:100vh;height:100dvh}
         <button id="leakLater">Позже</button>
       </div>
     </div>
+    <div class="demobar" id="demoBar" hidden>ДЕМО · нажмите, чтобы выйти</div>
     <div class="toast" id="toast"><div class="k">Новая мутация</div><div class="v" id="toastName">—</div><div class="d" id="toastDesc" hidden></div></div>
     <div class="over" id="over" hidden>
       <div class="card-over">
@@ -333,8 +338,10 @@ body{height:100vh;height:100dvh}
       <button id="tClips" aria-pressed="true">Запись клипов</button>
       <button id="tCalm" aria-pressed="false">Спокойный режим</button>
       <button id="tStats" aria-pressed="true">Статистика</button>
+      <button id="tLite" aria-pressed="false">Лёгкая графика</button>
     </div>
     <div class="foot">Ведите пальцем по банке и отпустите</div>
+    <button class="demo" id="demoBtn">Демо для показа · 60 секунд</button>
   </div>
 </div>
 
@@ -505,13 +512,13 @@ const formsFound=()=>[...found].filter(x=>typeof x==='number');
 
 // ---------- storage ----------
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
-  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+  set(k,v){if(window.__DEMO)return;try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let found=new Set(store.get('mut.found',[0,1,2]));
 let loreRead=new Set(store.get('mut.lore',[]));
 if(store.get('mut.formsV',1)<2){const map={8:9,9:11,10:13};found=new Set([...found].map(x=>typeof x==='number'&&map[x]!=null?map[x]:x));store.set('mut.found',[...found]);store.set('mut.formsV',2)}
 if(store.get('mut.formsV',1)<3){const sh=x=>typeof x==='number'&&x>=6?x+1:x;found=new Set([...found].map(sh));loreRead=new Set([...loreRead].map(sh));store.set('mut.found',[...found]);store.set('mut.lore',[...loreRead]);store.set('mut.formsV',3)}
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const opts=Object.assign({sound:true,scare:!reduced,vibe:true,clips:true,calm:false,stats:true},store.get('mut.opts',{}));
+const opts=Object.assign({sound:true,scare:!reduced,vibe:true,clips:true,calm:false,stats:true,lite:false},store.get('mut.opts',{}));
 const saveOpts=()=>store.set('mut.opts',opts);
 
 // ---------- day ----------
@@ -790,7 +797,7 @@ function drawPiece(c,kind,r,t,seed,look){if(kind==='worm')drawWormIcon(c,r,t);el
 const cv=$('cv'),ctx=cv.getContext('2d'),stage=$('stage');
 let dpr=1;
 let lastStage='';
-function fit(){dpr=Math.min(window.devicePixelRatio||1,2.5);const sw=stage.clientWidth,sh=stage.clientHeight;
+function fit(){dpr=Math.min(window.devicePixelRatio||1,opts.lite?1.5:2.5);const sw=stage.clientWidth,sh=stage.clientHeight;
   if(!sw||!sh)return;lastStage=sw+'x'+sh+'@'+dpr;
   const cw=Math.min(sw,sh*W/H),ch=cw*H/W;
   cv.style.width=cw+'px';cv.style.height=ch+'px';cv.width=Math.round(cw*dpr);cv.height=Math.round(ch*dpr);fitScream()}
@@ -893,7 +900,7 @@ function pairs(ps){for(const p of ps){const a=p.bodyA,b=p.bodyB;
     if(o.lvl!=null&&NEXT[o.lvl]!=null&&!o.merging&&!m.used){m.used=true;o.merging=true;mutQ.push([m,o])}continue}
   if(a.frozen||b.frozen)continue;if(a.lvl==null||b.lvl==null||a.lvl!==b.lvl||a.merging||b.merging)continue;a.merging=b.merging=true;queue.push([a,b])}}
 
-function processMerges(){
+function processMerges(){if(queue.length)tutEv('merge');
   newForm=-1;
   for(const [m,o,k] of mutQ){
     if(!bodies.includes(m)||!bodies.includes(o))continue;
@@ -928,7 +935,7 @@ function processMerges(){
   if(score>bestScore())store.set(bestKey(),score);
   updHud();checkLevel();
 }
-function splat(x,y,col,n,s){for(let i=0;i<n;i++){const a=Math.random()*TAU,v=(1+Math.random()*3)*s;
+function splat(x,y,col,n,s){if(opts.lite)n=Math.ceil(n/2);for(let i=0;i<n;i++){const a=Math.random()*TAU,v=(1+Math.random()*3)*s;
   particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1,r:1.5+Math.random()*3*s,life:1,col})}}
 function floater(x,y,text,big,col){floaters.push({x,y,text,big,col,life:1})}
 
@@ -1186,9 +1193,9 @@ function drawEcg(){const d=Math.min(window.devicePixelRatio||1,2.5),w=ecgCv.clie
 
 // ---------- input ----------
 function toLocal(e){const rc=cv.getBoundingClientRect();return{x:(e.clientX-rc.left)/rc.width*W,y:(e.clientY-rc.top)/rc.height*H}}
-let pressing=false;
-cv.addEventListener('pointermove',e=>{const p=toLocal(e);pointer=p;if(pressing||e.pointerType==='mouse')aimX=p.x});
-cv.addEventListener('pointerdown',e=>{unlockAudio();pressing=true;const p=toLocal(e);pointer=p;aimX=p.x;downY=p.y;downT=performance.now();try{cv.setPointerCapture(e.pointerId)}catch(_){}});
+let pressing=false,downX0=0;
+cv.addEventListener('pointermove',e=>{const p=toLocal(e);pointer=p;if(pressing&&TUT.step===0&&Math.abs(p.x-downX0)>25)tutEv('move');if(pressing||e.pointerType==='mouse')aimX=p.x});
+cv.addEventListener('pointerdown',e=>{unlockAudio();pressing=true;const p=toLocal(e);downX0=p.x;pointer=p;aimX=p.x;downY=p.y;downT=performance.now();try{cv.setPointerCapture(e.pointerId)}catch(_){}});
 cv.addEventListener('pointerup',e=>{if(!pressing)return;pressing=false;const p=toLocal(e);if(targeting){removeAt(p);return}
   {const d=bodies.find(q=>q.anom==='doll'&&Math.hypot(q.position.x-p.x,q.position.y-p.y)<q.circleRadius+12);
    if(d){removeBody(d);splat(d.position.x,d.position.y,'#efe0d6',16,1.1);score+=20;floater(d.position.x,d.position.y,'кукла разбита +20',true);stats.dolls++;saveStats();checkAch();updHud();glassBreak();return}}
@@ -1203,7 +1210,7 @@ function curR(){return radiusOf(cur)}
 function drop(px,py,vy){
   const t=performance.now();if(over||paused||scream||t<canDropAt)return;inspectCatch();
   const r=curR(),x=px!=null?px:Math.max(JL+r+1,Math.min(JR-r-1,aimX));
-  const b=spawn(cur,x+(Math.random()-.5)*.5,py!=null?py:SPAWN_Y);if(vy)Body.setVelocity(b,{x:0,y:vy});plop();vibe(6);
+  const b=spawn(cur,x+(Math.random()-.5)*.5,py!=null?py:SPAWN_Y);tutEv('drop');if(vy)Body.setVelocity(b,{x:0,y:vy});plop();vibe(6);
   cur=nxt;nxt=seq.next();canDropAt=t+(isFall()?320:420);drawNext();fallY=SPAWN_Y;fastFall=false;
   if(isAnom(nxt)&&!found.has('a:'+nxt)){found.add('a:'+nxt);store.set('mut.found',[...found]);toast('Новая аномалия',ANOM[nxt].name,ANOM[nxt].rule)}
   else if(!isAnom(nxt)&&FORMS[nxt].virus&&!found.has(nxt)){found.add(nxt);store.set('mut.found',[...found]);renderReg();toast('Вирус в очереди',FORMS[nxt].name,'Вирусы сливаются между собой: Бактериофаг → Коронавирус → Грипп → Бешенство → Эбола. Две Эболы становятся Сгустком.');checkAch()}
@@ -1219,7 +1226,9 @@ function unlockAudio(){
   if(!opts.sound)return;
   try{if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback'}catch(e){}
   if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=1;
-    try{earLP=ac.createBiquadFilter();earLP.type='lowpass';earLP.frequency.value=19000;earLP.Q.value=.5;master.connect(earLP);earLP.connect(ac.destination);
+    try{const len=Math.floor(ac.sampleRate*2.2),ir=ac.createBuffer(2,len,ac.sampleRate);for(let ch=0;ch<2;ch++){const d=ir.getChannelData(ch);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.2)}
+      const cvr=ac.createConvolver();cvr.buffer=ir;const wet=ac.createGain();wet.gain.value=.22;master.connect(cvr);cvr.connect(wet);window.__wet=wet}catch(e){}
+    try{earLP=ac.createBiquadFilter();earLP.type='lowpass';earLP.frequency.value=19000;earLP.Q.value=.5;master.connect(earLP);earLP.connect(ac.destination);if(window.__wet)window.__wet.connect(earLP);
       const o=ac.createOscillator();o.type='sine';o.frequency.value=7600;ringG=ac.createGain();ringG.gain.value=0;o.connect(ringG).connect(ac.destination);o.start()}catch(e){earLP=null;master.connect(ac.destination)}
     try{recDest=ac.createMediaStreamDestination();master.connect(recDest)}catch(e){recDest=null}}catch(e){ac=null;return}}
   if(ac.state!=='running'){try{ac.resume()}catch(e){}}
@@ -1278,10 +1287,15 @@ function sound(l,big){if(!ac||!opts.sound)return;const t=ac.currentTime;
   o.connect(g).connect(outNode());o.start(t);o.stop(t+.5);
   const s=ac.createBufferSource();s.buffer=noiseBuf(.3);const bp=ac.createBiquadFilter();bp.type='bandpass';bp.Q.value=3;
   bp.frequency.setValueAtTime(1400-l*80,t);bp.frequency.exponentialRampToValueAtTime(180,t+.25);
-  const ng=ac.createGain();ng.gain.value=big?.5:.22;s.connect(bp).connect(ng).connect(outNode());s.start(t)}
+  const ng=ac.createGain();ng.gain.value=big?.5:.22;s.connect(bp).connect(ng).connect(outNode());s.start(t);
+  // wet squelch: resonant sweep through a noise burst + a soft body thump
+  const s2=ac.createBufferSource();s2.buffer=noiseBuf(.35);const lp=ac.createBiquadFilter();lp.type='lowpass';lp.Q.value=9;lp.frequency.setValueAtTime(900-l*30,t);lp.frequency.exponentialRampToValueAtTime(110,t+.3);
+  const g2=ac.createGain();g2.gain.setValueAtTime(.0001,t);g2.gain.exponentialRampToValueAtTime(big?.5:.3,t+.02);g2.gain.exponentialRampToValueAtTime(.0001,t+.34);s2.connect(lp).connect(g2).connect(outNode());s2.start(t);
+  const o3=ac.createOscillator(),g3=ac.createGain();o3.type='sine';o3.frequency.setValueAtTime(95-l*3,t);o3.frequency.exponentialRampToValueAtTime(45,t+.25);g3.gain.setValueAtTime(.25,t);g3.gain.exponentialRampToValueAtTime(.0001,t+.28);o3.connect(g3).connect(outNode());o3.start(t);o3.stop(t+.3)}
 function plop(){if(!ac||!opts.sound)return;const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.type='sine';
-  o.frequency.setValueAtTime(520,t);o.frequency.exponentialRampToValueAtTime(160,t+.08);g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.0001,t+.1);
-  o.connect(g).connect(outNode());o.start(t);o.stop(t+.12)}
+  // water drop: fast upward chirp (bubble resonance) + a short splash
+  o.frequency.setValueAtTime(260,t);o.frequency.exponentialRampToValueAtTime(1100,t+.06);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.13,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.13);
+  o.connect(g).connect(outNode());o.start(t);o.stop(t+.15);noise(.12,'bandpass',2200,1.5,.08)}
 function screech(){if(!ac||!opts.sound)return;const t=ac.currentTime,out=ac.createGain();out.gain.value=.9;out.connect(outNode());
   [430,457,611,689].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type='sawtooth';
     o.frequency.setValueAtTime(f*.6,t);o.frequency.exponentialRampToValueAtTime(f*1.9,t+.12);o.frequency.exponentialRampToValueAtTime(f*1.2,t+.6);
@@ -1296,7 +1310,7 @@ const REC={mime:'',ext:'',slots:[],stream:null,ok:false,clips:[],paused:false};
 (()=>{try{if(!window.MediaRecorder||!clipCv.captureStream)return;
   for(const m of ['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'])if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m)){REC.mime=m;break}
   if(!REC.mime)return;REC.ext=REC.mime.startsWith('video/mp4')?'mp4':'webm';REC.stream=clipCv.captureStream(30);REC.ok=true}catch(e){REC.ok=false}})();
-function recActive(){return REC.ok&&opts.clips&&engine&&started}
+function recActive(){return REC.ok&&opts.clips&&!opts.lite&&engine&&started}
 function newSlot(){try{const tr=[...REC.stream.getVideoTracks()];if(recDest)tr.push(...recDest.stream.getAudioTracks());
   const mr=new MediaRecorder(new MediaStream(tr),{mimeType:REC.mime,videoBitsPerSecond:2200000});const sl={mr,chunks:[],t0:performance.now(),act:0};
   mr.ondataavailable=e=>{if(e.data&&e.data.size)sl.chunks.push(e.data)};mr.start(500);REC.slots.push(sl)}catch(e){REC.ok=false}}
@@ -1424,7 +1438,7 @@ const ACH=[
  ['share','Хвастун','Поделитесь результатом',()=>stats.shares>0],
  ['chal','Принято','Выиграйте вызов друга',()=>stats.chalWon>0],
 ];
-function checkAch(){let ch=false;for(const [id,name,desc,ok] of ACH){if(ach[id])continue;let v=false;try{v=ok()}catch(e){}
+function checkAch(){if(window.__DEMO)return;let ch=false;for(const [id,name,desc,ok] of ACH){if(ach[id])continue;let v=false;try{v=ok()}catch(e){}
   if(v){ach[id]=Date.now();ch=true;toast('Достижение',name,desc);vibe([20,40,20])}}
   if(ch){store.set('mut.ach',ach);updProg()}}
 const QPOOL=[
@@ -1565,6 +1579,59 @@ function renderTrials(){const el=$('trials');el.innerHTML='';
     c.querySelector('button').onclick=()=>{$('trialSheet').hidden=true;resumeAfterSheet=false;trialIdx=i;startMode('trial')};el.appendChild(c)});
   const total=Object.values(trialStars).reduce((a,v)=>a+v,0);$('trialSub').textContent=`5 уровней · звёзд ${total} из 15`}
 
+// ---------- first-game tutorial ----------
+const TUT={step:-1};
+function tutStart(){if(store.get('mut.tut',false)||stats.games>0||mode!=='classic'||window.__DEMO){TUT.step=-1;return}TUT.step=0;TUT.t0=performance.now()}
+function tutEv(e){if(TUT.step<0)return;
+  if(TUT.step===0&&(e==='move'||e==='drop'))TUT.step=e==='drop'?2:1;
+  else if(TUT.step===1&&e==='drop')TUT.step=2;
+  else if(TUT.step===2&&e==='merge'){TUT.step=-1;store.set('mut.tut',true);toast('Отлично!','Они мутировали','Сливайте дальше и не дайте банке переполниться выше крышки.');track('tutorial_done',{sec:Math.round((performance.now()-TUT.t0)/1000)})}}
+function tutTick(){}
+function drawTut(now){if(TUT.step<0||over||paused)return;
+  const lines=TUT.step===0?['Ведите пальцем влево-вправо','и выберите место']:TUT.step===1?['Отпустите палец —','образец упадёт']:['Сливайте двух одинаковых —','они мутируют в новую форму'];
+  ctx.save();const y=RIM+150;ctx.fillStyle='rgba(0,0,0,.6)';ctx.beginPath();ctx.roundRect(JL+24,y-34,JR-JL-48,74,6);ctx.fill();
+  ctx.strokeStyle='rgba(255,90,78,.7)';ctx.lineWidth=1.5;ctx.stroke();ctx.textAlign='center';ctx.fillStyle='#f4e6cc';ctx.font='17px "Rubik Distressed",sans-serif';
+  ctx.fillText(lines[0],W/2,y-6);ctx.fillText(lines[1],W/2,y+20);
+  // finger hint
+  const k=TUT.step===0?Math.sin(now/450):0,hx=W/2+k*90,hy=TUT.step===1?SPAWN_Y+30+Math.abs(Math.sin(now/300))*14:SPAWN_Y+34;
+  if(TUT.step<2){ctx.globalAlpha=.9;ctx.fillStyle='#f4e6cc';ctx.beginPath();ctx.ellipse(hx,hy+14,9,12,0,0,TAU);ctx.fill();ctx.fillRect(hx-4,hy-6,8,16);ctx.beginPath();ctx.arc(hx,hy-6,4,0,TAU);ctx.fill();
+    ctx.strokeStyle='rgba(255,90,78,.8)';ctx.lineWidth=2;if(TUT.step===0){ctx.beginPath();ctx.moveTo(hx-22,hy+4);ctx.lineTo(hx-34,hy+4);ctx.moveTo(hx+22,hy+4);ctx.lineTo(hx+34,hy+4);ctx.stroke()}
+    else{ctx.beginPath();ctx.moveTo(hx,hy+34);ctx.lineTo(hx,hy+52);ctx.lineTo(hx-6,hy+46);ctx.moveTo(hx,hy+52);ctx.lineTo(hx+6,hy+46);ctx.stroke()}}
+  ctx.restore()}
+
+// ---------- 60-second demo for showing the game ----------
+let demoTimers=[],demoBackup=null;
+function demoAt(ms,f){demoTimers.push(setTimeout(()=>{if(window.__DEMO)try{f()}catch(e){}},ms))}
+function demoCap(a,b,c){toastQ.length=0;toast(a,b,c)}
+function startDemo(){if(window.__DEMO)return;
+  demoBackup={found:[...found],stats:JSON.parse(JSON.stringify(stats)),ach:JSON.parse(JSON.stringify(ach)),lore:[...loreRead],qp:JSON.parse(JSON.stringify(qp)),opts:JSON.parse(JSON.stringify(opts))};
+  window.__DEMO=true;opts.scare=true;opts.calm=false;stats.games=99;startMode('classic');$('demoBar').hidden=false;
+  Object.assign(HZ,{nextGaze:1e12,nextWave:1e12,nextWhisper:1e12,nextHand:1e12,nextLight:1e12,nextKnock:1e12,nextSound:1e12,nextInspect:1e12,nextLeak:1e12,nightDone:true,nextThought:1e12,nextShade:1e12});blackoutAt=1e15;
+  const X=(a,b)=>JL+40+Math.random()*(JR-JL-80);
+  demoCap('Мутация · демо','Хоррор-головоломка со слиянием','Бросайте мутантов в банку с формалином. Две одинаковые формы сливаются в следующую.');
+  for(let i=0;i<8;i++)demoAt(600+i*450,()=>{const l=i%3;spawn(l,120+(i%2)*160,SPAWN_Y+10);spawn(l,126+(i%2)*160,SPAWN_Y-30)});
+  demoAt(5200,()=>{demoCap('15 мутантов','и вирусная ветка','От Капли до Матки. Вирусы — по снимкам электронного микроскопа.');spawn(LV.eye,140,300);spawn(LV.eye,146,240);spawn(LV.phage,280,300);spawn(LV.corona,320,300)});
+  demoAt(9000,()=>{found.delete(LV.maw);spawn(LV.clot,200,260);spawn(LV.clot,206,190)});
+  demoAt(9300,()=>demoCap('Скримеры','при открытии новой формы',''));
+  demoAt(14500,()=>{demoCap('Аномалии','черви, паразиты, кукла…','Зубастый червь охотится на мелочь и растёт, паразит ворует очки, кукла смеётся.');drops=40;spawn('worm',120,200);spawn('parasite',290,220);spawn('doll',220,180)});
+  demoAt(21000,()=>{demoCap('Утечка формалина','залатать за 200 очков','Всё, что окажется над жидкостью, высохнет в гниль.');score=Math.max(score,320);HZ.nextLeak=0;HZ.t=Math.max(HZ.t,1)});
+  demoAt(25500,()=>{patchLeak()});
+  demoAt(27000,()=>{demoCap('Свет гаснет','видны только глаза','');blackoutAt=0});
+  demoAt(35500,()=>{demoCap('Молния','за стеклом кто-то стоит','');HZ.nextLight=0});
+  demoAt(39000,()=>{demoCap('Стук в стекло','пять трещин — банка лопнет','');for(let i=0;i<3;i++)setTimeout(()=>{const b=bodies.find(q=>q.lvl!=null&&q.lvl>=3)||bodies.find(q=>q.lvl!=null);if(b&&window.__DEMO)knock(b)},i*700)});
+  demoAt(43500,()=>{demoCap('Кардиомонитор и тревога','пульс растёт вместе с опасностью','Тоннельное зрение, глухота, навязчивые мысли.');HZ.night={t:0};HZ.inspect={phase:'quiet',t:-60000}});
+  demoAt(50000,()=>{HZ.night=null;HZ.inspect=null;demoCap('Две Матки','пожирают друг друга: +500','');spawn(MAX,140,200);spawn(MAX,260,140)});
+  demoAt(55000,()=>demoCap('И ещё','дневной забег, «Падение», 5 испытаний','Лазер, дезинфекция, ультрафиолет, центрифуга, криокамера. Задания, серии, клипы, вызовы друзьям.'));
+  demoAt(61000,()=>stopDemo(true));
+  track('demo',{});
+}
+function stopDemo(done){if(!window.__DEMO)return;demoTimers.forEach(clearTimeout);demoTimers=[];
+  found=new Set(demoBackup.found);Object.keys(stats).forEach(k=>delete stats[k]);Object.assign(stats,demoBackup.stats);ach=demoBackup.ach;loreRead=new Set(demoBackup.lore);qp=demoBackup.qp;
+  Object.keys(opts).forEach(k=>delete opts[k]);Object.assign(opts,demoBackup.opts);window.__DEMO=false;$('demoBar').hidden=true;
+  HZ.leak=null;darkUntil=0;sc.hidden=true;scream=null;over=false;started=false;newGame('classic');paused=true;openMenu();renderReg();syncToggles();
+  if(done)toast('Конец демо','Спасибо за внимание','')}
+$('demoBtn').onclick=startDemo;$('demoBar').onclick=()=>stopDemo(false);
+
 // ---------- HUD & UI ----------
 function updHud(){$('score').textContent=score;if(typeof updLeak==='function'&&HZ.leak)updLeak();$('bestLine').textContent=mode==='trial'&&trial?trialGoalText():mode==='challenge'&&challenge?'цель '+challenge.target+(isFall()?` · уровень ${fallLevel()}`:''):isFall()?`уровень ${fallLevel()} · рекорд ${bestScore()}`:(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
   const unread=formsFound().filter(i=>!loreRead.has(i)).length;
@@ -1621,10 +1688,10 @@ $('questPlay').onclick=()=>{$('questSheet').hidden=true;resumeAfterSheet=false;s
 $('achBtn').onclick=()=>{renderAch();openSheet('achSheet')};$('achClose').onclick=()=>closeSheet('achSheet');
 $('boardPlay').onclick=()=>{$('boardSheet').hidden=true;resumeAfterSheet=false;startMode('daily')};
 
-function openMenu(){paused=true;$('menu').hidden=false;updProg();pausedAt=Date.now();$('pauseNote').hidden=true;
+function openMenu(){if(window.__DEMO){stopDemo(false);return}paused=true;$('menu').hidden=false;updProg();pausedAt=Date.now();$('pauseNote').hidden=true;
   $('chalCard').hidden=!challenge;if(challenge)$('chalText').textContent=`Побейте ${challenge.target} ${plural(challenge.target,'очко','очка','очков')}`+(challenge.fall?' в режиме «Падение»: мутанты падают сами':'')+`. У вас будут те же образцы, что и у друга`+((JARS[challenge.jar]&&challenge.jar!=='normal')?`, банка: ${JARS[challenge.jar].name.toLowerCase()}.`:'.');
   $('resumeBtn').hidden=!(started&&!over);$('resumeSub').textContent=(mode==='trial'?`испытание ${trialIdx+1} · `:mode==='daily'?`дневной забег · `:isFall()?'падение · ':'классика · ')+score+' очков'}
-function startMode(m){unlockAudio();toastQ.length=0;if(m==='trial')track('trial_start',{id:TRIALS[trialIdx].id});$('menu').hidden=true;newGame(m);paused=false;track('game_start',{jar:jarKey,lab:Math.min(labLvl(),9),games:stats.games});cv.focus({preventScroll:true})}
+function startMode(m){unlockAudio();toastQ.length=0;setTimeout(tutStart,0);if(m==='trial')track('trial_start',{id:TRIALS[trialIdx].id});$('menu').hidden=true;newGame(m);paused=false;track('game_start',{jar:jarKey,lab:Math.min(labLvl(),9),games:stats.games});cv.focus({preventScroll:true})}
 $('menuBtn').onclick=openMenu;
 $('resumeBtn').onclick=()=>{$('menu').hidden=true;paused=false;cv.focus({preventScroll:true})};
 $('playBtn').onclick=()=>startMode('classic');
@@ -1641,12 +1708,13 @@ function updJarBtn(){const k=opts.jar||'normal';$('jarBtn').textContent='Бан�
 $('jarBtn').onclick=()=>{const i=JAR_KEYS.indexOf(opts.jar||'normal');opts.jar=JAR_KEYS[(i+1)%JAR_KEYS.length];saveOpts();updJarBtn();toast('Банка: '+JARS[opts.jar].name,JARS[opts.jar].desc)};updJarBtn();
 
 function syncToggles(){
-  for(const [id,k] of [['tSound','sound'],['tScare','scare'],['tVibe','vibe'],['tClips','clips'],['tCalm','calm'],['tStats','stats']])$(id).setAttribute('aria-pressed',String(opts[k]));
+  for(const [id,k] of [['tSound','sound'],['tScare','scare'],['tVibe','vibe'],['tClips','clips'],['tCalm','calm'],['tStats','stats'],['tLite','lite']])$(id).setAttribute('aria-pressed',String(opts[k]));
   $('tClips').hidden=!REC.ok;
   $('soundBtn').setAttribute('aria-pressed',String(opts.sound));$('soundState').textContent=opts.sound?'вкл':'выкл'}
 function toggle(k){if(k==='stats'&&opts.stats)track('setting',{k,v:false});opts[k]=!opts[k];saveOpts();if(k!=='stats')track('setting',{k,v:opts[k]});if(k==='sound'&&opts.sound)unlockAudio();syncToggles()}
 $('tSound').onclick=()=>toggle('sound');$('soundBtn').onclick=()=>toggle('sound');
-$('tScare').onclick=()=>toggle('scare');$('tClips').onclick=()=>toggle('clips');$('tStats').onclick=()=>{toggle('stats');toast(opts.stats?'Статистика включена':'Статистика выключена',opts.stats?'Анонимно: только игровые действия':'Игра ничего не отправляет')};
+$('tScare').onclick=()=>toggle('scare');$('tClips').onclick=()=>toggle('clips');$('tLite').onclick=()=>{toggle('lite');opts.liteAuto=false;saveOpts();applyLite();toast(opts.lite?'Лёгкая графика':'Полная графика',opts.lite?'Меньше эффектов — плавнее на слабых телефонах':'')};
+$('tStats').onclick=()=>{toggle('stats');toast(opts.stats?'Статистика включена':'Статистика выключена',opts.stats?'Анонимно: только игровые действия':'Игра ничего не отправляет')};
 $('tCalm').onclick=()=>{toggle('calm');updProg();toast(opts.calm?'Спокойный режим':'Обычный режим',opts.calm?'Только слияния':'Аномалии и события вернулись',opts.calm?'Для классики и «Падения»: без аномалий, событий и скримеров. Рекорды отдельные.':'')};$('tVibe').onclick=()=>{toggle('vibe');vibe(30)};
 syncToggles();
 
@@ -1667,7 +1735,7 @@ function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}co
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
 function anDevice(){let d=store.get('mut.dev',null);if(!d){d=uid4();store.set('mut.dev',d)}return d}
-function track(ev,data){try{if(!opts.stats||!useSupa())return;AN.q.push({ev,mode:mode+(isCalm()?'_calm':''),data:data||{},t:Date.now()});if(AN.q.length>=25)anFlush()}catch(e){}}
+function track(ev,data){try{if(window.__DEMO)return;if(!opts.stats||!useSupa())return;AN.q.push({ev,mode:mode+(isCalm()?'_calm':''),data:data||{},t:Date.now()});if(AN.q.length>=25)anFlush()}catch(e){}}
 function anFlush(keep){if(!AN.q.length)return;if(!opts.stats||!useSupa()){AN.q=[];return}const batch=AN.q.splice(0,50);
   try{fetch(SUPA.url+'/rest/v1/rpc/mutaciya_log',{method:'POST',keepalive:!!keep,headers:{apikey:SUPA.key,'Content-Type':'application/json'},
     body:JSON.stringify({p_device:anDevice(),p_session:AN.session,p_ver:APP_VER,p_events:batch})}).catch(()=>{})}catch(e){}}
@@ -1879,6 +1947,13 @@ function drawHero(t){const lvl=Math.max(...formsFound().filter(i=>i<=MAX)),F=FOR
   drawCreature(hctx,lvl,F.r,t,6,{x:dx/d*k,y:dy/d*k});shine(hctx,F.r)}
 
 let last=performance.now(),acc=0,nextTick=0;
+// lite graphics: no shadow glows, no grain, lower resolution; turns on by itself if frames drop
+const shDesc=Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype,'shadowBlur');
+for(const c of [ctx,sctx,ecx])Object.defineProperty(c,'shadowBlur',{get(){return shDesc.get.call(this)},set(v){shDesc.set.call(this,opts.lite?0:v)}});
+function applyLite(){document.body.classList.toggle('lite',!!opts.lite);fit()}
+const PERF={sum:0,n:0,checked:false};
+function perfTick(dt,live){if(!live||opts.lite||PERF.checked||document.hidden)return;PERF.sum+=dt;PERF.n++;
+  if(PERF.n>=240){const avg=PERF.sum/PERF.n;PERF.sum=0;PERF.n=0;if(avg>27){opts.lite=true;opts.liteAuto=true;saveOpts();applyLite();syncToggles();toast('Лёгкая графика','Включена автоматически','Телефон не успевал рисовать все эффекты. Выключить можно в меню.');track('lite_auto',{ms:Math.round(avg)})}else if(avg<20)PERF.checked=true}}
 function frame(now){
   const dt=Math.min(50,now-last);last=now;const t=now/1000;
   if(engine&&!paused&&!over&&!scream){acc+=dt;while(acc>=1000/60){Engine.update(engine,1000/60);acc-=1000/60;if(queue.length||mutQ.length)processMerges()}
@@ -1892,7 +1967,7 @@ function frame(now){
   for(const f of floaters){f.y-=.6;f.life-=.014}floaters=floaters.filter(f=>f.life>0);
   shake*=.88;flash*=.92;
 
-  if(stage.clientWidth+'x'+stage.clientHeight+'@'+Math.min(window.devicePixelRatio||1,2.5)!==lastStage)fit();
+  if(stage.clientWidth+'x'+stage.clientHeight+'@'+Math.min(window.devicePixelRatio||1,opts.lite?1.5:2.5)!==lastStage)fit();
   if(!$('menu').hidden)drawHero(t);
   if(engine){
     ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0);ctx.save();
@@ -1927,6 +2002,7 @@ function frame(now){
     if(jar.dark||darkUntil>now||isTrial('uv'))drawDark(now,(jar.dark||isTrial('uv'))&&!(darkUntil>now));
     drawGlass();
     drawHorror(now,t);
+    drawTut(now);
     ctx.textAlign='center';for(const f of floaters){ctx.globalAlpha=Math.min(1,f.life*1.5);ctx.font=f.big?'22px "Rubik Distressed",sans-serif':'600 13px "IBM Plex Mono",monospace';
       ctx.fillStyle='#000';ctx.fillText(f.text,f.x+1,f.y+1);ctx.fillStyle=f.col||(f.big?'#f0c060':'#ece3cb');ctx.fillText(f.text,f.x,f.y)}ctx.globalAlpha=1;
     if(flash>.02){ctx.fillStyle=`rgba(255,200,120,${flash*.25})`;ctx.fillRect(0,0,W,H)}
@@ -1936,7 +2012,7 @@ function frame(now){
     ctx.restore();
   }
   if(scream)drawScream(now);
-  const live=!!engine&&started&&!paused&&$('menu').hidden;recTick(dt,live&&!over);ambTick(dt,live&&!over);musicTick();ecgTick(dt,live);psyTick(dt,live);
+  const live=!!engine&&started&&!paused&&$('menu').hidden;recTick(dt,live&&!over);ambTick(dt,live&&!over);musicTick();perfTick(dt,live&&!over);tutTick();ecgTick(dt,live);psyTick(dt,live);
   if(!$('menu').hidden&&started&&!over&&opts.scare&&pausedAt){const w=Date.now()-pausedAt;if(w>20000){$('pauseNote').hidden=false;$('pauseNote').textContent=w>60000?'Они начали без тебя.':'Ты ушёл. Они ждали.'}}if(recActive()&&live&&!over)drawClipFrame();
   if(now>nextTick){drawNext();nextTick=now+250}
   requestAnimationFrame(frame);
@@ -1946,8 +2022,9 @@ for(const evn of ['pointerdown','touchend','click','keydown'])document.addEventL
 document.addEventListener('visibilitychange',()=>{if(document.hidden){try{ac&&ac.suspend()}catch(e){}}else if(ac&&opts.sound){try{ac.resume()}catch(e){}}});
 store.set('mut.lastSeenPrev',store.get('mut.lastSeen',Date.now()));store.set('mut.lastSeen',Date.now());hzMenu();
 track('session_start',{first:AN.firstRun,games:stats.games,app:!!(matchMedia('(display-mode: standalone)').matches||navigator.standalone),w:innerWidth,h:innerHeight,lang:(navigator.language||'').slice(0,5),challenge:!!challenge});
+applyLite();
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
