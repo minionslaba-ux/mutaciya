@@ -66,6 +66,13 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .menu h1{font-family:var(--f-display);font-weight:400;font-size:46px;letter-spacing:.04em;margin:0;text-align:center;line-height:1}
 .menu .tag{text-align:center;color:var(--muted);margin:0 0 4px;line-height:1.5}
 #hero{width:180px;height:180px;align-self:center}
+.menu.newbie #trialBtn,.menu.newbie #fallBtn,.menu.newbie #jarBtn,.menu.newbie #dailyBtn,.menu.newbie .streak,.menu.newbie .unlock,
+.menu.newbie .menugrid,.menu.newbie .toggles,.menu.newbie .foot,.menu.newbie .demo{display:none}
+.menu.newbie #playBtn{min-height:72px;font-size:21px}
+.newbie-box{display:flex;flex-direction:column;gap:10px;text-align:center}
+.newbie-box p{margin:0;font:400 12px/1.5 var(--f-mono);color:var(--muted)}
+.newbie-box .warn{color:#ff8a7e}
+.newbie-box button{min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .big{min-height:60px;font-size:17px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .big small{font:400 12px var(--f-mono);color:inherit;opacity:.75}
 .toggles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
@@ -319,7 +326,12 @@ body{height:100vh;height:100dvh}
     </div>
     <p class="pausenote" id="pauseNote" hidden></p>
     <button class="big" id="resumeBtn" hidden>Продолжить<small id="resumeSub"></small></button>
-    <button class="big primary" id="playBtn">Классика<small>случайные образцы</small></button>
+    <button class="big primary" id="playBtn"><span id="playLbl">Играть</span><small id="playSub">классика · случайные образцы</small></button>
+    <div class="newbie-box" id="newbieBox" hidden>
+      <p class="warn">16+ · в игре есть скримеры и резкие звуки</p>
+      <button id="calmStart">Без скримеров<small>спокойный режим, можно выключить в меню</small></button>
+      <p class="later">Испытания, «Падение», дневной забег и настройки откроются после первой смены</p>
+    </div>
     <button class="big" id="trialBtn">Испытания<small id="trialSub">5 уровней с особыми механиками</small></button>
     <button class="big" id="fallBtn">Падение<small>мутанты падают сами — успей поставить</small></button>
     <button class="jarpick" id="jarBtn">Банка: Обычная</button>
@@ -932,7 +944,7 @@ function processMerges(){if(queue.length)tutEv('merge');
     crushParasites(x,y,FORMS[L].r);discover(L);ev('make',L);hzMerge(L);
   }
   queue=[];
-  if(newForm>=0){renderReg();if(opts.scare&&!isCalm()&&newForm>=3)scheduleScream(newForm);else{toast('Новая мутация',FORMS[newForm].name);flash=.6}}
+  if(newForm>=0){renderReg();if(opts.scare&&!isCalm()&&newForm>=3&&!(stats.games===0&&HZ.t<75000))scheduleScream(newForm);else{toast('Новая мутация',FORMS[newForm].name);flash=.6}}
   if(score>bestScore())store.set(bestKey(),score);
   updHud();checkLevel();
 }
@@ -1485,7 +1497,11 @@ function updUnlock(){const el=$('unlockLine');if(!el)return;
   const g=stats.games,next=Object.values(UNLOCK).filter(n=>n>g).sort((a,b)=>a-b)[0];
   if(next==null){el.textContent='';return}
   const left=next-g;el.innerHTML='';el.append(`Через ${left} ${plural(left,'партию','партии','партий')} откроется: `);const b=document.createElement('b');b.textContent=unlockedAt(next).join(', ');el.append(b)}
-function updProg(){updUnlock();
+function isNewbie(){return stats.games===0&&!store.get('mut.tut',false)&&!challenge}
+function updNewbie(){const nb=isNewbie();document.querySelector('.menu').classList.toggle('newbie',nb);$('newbieBox').hidden=!nb;
+  const mid=started&&!over;$('playLbl').textContent=nb?(mid?'Начать заново':'Начать смену'):'Играть';$('playSub').textContent=nb?(mid?'новая смена с обучением':'обучение — 20 секунд'):'классика · случайные образцы';
+  const tag=document.querySelector('.menu .tag');if(nb&&tag&&!tag.classList.contains('whisper'))tag.innerHTML='Сливай двух одинаковых мутантов — получишь нового, страшнее.<br>Не дай банке переполниться.'}
+function updProg(){updUnlock();updNewbie();
   const n=streakNow();
   $('streakLine').textContent=n>0?`Серия: ${n} ${plural(n,'день','дня','дней')}`+(streak.last===DAY?' · сегодня засчитан':' · сыграйте дневной забег, чтобы продлить')
     :'Сыграйте дневной забег, чтобы начать серию';
@@ -1586,10 +1602,17 @@ function tutStart(){if(store.get('mut.tut',false)||stats.games>0||mode!=='classi
 function tutEv(e){if(TUT.step<0)return;
   if(TUT.step===0&&(e==='move'||e==='drop'))TUT.step=e==='drop'?2:1;
   else if(TUT.step===1&&e==='drop')TUT.step=2;
-  else if(TUT.step===2&&e==='merge'){TUT.step=-1;store.set('mut.tut',true);toast('Отлично!','Они мутировали','Сливайте дальше и не дайте банке переполниться выше крышки.');track('tutorial_done',{sec:Math.round((performance.now()-TUT.t0)/1000)})}}
+  else if(TUT.step===2&&e==='merge'){TUT.step=3;TUT.t3=performance.now();store.set('mut.tut',true);track('tutorial_done',{sec:Math.round((performance.now()-TUT.t0)/1000)})}}
 function tutTick(){}
-function drawTut(now){if(TUT.step<0||over||paused)return;
-  const lines=TUT.step===0?['Ведите пальцем влево-вправо','и выберите место']:TUT.step===1?['Отпустите палец —','образец упадёт']:['Сливайте двух одинаковых —','они мутируют в новую форму'];
+function drawTutRim(now){const k=(now-TUT.t3)/1000;if(k>6){TUT.step=-1;return}
+  ctx.save();const a=Math.min(1,k*3,(6-k)*2);ctx.globalAlpha=a;const pulse=.6+.4*Math.sin(now/160);
+  ctx.strokeStyle=`rgba(255,60,50,${pulse})`;ctx.lineWidth=3;ctx.setLineDash([10,7]);ctx.beginPath();ctx.moveTo(JL,RIM);ctx.lineTo(JR,RIM);ctx.stroke();ctx.setLineDash([]);
+  const y=RIM+70;ctx.fillStyle='rgba(0,0,0,.66)';ctx.beginPath();ctx.roundRect(JL+16,y-38,JR-JL-32,96,6);ctx.fill();ctx.strokeStyle='rgba(255,90,78,.7)';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.textAlign='center';ctx.fillStyle='#ffcf7a';ctx.font='18px "Rubik Distressed",sans-serif';ctx.fillText('Мутировали!',W/2,y-12);
+  ctx.fillStyle='#f4e6cc';ctx.font='15px "Rubik Distressed",sans-serif';ctx.fillText('Красная линия — край банки.',W/2,y+14);ctx.fillText('Перельются через неё — конец смены',W/2,y+36);
+  ctx.strokeStyle=`rgba(255,90,78,${pulse})`;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(W/2,y-42);ctx.lineTo(W/2,RIM+6);ctx.lineTo(W/2-6,RIM+13);ctx.moveTo(W/2,RIM+6);ctx.lineTo(W/2+6,RIM+13);ctx.stroke();ctx.restore()}
+function drawTut(now){if(TUT.step<0||over||paused)return;if(TUT.step===3)return drawTutRim(now);
+  const lines=TUT.step===0?['Ведите пальцем влево-вправо —','выберите, куда бросить']:TUT.step===1?['Отпустите палец —','образец упадёт в банку']:['Столкните двух одинаковых —','они срастутся в нового мутанта'];
   ctx.save();const y=RIM+150;ctx.fillStyle='rgba(0,0,0,.6)';ctx.beginPath();ctx.roundRect(JL+24,y-34,JR-JL-48,74,6);ctx.fill();
   ctx.strokeStyle='rgba(255,90,78,.7)';ctx.lineWidth=1.5;ctx.stroke();ctx.textAlign='center';ctx.fillStyle='#f4e6cc';ctx.font='17px "Rubik Distressed",sans-serif';
   ctx.fillText(lines[0],W/2,y-6);ctx.fillText(lines[1],W/2,y+20);
@@ -1696,6 +1719,7 @@ function startMode(m){unlockAudio();toastQ.length=0;setTimeout(tutStart,0);if(m=
 $('menuBtn').onclick=openMenu;
 $('resumeBtn').onclick=()=>{$('menu').hidden=true;paused=false;cv.focus({preventScroll:true})};
 $('playBtn').onclick=()=>startMode('classic');
+$('calmStart').onclick=()=>{if(!opts.calm)toggle('calm');startMode('classic');toast('Спокойный режим','Без скримеров и аномалий','Обычный режим включается в меню: «Спокойный режим».')};
 $('trialBtn').onclick=()=>{renderTrials();openSheet('trialSheet')};$('trialClose').onclick=()=>closeSheet('trialSheet');
 $('trialSheet').addEventListener('click',e=>{if(e.target.id==='trialSheet')closeSheet('trialSheet')});
 $('fallBtn').onclick=()=>startMode('fall');
@@ -1731,7 +1755,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.10';
+const APP_VER='2026.11.10b';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -1947,7 +1971,20 @@ function drawDark(now,torch){
 
 // menu hero: the highest form you have found watches you
 const hctx=$('hero').getContext('2d');let heroLook={x:innerWidth/2,y:innerHeight/2};
-function drawHero(t){const lvl=Math.max(...formsFound().filter(i=>i<=MAX)),F=FORMS[lvl],rc=$('hero').getBoundingClientRect();
+function drawHeroDemo(t){const T=3.4,p=(t%T)/T,c=hctx,A=LV.eye,B=LV.leech,r0=46,r1=Math.min(70,r0*FORMS[B].r/FORMS[A].r),floor=118;
+  c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,360,360);c.translate(180,150);
+  c.strokeStyle='rgba(239,228,204,.25)';c.lineWidth=3;c.beginPath();c.moveTo(-130,-130);c.lineTo(-130,floor+12);c.quadraticCurveTo(-130,floor+40,-100,floor+40);
+  c.lineTo(100,floor+40);c.quadraticCurveTo(130,floor+40,130,floor+12);c.lineTo(130,-130);c.stroke();
+  const ease=k=>1-Math.pow(1-Math.max(0,Math.min(1,k)),3);
+  const one=(x,y,lvl,r,seed)=>{c.save();c.translate(x,y);const s=r/FORMS[lvl].r;c.scale(s,s);drawCreature(c,lvl,FORMS[lvl].r,t,seed,{x:0,y:.3});shine(c,FORMS[lvl].r);c.restore()};
+  const end=floor+40-r0,yL=-200+ease(p/.3)*(end+200),yR=-200+ease((p-.18)/.3)*(end+200),slide=ease((p-.52)/.12),mx=1-slide;
+  if(p<.66){one(-64*mx-r0*.35*slide,yL,A,r0,1);one(64*mx+r0*.35*slide,yR,A,r0,2);
+    if(p>.5){c.fillStyle='rgba(255,200,120,'+(.8*Math.sin(Math.PI*(p-.5)/.16))+')';c.font='bold 34px "Rubik Distressed",sans-serif';c.textAlign='center';c.fillText('+',0,floor+40-r0-50)}}
+  else{const k=ease((p-.66)/.1),fl=Math.max(0,1-(p-.66)/.12);
+    if(fl>0){c.fillStyle='rgba(255,210,140,'+fl*.7+')';c.beginPath();c.arc(0,floor+40-r1,r1*(1.2+fl),0,TAU);c.fill()}
+    one(0,floor+40-r1*Math.max(.3,k),B,r1*Math.max(.3,k),3);
+    c.globalAlpha=Math.min(1,(p-.7)/.08);c.fillStyle='#ffcf7a';c.font='600 22px "IBM Plex Mono",monospace';c.textAlign='center';c.fillText('мутация!',0,-118);c.globalAlpha=1}}
+function drawHero(t){if(isNewbie())return drawHeroDemo(t);const lvl=Math.max(...formsFound().filter(i=>i<=MAX)),F=FORMS[lvl],rc=$('hero').getBoundingClientRect();
   const dx=heroLook.x-(rc.left+rc.width/2),dy=heroLook.y-(rc.top+rc.height/2),d=Math.hypot(dx,dy)||1,k=Math.min(1,d/200);
   hctx.setTransform(1,0,0,1,0,0);hctx.clearRect(0,0,360,360);hctx.translate(180,180);const s=150/F.r;hctx.scale(s,s);
   drawCreature(hctx,lvl,F.r,t,6,{x:dx/d*k,y:dy/d*k});shine(hctx,F.r)}
