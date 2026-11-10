@@ -531,8 +531,8 @@ const WEEK_DAYS=(()=>{const d=new Date(DAY+'T00:00:00Z'),wd=(d.getUTCDay()+6)%7;
 const WEEK=(()=>{const d=new Date(WEEK_DAYS[3]+'T00:00:00Z'),y=d.getUTCFullYear(),j=new Date(Date.UTC(y,0,1));return y+'-W'+String(1+Math.floor((d-j)/864e5/7)).padStart(2,'0')})();
 const fmtD=(s,o)=>new Date(s+'T12:00:00Z').toLocaleDateString('ru-RU',Object.assign({timeZone:'UTC'},o));
 const WEEK_LABEL=fmtD(WEEK_DAYS[0],{day:'numeric'})+'–'+fmtD(WEEK_DAYS[6],{day:'numeric',month:'long'});
-// public site: own domain mutaciya.com (and the old github.io address)
-const PUBLIC_URL=/(^|\.)mutaciya\.com$/.test(location.hostname)?'https://mutaciya.com/':/github\.io$/.test(location.hostname)?location.origin+location.pathname:'';
+// public site: https://mutaciya.com/ (any other public host, e.g. the old address, also links to the domain)
+const PUBLIC_URL=/^https?:$/.test(location.protocol)&&!(window.claude&&window.claude.use)?'https://mutaciya.com/':'';
 const DAILY_JAR=(()=>{const wd=(new Date(DAY+'T00:00:00Z').getUTCDay()+6)%7;return['normal','viscous','narrow','shaky','dark','normal',JAR_KEYS[1+hashStr('jar:'+DAY)%4]][wd]})();
 const GAME_URL=PUBLIC_URL||'https://mutaciya.com/';
 // challenge link: #vyzov-<seed base36>-<score>
@@ -1728,9 +1728,9 @@ let db=null,user=null,uid=null,boardReady=false;
 })();
 function withTimeout(p,ms){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej({code:'timeout'}),ms))])}
 function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('mut.daily.'+d,0);if(v>0){sum+=v;n++}}return{sum,n}}
-// github.io: shared leaderboard in Supabase (only reads, plus writes through checked functions)
+// mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
-// ---------- anonymous analytics (github.io only): game actions, random device id, no personal data ----------
+// ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
 const APP_VER='2026.11.09';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}

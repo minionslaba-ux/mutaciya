@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Собирает index.html для GitHub Pages из src/game.html.
+"""Собирает index.html для сайта https://mutaciya.com/ (хостинг GitHub Pages) из src/game.html.
 
 src/game.html — исходник страницы (та же версия публикуется на claude.ai).
 В index.html все внешние ресурсы заменяются локальными, чтобы игра
