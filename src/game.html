@@ -47,6 +47,15 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .abil #abExt small{font:400 10px var(--f-mono);text-transform:none;letter-spacing:0}
 .abil #abExt:disabled{animation:none}
 .firecard{border-color:#ff6a1a!important}
+.abil #abEmg{animation:flick 1.2s infinite;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;border-color:#e8c820}
+.abil #abEmg small{font:400 10px var(--f-mono);text-transform:none;letter-spacing:0}
+.abil #abEmg:disabled{animation:none}
+.emgcard{border-color:#e8c820!important}.emgcard b{color:#ffd23a!important}
+.emgbar{position:absolute;left:50%;top:.5%;transform:translateX(-50%);z-index:5;pointer-events:none;width:min(88%,340px);padding:8px 12px 10px;text-align:center;
+  background:rgba(20,14,6,.9);border:1px solid #e8c820;border-radius:12px;display:flex;flex-direction:column;gap:2px;animation:discIn .3s ease-out}
+.emgbar b{font-family:var(--f-glitch);font-weight:400;font-size:20px;color:#ffd23a}
+.emgbar span{font-size:12px;color:var(--fg)}
+.emgbar i{display:block;height:3px;background:#e8c820;border-radius:2px;margin-top:4px;transform-origin:left;transition:transform .2s linear}
 .firecard b{color:#ff7a1a!important}
 .abil #abLeak small{font:400 10px var(--f-mono);text-transform:none;letter-spacing:0}
 .abil #abLeak:disabled{animation:none}
@@ -338,6 +347,15 @@ body{height:100vh;height:100dvh}
   <div class="stage" id="stage">
     <canvas id="cv" tabindex="0" aria-label="Банка. Ведите пальцем и отпустите, чтобы бросить образец. Стрелки двигают, пробел бросает."></canvas>
     <div class="modechip" id="modeChip">Классика</div>
+    <div class="leakpop" id="emgPop" hidden>
+      <div class="leakcard emgcard" role="alertdialog" aria-labelledby="emgTitle">
+        <b id="emgTitle">ЧП</b>
+        <p id="emgText"></p>
+        <button class="primary" id="emgPay">Устранить</button>
+        <button id="emgLater">Позже</button>
+      </div>
+    </div>
+    <div class="emgbar" id="emgBar" hidden><b id="emgBarT"></b><span id="emgBarS"></span><i id="emgBarP"></i></div>
     <div class="leakpop" id="firePop" hidden>
       <div class="leakcard firecard" role="alertdialog" aria-labelledby="fireTitle">
         <b id="fireTitle">Пожар в лаборатории!</b>
@@ -377,6 +395,7 @@ body{height:100vh;height:100dvh}
     <button id="abSwap">Заменить</button>
     <button id="abFire" aria-label="Огнемёт">🔥<span class="lbl"> Огнемёт</span><i id="fireN"></i></button>
     <button id="abDown" hidden aria-label="Сбросить мутанта вниз">Вниз</button>
+    <button id="abEmg" class="primary" hidden aria-label="Устранить ЧП"><span id="abEmgI"></span><small></small></button>
     <button id="abExt" class="primary" hidden aria-label="Потушить пожар за 300 очков">🧯<small></small></button>
     <button id="abLeak" class="primary" hidden aria-label="Залатать утечку за 200 очков">Залатать −200</button>
   </div>
@@ -1255,7 +1274,7 @@ function newGame(m){
   const seed=m==='daily'?hashStr('mutaciya:'+DAY):m==='challenge'&&challenge?challenge.seed:(Math.random()*2**32)>>>0;gameSeed=seed;
   seq=makeSeq(seed);const R0=rng(seed^0x9e3779b9);
   jarKey=m==='trial'?'normal':m==='daily'?DAILY_JAR:m==='challenge'&&challenge&&challenge.jar?challenge.jar:(opts.jar||'normal');if(!JARS[jarKey])jarKey='normal';jar=JARS[jarKey];
-  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;blackoutAt=performance.now()+55000+Math.random()*40000;inBlackout=false;darkUntil=0;abil={shake:1,remove:1,swap:1,fire:1};FIRE.aim=false;FIRE.adUsed=false;FIRE.jets=[];FIRE.p=[];targeting=false;bossSeen=false;updAbil();hzReset();updLeak();updBlaze();
+  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;blackoutAt=performance.now()+55000+Math.random()*40000;inBlackout=false;darkUntil=0;abil={shake:1,remove:1,swap:1,fire:1};FIRE.aim=false;FIRE.adUsed=false;FIRE.jets=[];FIRE.p=[];targeting=false;bossSeen=false;updAbil();hzReset();updLeak();updBlaze();if(EMG)emgEnd(false);
   for(const bb of bubbles){bb.x=JL+8+Math.random()*(JR-JL-16)}
   engine=Engine.create();engine.positionIterations=8;engine.velocityIterations=6;engine.gravity.y=jar.grav||1;
   const o={isStatic:true,friction:.4,restitution:.1};
@@ -1315,7 +1334,7 @@ function crushParasites(x,y,R){
   if(Math.hypot(q.position.x-x,q.position.y-y)<R+q.circleRadius+8){removeBody(q);const g=q.anom==='brood'?60:q.stolen*2+15;score+=g;
     splat(q.position.x,q.position.y,'#b0243a',18,1.2);floater(q.position.x,q.position.y,(q.anom==='brood'?'матка паразитов раздавлена +':'паразит раздавлен +')+g,true);vibe(40);
     stats.crushed++;crushedGame++;if(crushedGame>=5)stats.p5=1;saveStats();ev('crush')}}}
-function pairs(ps){for(const p of ps){const a=p.bodyA,b=p.bodyB;if(a.burn||b.burn)continue;
+function pairs(ps){for(const p of ps){const a=p.bodyA,b=p.bodyB;if(a.burn||b.burn||a.frozen||b.frozen)continue;
   for(const k of ['acid','mirror']){if(a.anom===k||b.anom===k){const m=a.anom===k?a:b,o=m===a?b:a;
     if(o.lvl!=null&&!m.used&&!o.merging){m.used=true;if(k==='mirror')o.merging=false;mutQ.push([m,o,k])}}}
   if(a.anom==='acid'||b.anom==='acid'||a.anom==='mirror'||b.anom==='mirror')continue;
@@ -1735,7 +1754,7 @@ const autoSpeed=()=>(isFall()?fallSpeed():Math.min(260,100*(1+.15*(pressLvl()-1)
 let shownLevel=1;
 function checkLevel(){if(mode!=='fall'||over)return;const L=fallLevel();if(L>shownLevel){shownLevel=L;toast('Скорость растёт','Уровень '+L);sound(L+3,true);vibe([30,40,30]);flash=Math.max(flash,.5)}updHud()}
 function fallTick(dt,now){
-  const r=curR(),target=Math.max(JL+r+1,Math.min(JR-r-1,aimX));
+  const r=curR(),ax=EMG&&EMG.id==='short'?JL+JR-aimX:aimX,target=Math.max(JL+r+1,Math.min(JR-r-1,ax));
   if(now<canDropAt){fallX=target;fallY=SPAWN_Y;fastFall=false;return}
   if(HZ.inspect&&HZ.inspect.phase==='quiet'){fallX+=Math.max(-760*dt/1000,Math.min(760*dt/1000,target-fallX));return}
   const mx=760*dt/1000;fallX+=Math.max(-mx,Math.min(mx,target-fallX));
@@ -1784,7 +1803,7 @@ function hzTick(dt){
     if(Lk.t>45000){HZ.leak=null;HZ.nextLeak=T+rnd(70e3,120e3);toast('Утечка остановилась','Формалин медленно возвращается');updLeak()}}
   else if(HZ.liqY>RIM){HZ.liqY=Math.max(RIM,HZ.liqY-dt*(HZ.refill?.09:.008));if(HZ.liqY<=RIM)HZ.refill=false}
   if(!HZ.leak)HZ.puddle=Math.max(0,HZ.puddle-dt/60000);
-  blazeTick(dt,T,now);
+  blazeTick(dt,T,now);emgTick(dt,T,now);
   for(const b of bodies.slice()){if(b.lvl==null)continue;const above=b.position.y<HZ.liqY;b.dry=above?(b.dry||0)+dt:Math.max(0,(b.dry||0)-dt*2);
     if(b.dry>4000+rk(b.lvl)*600){const x=b.position.x,y=b.position.y;removeBody(b);spawn('rot',x,y);splat(x,y,'#6a5434',14,1.1);floater(x,y-18,'высох',false,'#c8a878');thud()}}
   if(T>HZ.nextLiq){HZ.nextLiq=T+rnd(35e3,48e3);HZ.liqFrom=HZ.liqTo;HZ.liqTo=HZ.liqTo+1;HZ.liqK=0;floater(W/2,RIM+28,'формалин меняется',false,'#d8c9a8')}
@@ -1823,6 +1842,90 @@ function hzMenu(){const n=Math.floor((Date.now()-(store.get('mut.lastSeenPrev',D
   if(opts.scare&&n>=1){const nm=typeof player==='function'&&store.get('mut.player',null)&&store.get('mut.player').name;tag.classList.add('whisper');
     tag.textContent=(nm?nm+'. ':'')+`Ты вернулся. Мы считали дни: ${n}.`}}
 let pausedAt=0;
+// ---------- ЧП в лаборатории: одно за раз, не вместе с утечкой и пожаром ----------
+// платные (окно по центру + кнопка): азот, замыкание, радиация, пары; интерактивные (плашка сверху): крыса, побег, карантин, толчок
+const EMGS={
+  ice:{name:'Утечка жидкого азота',icon:'❄️',open:6,cost:150,dur:30000,
+    text:E=>`Дно банки затянуло льдом: нижние мутанты вмёрзли и не сливаются. Разбейте лёд — 3 касания по льду — или вызовите техника. Сам растает через ${emgLeft(E)} с.`,btn:'Растопить'},
+  short:{name:'Короткое замыкание',icon:'⚡',open:5,cost:100,dur:10000,
+    text:E=>`Искрит проводка: управление перепутано — влево значит вправо. Через ${emgLeft(E)} с пройдёт само.`,btn:'Рубильник'},
+  rad:{name:'Утечка радиации',icon:'☢️',open:7,cost:200,dur:15000,
+    text:E=>`Мутанты рядом с источником меняют форму — иногда в худшую сторону, а иногда рождается редкий гибрид. Ещё ${emgLeft(E)} с.`,btn:'Защита'},
+  fumes:{name:'Пары формалина',icon:'🌫️',open:6,cost:100,dur:20000,
+    text:E=>`Вентиляция отключилась, всё плывёт перед глазами. Включить вытяжку — или терпеть ещё ${emgLeft(E)} с.`,btn:'Вытяжка'},
+  rat:{name:'Крыса в лаборатории!',icon:'🐀',open:4,dur:15000,bar:'Поймайте её касанием — она грызёт стекло'},
+  escape:{name:'Мутант сбежал!',icon:'🏃',open:5,dur:6000,bar:'Поймайте касанием, иначе он вернётся вдвоём'},
+  quar:{name:'Карантин!',icon:'🚨',open:7,dur:20000,bar:''},
+  quake:{name:'Толчок!',icon:'🌍',open:4,dur:3500,bar:'Банку трясёт — держитесь'}};
+let EMG=null;
+const emgLeft=E=>Math.max(0,Math.ceil((E.dur-E.t)/1000));
+function emgOpen(id){return mode!=='trial'&&!isCalm()&&!window.__DEMO&&(labLvl()>=EMGS[id].open)}
+function emgTick(dt,T,now){
+  if(!EMG){if(T>(HZ.nextEmg||(HZ.nextEmg=rnd(70e3,110e3)))&&!HZ.leak&&!HZ.blaze&&drops>20){const ids=Object.keys(EMGS).filter(emgOpen);HZ.nextEmg=T+rnd(75e3,130e3);if(ids.length)emgStart(pick(ids))}return}
+  const E=EMG,D=EMGS[E.id];E.t+=dt;if((E.ui+=dt)>200){E.ui=0;updEmg()}
+  if(E.id==='ice'){E.h=Math.min(110,E.h+dt*.08);const y=FLOOR-E.h;for(const b of bodies)if(!b.frozen&&b.position.y>y&&!b.anom){b.frozen=true;Body.setStatic(b,true)}}
+  else if(E.id==='short'){if(Math.random()<dt/300){E.spark={x:Math.random()<.5?JL:JR,y:rnd(RIM,FLOOR),t:now};noise(.08,'highpass',4000,1,.2,(E.spark.x<W/2?-.6:.6))}}
+  else if(E.id==='rad'){if((E.k=(E.k||0)+dt)>1500){E.k=0;const near=bodies.filter(b=>b.lvl!=null&&b.lvl<MAX&&!FORMS[b.lvl].fam&&!FORMS[b.lvl].virus&&!FORMS[b.lvl].nii&&b.lvl!==LV.hive&&Math.hypot(b.position.x-E.x,b.position.y-E.y)<130);
+      const b=near[Math.floor(Math.random()*near.length)];if(b){const up=Math.random()<.5,L=Math.max(0,Math.min(MAX-1,b.lvl+(up?1:-1))),x=b.position.x,y=b.position.y;removeBody(b);const nb=spawn(L,x,y);nb.pop=now;
+        if(Math.random()<.12&&HYB[FORMS[L].id]){nb.hy=HYB[FORMS[L].id].id;if(!found.has('h:'+nb.hy)){found.add('h:'+nb.hy);store.set('mut.found',[...found]);renderReg();showDisc(L,HYB[FORMS[L].id])}}
+        splat(x,y,'#9aff3a',12,1);floater(x,y-20,up?'облучён: '+FORMS[L].name:'облучён: усох',false,'#b8e020');discover(L)}}
+    if(Math.random()<dt/90)tone('square',2000+Math.random()*800,2000,.012,.05,(Math.random()-.5))}
+  else if(E.id==='rat'){E.x+=E.vx*dt/16;if(E.x<JL+10||E.x>JR-10)E.vx*=-1;if((E.k=(E.k||0)+dt)>4500){E.k=0;const side=E.x<W/2?-1:1;HZ.cracks.push({x:side<0?JL:JR,y:RIM+rnd(10,60),side:-side,seed:Math.random()*1e4});
+      floater(E.x,RIM+24,'хрум!',false,'#ff5a4e');thud();vibe(40);if(HZ.cracks.length>=5){glassBreak();emgEnd(false);gameOver('crack');return}}}
+  else if(E.id==='escape'){E.x+=E.vx*dt/16;E.y=E.y0+Math.sin(E.t/300)*14;if(E.x<16||E.x>W-16)E.vx*=-1}
+  else if(E.id==='quake'){if((E.k=(E.k||0)+dt)>700){E.k=0;doShake(.9);shake=16}}
+  if(E.t>=E.dur){if(E.id==='escape'){for(let i=0;i<2;i++){const nb=spawn(E.lvl,JL+60+i*(JR-JL-120),SPAWN_Y+20);nb.pop=now}toast('Мутант вернулся','и привёл друга','В банке стало на одного больше.')}
+    if(E.id==='quar'){for(let i=0;i<4;i++)setTimeout(()=>{if(!over)spawn(Math.floor(Math.random()*3),JL+40+Math.random()*(JR-JL-80),SPAWN_Y+10)},i*250);toast('Карантин провален','Лаборатория подсыпала образцы')}
+    emgEnd(false)}}
+function emgStart(id){const D=EMGS[id],E={id,t:0,ui:0,dur:D.dur,pop:D.cost?'show':'',h:0,taps:0};
+  if(id==='rad'){E.x=rnd(JL+60,JR-60);E.y=rnd(RIM+120,FLOOR-80)}
+  if(id==='rat'){E.x=rnd(JL+30,JR-30);E.vx=(Math.random()<.5?-1:1)*1.6}
+  if(id==='escape'){const c=bodies.filter(b=>b.lvl!=null&&!b.anom&&b.lvl>=2&&b.lvl<=8&&!b.burn).sort((a,b)=>a.position.y-b.position.y)[0];if(!c){HZ.nextEmg=HZ.t+20000;return}
+    E.lvl=c.lvl;E.x=c.position.x;E.y0=RIM+110;E.y=E.y0;E.vx=(Math.random()<.5?-1:1)*2.2;removeBody(c)}
+  if(id==='quar'){const t0=Math.max(3,Math.min(MAX-2,topLvl-1+Math.floor(Math.random()*3)));E.lvl=found.has(t0)?t0:Math.min(t0,Math.max(3,topLvl));E.bar=`Выведите «${FORMS[E.lvl].name}» за 20 секунд — награда ×4`}
+  EMG=E;track('emg_start',{id});emgSiren(id);vibe([40,30,40,30,80]);updEmg()}
+function emgEnd(fixed){const E=EMG;if(!E)return;EMG=null;
+  for(const b of bodies)if(b.frozen){b.frozen=false;Body.setStatic(b,false)}
+  if(fixed)track('emg_fix',{id:E.id});stats.emgs=(stats.emgs||0)+1;saveStats();checkAch();$('cv').style.filter='';updEmg()}
+function emgFix(){const E=EMG;if(!E)return;const D=EMGS[E.id];if(!D.cost||score<D.cost||over||paused)return;score-=D.cost;updHud();
+  floater(W/2,RIM+60,`${D.icon} ${D.btn.toLowerCase()} −${D.cost}`,true,'#ffd23a');toast(D.name,'Устранено','');if(E.id==='fumes')E.fan=performance.now();emgEnd(true)}
+function emgMade(L){const E=EMG;if(!E||E.id!=='quar'||L!==E.lvl)return;const bonus=PTS[L]*4;score+=bonus;updHud();floater(W/2,RIM+60,`карантин снят! +${bonus}`,true,'#ffd23a');
+  toast('Карантин снят',FORMS[L].name,`Награда ×4: +${bonus}`);flash=1;emgEnd(true)}
+function emgTap(p){const E=EMG;if(!E||over||paused)return false;
+  if(E.id==='rat'&&Math.hypot(p.x-E.x,p.y-(RIM+46))<42){score+=80;updHud();floater(E.x,RIM+20,'крыса поймана +80',true,'#9fe0a0');tone('sine',1400,2200,.12,.15);vibe([30,20,50]);emgEnd(true);return true}
+  if(E.id==='escape'&&Math.hypot(p.x-E.x,p.y-E.y)<FORMS[E.lvl].r+26){const g=PTS[E.lvl]*2;score+=g;updHud();splat(E.x,E.y,FORMS[E.lvl].c,18,1.2);floater(E.x,E.y,`пойман +${g}`,true,'#9fe0a0');vibe([30,20,60]);emgEnd(true);return true}
+  if(E.id==='ice'&&p.y>FLOOR-E.h-20){E.taps++;shake=Math.max(shake,5);glassBreak();floater(p.x,p.y,E.taps>=3?'лёд разбит!':'трещит… '+E.taps+'/3',E.taps>=3,'#bfe8ff');
+    if(E.taps>=3){emgEnd(true)}return true}
+  return false}
+function emgSiren(id){if(id==='quake'){noise(2.5,'lowpass',90,1,.6);return}if(id==='rat'){for(let i=0;i<3;i++)tone('sine',3000,4200,.06,.08,0,i*.12);return}
+  for(let i=0;i<4;i++)tone('sawtooth',620,880,.3,.05,0,i*.35)}
+function updEmg(){const E=EMG,b=$('abEmg'),pop=$('emgPop'),bar=$('emgBar');const D=E&&EMGS[E.id];
+  b.hidden=!E||!D.cost||over;pop.hidden=true;bar.hidden=true;$('cv').style.filter=E&&E.id==='fumes'?'blur(1.6px) saturate(.7)':'';if(!E||over)return;
+  if(D.cost){const ok=score>=D.cost;$('abEmgI').textContent=D.icon;b.querySelector('small').textContent=ok?'−'+D.cost:'ещё '+(D.cost-score);b.disabled=!ok;
+    if(E.pop==='poor'&&ok)E.pop='show';pop.hidden=E.pop!=='show';if(!pop.hidden){$('disc').hidden=true;$('emgTitle').textContent=D.icon+' '+D.name;$('emgText').textContent=D.text(E);
+      const pay=$('emgPay');pay.disabled=!ok;pay.textContent=ok?`${D.btn} за ${D.cost}`:`Нужно ещё ${D.cost-score}`}}
+  else{bar.hidden=false;if(E.t<300)$('disc').hidden=true;$('emgBarT').textContent=D.icon+' '+D.name;$('emgBarS').textContent=E.bar||D.bar;$('emgBarP').style.transform=`scaleX(${Math.max(0,1-E.t/E.dur)})`}}
+$('abEmg').onclick=emgFix;$('emgPay').onclick=emgFix;
+$('emgLater').onclick=()=>{if(EMG){const D=EMGS[EMG.id];EMG.pop=score>=D.cost?'later':'poor'}updEmg();cv.focus({preventScroll:true})};
+function drawEmg(now,t){const E=EMG;if(!E)return;ctx.save();
+  if(E.id==='ice'){const y=FLOOR-E.h,g=ctx.createLinearGradient(0,y,0,FLOOR);g.addColorStop(0,'rgba(210,240,255,.55)');g.addColorStop(1,'rgba(150,200,240,.75)');ctx.fillStyle=g;ctx.fillRect(JL,y,JR-JL,E.h);
+    ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=1.5;ctx.beginPath();for(let x=JL;x<=JR;x+=14)ctx.lineTo(x,y+Math.sin(x*.3)*3);ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1;for(let i=0;i<7+E.taps*5;i++){const x=JL+((i*67)%(JR-JL)),yy=y+10+((i*29)%Math.max(10,E.h-10));ctx.beginPath();ctx.moveTo(x,yy);ctx.lineTo(x+12,yy+8);ctx.lineTo(x+4,yy+18);ctx.stroke()}
+    for(let i=0;i<6;i++){const k=(t*.4+i/6)%1;ctx.fillStyle=`rgba(230,245,255,${.4*(1-k)})`;ctx.beginPath();ctx.arc(JL+20+i*(JR-JL-40)/5,y-k*60,8+k*14,0,TAU);ctx.fill()}}
+  if(E.id==='short'){if(Math.random()<.18){ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(0,0,W,H)}const sp=E.spark;if(sp&&now-sp.t<220){ctx.strokeStyle='#bfe8ff';ctx.lineWidth=2;ctx.shadowColor='#7ad0ff';ctx.shadowBlur=12;
+      for(let k=0;k<3;k++){let x=sp.x,y=sp.y;ctx.beginPath();ctx.moveTo(x,y);for(let j=0;j<5;j++){x+=(sp.x<W/2?1:-1)*rnd(4,12);y+=rnd(-10,10);ctx.lineTo(x,y)}ctx.stroke()}}}
+  if(E.id==='rad'){const g=ctx.createRadialGradient(E.x,E.y,5,E.x,E.y,130);g.addColorStop(0,`rgba(170,255,60,${.25+.1*Math.sin(t*6)})`);g.addColorStop(1,'rgba(170,255,60,0)');ctx.globalCompositeOperation='lighter';ctx.fillStyle=g;ctx.beginPath();ctx.arc(E.x,E.y,130,0,TAU);ctx.fill();
+    ctx.globalCompositeOperation='source-over';ctx.save();ctx.translate(E.x,E.y);ctx.rotate(t);ctx.fillStyle='#e8c820';for(let i=0;i<3;i++){const a=i/3*TAU;ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,16,a-.5,a+.5);ctx.closePath();ctx.fill()}ctx.fillStyle='#111';ctx.beginPath();ctx.arc(0,0,3.5,0,TAU);ctx.fill();ctx.restore()}
+  if(E.id==='fumes'){for(let i=0;i<7;i++){const x=(i*83+t*14*(i%2?1:-1))%(W+160)-80,y=RIM+((i*131)%(FLOOR-RIM));ctx.fillStyle='rgba(190,200,150,.16)';ctx.beginPath();ctx.ellipse(x,y,90,40,0,0,TAU);ctx.fill()}}
+  if(E.id==='rat'){const x=E.x,y=RIM+46,d=E.vx>0?1:-1,run=Math.sin(t*25)*2;ctx.translate(x,y);ctx.scale(d,1);
+    ctx.strokeStyle='#c09090';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(-14,2);ctx.quadraticCurveTo(-34,-8+run,-44,6);ctx.stroke();
+    ctx.fillStyle='#5a4e46';ctx.beginPath();ctx.ellipse(0,0,17,10,0,0,TAU);ctx.fill();ctx.beginPath();ctx.ellipse(15,-1,9,7,.2,0,TAU);ctx.fill();
+    ctx.fillStyle='#d8a0a0';ctx.beginPath();ctx.arc(11,-8,4,0,TAU);ctx.fill();ctx.beginPath();ctx.arc(23,1,2,0,TAU);ctx.fill();ctx.fillStyle='#ff2020';ctx.beginPath();ctx.arc(17,-3,1.8,0,TAU);ctx.fill();
+    ctx.strokeStyle='#3a302a';ctx.lineWidth=2;for(const lx of [-8,8]){ctx.beginPath();ctx.moveTo(lx,7);ctx.lineTo(lx+run*2,13);ctx.stroke()}}
+  if(E.id==='escape'){const F=FORMS[E.lvl];ctx.strokeStyle='rgba(160,200,120,.25)';ctx.lineWidth=F.r*.5;ctx.beginPath();ctx.moveTo(E.x-E.vx*20,E.y+6);ctx.lineTo(E.x,E.y+4);ctx.stroke();
+    ctx.translate(E.x,E.y);ctx.rotate(Math.sin(t*10)*.15);const sq=1+.08*Math.sin(t*14);ctx.scale(sq,2-sq);drawCreature(ctx,E.lvl,F.r,t,7,{x:E.vx>0?1:-1,y:0});
+    ctx.setTransform(1,0,0,1,0,0)}
+  ctx.restore()}
 // ---------- пожар в лаборатории: под банкой пламя, формалин закипает; потушить — 300 очков ----------
 const BLAZE_COST=300,BLAZE_MAX=40000;
 function blazeTick(dt,T,now){
@@ -1989,7 +2092,7 @@ function toLocal(e){const rc=cv.getBoundingClientRect();return{x:(e.clientX-rc.l
 let pressing=false,downX0=0;
 cv.addEventListener('pointermove',e=>{const p=toLocal(e);pointer=p;if(pressing&&TUT.step===0&&Math.abs(p.x-downX0)>25)tutEv('move');if(pressing||e.pointerType==='mouse')aimX=p.x});
 cv.addEventListener('pointerdown',e=>{unlockAudio();pressing=true;const p=toLocal(e);downX0=p.x;pointer=p;aimX=p.x;downY=p.y;downT=performance.now();try{cv.setPointerCapture(e.pointerId)}catch(_){}});
-cv.addEventListener('pointerup',e=>{if(!pressing)return;pressing=false;const p=toLocal(e);if(FIRE.aim){fireAt(p);return}if(targeting){removeAt(p);return}
+cv.addEventListener('pointerup',e=>{if(!pressing)return;pressing=false;const p=toLocal(e);if(emgTap(p))return;if(FIRE.aim){fireAt(p);return}if(targeting){removeAt(p);return}
   {const d=bodies.find(q=>q.anom==='doll'&&Math.hypot(q.position.x-p.x,q.position.y-p.y)<q.circleRadius+12);
    if(d){removeBody(d);splat(d.position.x,d.position.y,'#efe0d6',16,1.1);score+=20;floater(d.position.x,d.position.y,'кукла разбита +20',true);stats.dolls++;saveStats();checkAch();updHud();glassBreak();return}}
   // падает сам: смахнуть вниз или коснуться — упадёт быстрее, прямо вниз
@@ -2199,6 +2302,7 @@ const LIQ_CYCLE=[['#5a5a16','#1f2106'],['#432060','#140820'],['#1d5c3c','#061d10
 function hexMix(a,b,k){const pa=parseInt(a.slice(1),16),pb=parseInt(b.slice(1),16);const m=(sh)=>Math.round(((pa>>sh)&255)*(1-k)+((pb>>sh)&255)*k);
   return'#'+[m(16),m(8),m(0)].map(v=>v.toString(16).padStart(2,'0')).join('')}
 const ACH=[
+ ['emg5','Дежурный','Переживите 5 ЧП в лаборатории',()=>(stats.emgs||0)>=5],
  ['blaze','Пожарный','Потушите пожар в лаборатории',()=>(stats.blazes||0)>0],
  ['fam1','Натуралист','Откройте мутанта из любого семейства',()=>FORMS.some((f,i)=>f.fam&&found.has(i))],
  ['famall','Коллекционер','Откройте всех 35 мутантов из семи семейств',()=>FORMS.every((f,i)=>!f.fam||found.has(i))],
@@ -2268,7 +2372,7 @@ const QUESTS=(()=>{const R=rng(hashStr('quests:'+DAY)),a=QPOOL.slice();
 let qp=store.get('mut.q.'+DAY,{});
 const questProg=q=>Math.min(q.n,qp[q.id]||0);
 const questDone=()=>QUESTS.filter(q=>questProg(q)>=q.n).length;
-function ev(type,val){
+function ev(type,val){if(type==='make')emgMade(val);
   let ch=false;
   for(const q of QUESTS){if(questProg(q)>=q.n||q.ev!==type)continue;let p=qp[q.id]||0;
     if(type==='make'){if(q.reach?val>=q.lvl:val===q.lvl)p=q.reach?1:p+1}
@@ -2575,7 +2679,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.12d';
+const APP_VER='2026.11.12e';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -2726,7 +2830,7 @@ function gameOver(reason){
   if(stats.games===2&&PUBLIC_URL&&!IS_APP&&!store.get('mut.installTip',false)&&(installEvt||IS_IOS||/Android/.test(navigator.userAgent))){store.set('mut.installTip',true);
     setTimeout(()=>toast('Совет','Установите игру на телефон','Меню → «На телефон»: иконка рядом с приложениями, работает без интернета.'),1800)}
   track('game_end',{lvl:pressLvl(),score,top:topLvl,dur:Math.round(HZ.t/1000),drops,reason:reason||'overflow',lab:Math.min(labLvl(),9),cracks:HZ.cracks.length});anFlush();
-  $('leakPop').hidden=true;$('firePop').hidden=true;$('abExt').hidden=true;
+  $('leakPop').hidden=true;$('firePop').hidden=true;$('abExt').hidden=true;if(EMG)emgEnd(false);
   $('overTitle').textContent=reason==='win'?'Испытание пройдено':reason==='crack'?'Банка лопнула':'Банка переполнена';
   if(mode==='trial'&&reason!=='win'&&trial)track('trial_end',{id:trial.def.id,win:false,score,dur:Math.round(HZ.t/1000)});
   over=true;stats.games++;stats.best=Math.max(stats.best,score);if(isFall())stats.fallBest=Math.max(stats.fallBest,score);if(mode==='daily'){stats.dailies++;bumpStreak()}saveStats();
@@ -2872,7 +2976,7 @@ function frame(now){
     for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,TAU);ctx.fill()}
     ctx.globalAlpha=1;
     if(jar.dark||darkUntil>now||isTrial('uv'))drawDark(now,(jar.dark||isTrial('uv'))&&!(darkUntil>now));
-    drawGlass();drawSkinDeco(now);drawLabel();drawBlaze(now,t);
+    drawGlass();drawSkinDeco(now);drawLabel();drawBlaze(now,t);drawEmg(now,t);
     drawHorror(now,t);
     drawTut(now);drawPress(now);drawMergeFx(now);drawFire(now);
     ctx.textAlign='center';for(const f of floaters){ctx.globalAlpha=Math.min(1,f.life*1.5);ctx.font=f.big?'22px "Rubik Distressed",sans-serif':'600 13px "IBM Plex Mono",monospace';
@@ -2898,7 +3002,7 @@ setTimeout(loadRefs,3000);setTimeout(pushTouch,4000);setTimeout(loadOwned,2500);
 track('session_start',{ref:AN.firstRun?REF_IN:null,prank:!!prank,first:AN.firstRun,games:stats.games,app:!!(matchMedia('(display-mode: standalone)').matches||navigator.standalone),w:innerWidth,h:innerHeight,lang:(navigator.language||'').slice(0,5),challenge:!!challenge});
 applyLite();
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={G:()=>({FORMS,HYB,LV,drawCreature,drawHybrid,shine,found,HZ}),setScore2:v=>{score=v},drops:()=>drops,count:l=>bodies.filter(b=>b.lvl===l).length,spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={G:()=>({FORMS,HYB,LV,drawCreature,drawHybrid,shine,found,HZ}),emg:id=>emgStart(id),emgNow:()=>EMG&&EMG.id,setScore2:v=>{score=v},drops:()=>drops,count:l=>bodies.filter(b=>b.lvl===l).length,spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
