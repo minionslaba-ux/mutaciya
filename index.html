@@ -107,6 +107,14 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .menu.newbie .menugrid,.menu.newbie .toggles,.menu.newbie .foot,.menu.newbie .demo{display:none}
 .menu.newbie #playBtn{min-height:72px;font-size:21px}
 .prankbtn{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-color:#8a1a1a!important}
+.tmrw{display:flex;gap:10px;align-items:center;text-align:left;padding:10px 12px;margin:2px 0;border:1px solid #5a3a1a;border-radius:14px;background:rgba(40,26,14,.6)}
+.tmrw canvas{width:60px;height:60px;flex:none}
+.tmrw .dt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tmrw small{font:600 10px var(--f-mono);color:#ffcf7a;letter-spacing:.08em;text-transform:uppercase}
+.tmrw b{font-family:var(--f-display);font-weight:400;font-size:18px}
+.tmrw span{font-size:12px;color:var(--muted);line-height:1.35}
+.tmrw button{min-height:38px;font-size:13px;margin-top:4px;align-self:flex-start;padding:0 12px;border-color:#8a1a1a}
+.overgoal{margin:0;font:600 13px var(--f-mono);color:#ffcf7a}
 .approw{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .approw button{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .approw button[hidden]+button,.approw button:has(+button[hidden]){grid-column:1/-1}
@@ -366,8 +374,10 @@ body{height:100vh;height:100dvh}
         <h2 id="overTitle">Банка переполнена</h2>
         <div class="sc" id="overScore">0</div>
         <p id="overText">Высшая форма: —</p>
+        <p class="overgoal" id="overGoal" hidden></p>
         <p id="overBoard" hidden></p>
         <button class="share" id="shareBtn">Поделиться результатом</button>
+        <div class="tmrw" id="tmrw" hidden><canvas id="tmrwCv" width="120" height="120" aria-hidden="true"></canvas><div class="dt"><small>Завтра в лаборатории</small><b id="tmrwName"></b><span id="tmrwSub"></span><button id="tmrwPush" hidden>🔔 Напомнить завтра в 19:00</button></div></div>
         <button class="prankbtn" id="overPrank">😈 Напугать друга</button>
         <div class="row"><button id="overMenu">Меню</button><button class="primary" id="again">Ещё раз</button></div>
       </div>
@@ -1054,6 +1064,24 @@ function updRefs(){const el=$('refLine');if(!el)return;const nx=REF_REWARDS.find
 async function loadRefs(){if(!useSupa())return;try{const n=await supa('/rest/v1/rpc/mutaciya_refs',{p_ref:myRef()});if(typeof n==='number'){
   const was=refCount;refCount=n;store.set('mut.refs',n);updRefs();const got=REF_REWARDS.filter(r=>was<r[0]&&n>=r[0]);
   for(const r of got)toast('Друг пришёл по вашей ссылке','Открыт '+r[2],'Выбрать цвет: «Достижения» → внизу «Формалин».')}}catch(e){}}
+// ---------- цель первых смен: Глаз → Червивец → Зубастик ----------
+const FIRST_GOALS=[[LV.eye,100],[LV.wormy,200],[LV.teeth,300]];
+const GOAL={lvl:null,pts:0,done:false};
+function goalReset(){const g=mode==='classic'&&!isCalm()?FIRST_GOALS[stats.games]:null;GOAL.lvl=g?g[0]:null;GOAL.pts=g?g[1]:0;GOAL.done=false;
+  if(g&&stats.games>0)setTimeout(()=>toast('Цель смены','Выведите: '+FORMS[g[0]].name,`Награда +${g[1]} очков.`),900)}
+function goalTick(){if(GOAL.lvl==null||GOAL.done||over||topLvl<GOAL.lvl||topLvl>MAX&&topLvl!==LV.hive)return;GOAL.done=true;score+=GOAL.pts;updHud();flash=1;shake=Math.max(shake,8);
+  floater(W/2,RIM+60,`цель выполнена +${GOAL.pts}`,true,'#ffcf7a');toast('Цель смены выполнена!',FORMS[GOAL.lvl].name,`+${GOAL.pts} очков. Играйте дальше — сколько продержитесь?`);
+  vibe([40,30,80]);track('goal',{form:FORMS[GOAL.lvl].id,games:stats.games})}
+// ---------- «Завтра в лаборатории» на экране конца партии ----------
+function fillTomorrow(){const el=$('tmrw');if(!el)return;if(mode==='trial'||window.__DEMO){el.hidden=true;return}
+  const f=FAMS[((DAY_NO)%FAMS.length+FAMS.length)%FAMS.length],i0=LV[f.id+'0'],F=FORMS[i0],open=labLvl()>=UNLOCK.fam,n=streakNow();
+  $('tmrwName').textContent=open?`Семейство «${f.name}»`:`Дневной забег №${DAY_NO+1}`;
+  $('tmrwSub').textContent=(open?`Новые мутанты и дневной забег №${DAY_NO+1}. `:'Новые образцы — одинаковые у всех игроков. ')+(n>0?`Серия ${n} ${plural(n,'день','дня','дней')} — не прервите её.`:'Сыграйте завтра — начнётся серия дней.');
+  const c=$('tmrwCv').getContext('2d');c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,120,120);c.save();c.translate(60,60);const sc=46/F.r;c.scale(sc,sc);drawCreature(c,i0,F.r,1.3,3,{x:0,y:0});c.restore();
+  c.globalCompositeOperation='source-atop';c.fillStyle='#0d0806';c.fillRect(0,0,120,120);c.globalCompositeOperation='source-over';
+  c.fillStyle='#c8141a';c.font='bold 44px "Rubik Distressed",sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('?',60,62);
+  const offer=!!PUBLIC_URL&&!pushOn()&&(PUSH_OK||(IS_IOS&&!IS_APP))&&!(PUSH_OK&&Notification.permission==='denied');
+  $('tmrwPush').hidden=!offer;if(offer)track('push_offer',{where:'over',show:1});el.hidden=false}
 // давление, как в тетрисе: «Классика», дневной забег и вызов (не «Падение» и не испытания)
 const isPress=()=>(mode==='classic'||mode==='daily'||mode==='challenge')&&!isFall();
 const PRESS_EVERY=30;
@@ -1116,7 +1144,7 @@ function newGame(m){
   Events.on(engine,'collisionStart',e=>pairs(e.pairs));Events.on(engine,'collisionActive',e=>pairs(e.pairs));
   bodies=[];queue=[];mutQ=[];particles=[];floaters=[];shot=null;crushedGame=0;score=0;danger=0;over=false;topLvl=0;seenThisGame=new Set();
   for(let i=0;i<5;i++){const l=Math.floor(R0()*3);const b=spawn(l,JL+36+R0()*(JR-JL-72),FLOOR-50-i*28);b.born=-1e9}
-  cur=seq.next();nxt=seq.next();pressReset();
+  cur=seq.next();nxt=seq.next();pressReset();goalReset();
   $('over').hidden=true;started=true;
   if(m==='trial')trialStart();else{trial=null;won=false}
   $('modeChip').textContent=(m==='trial'?`Испытание ${trialIdx+1}`:m==='daily'?`Дневной забег №${DAY_NO}`:m==='challenge'?`Вызов ${challenge.target}`+(challenge.fall?' · падение':''):m==='fall'?'Падение':'Классика')+(jarKey!=='normal'?' · '+jar.name:'');
@@ -2234,7 +2262,7 @@ function stopDemo(done){if(!window.__DEMO)return;demoTimers.forEach(clearTimeout
 $('demoBtn').onclick=startDemo;$('demoBar').onclick=()=>stopDemo(false);
 
 // ---------- HUD & UI ----------
-function updHud(){$('score').textContent=score;if(typeof updLeak==='function'&&HZ.leak)updLeak();$('bestLine').textContent=mode==='trial'&&trial?trialGoalText():mode==='challenge'&&challenge?'цель '+challenge.target+(isFall()?` · уровень ${fallLevel()}`:''):isFall()?`уровень ${fallLevel()} · рекорд ${bestScore()}`:(isPress()?`уровень ${pressLvl()} · `:'')+(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
+function updHud(){$('score').textContent=score;if(typeof updLeak==='function'&&HZ.leak)updLeak();$('bestLine').textContent=mode==='trial'&&trial?trialGoalText():mode==='challenge'&&challenge?'цель '+challenge.target+(isFall()?` · уровень ${fallLevel()}`:''):isFall()?`уровень ${fallLevel()} · рекорд ${bestScore()}`:GOAL.lvl!=null&&!GOAL.done?`цель: ${FORMS[GOAL.lvl].name} · +${GOAL.pts}`:(isPress()?`уровень ${pressLvl()} · `:'')+(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
   const unread=formsFound().filter(i=>!loreRead.has(i)).length;
   $('regCount').textContent=formsFound().length+'/'+FORMS.length+(unread?` · ${unread} нов.`:'')}
 const nctx=$('next').getContext('2d');
@@ -2307,6 +2335,7 @@ $('resumeBtn').onclick=()=>{$('menu').hidden=true;paused=false;cv.focus({prevent
 $('playBtn').onclick=()=>startMode('classic');
 $('installBtn').onclick=async()=>{if(installEvt){const ev=installEvt;installEvt=null;ev.prompt();try{const r=await ev.userChoice;track('install_prompt',{outcome:r.outcome});if(r.outcome==='accepted')store.set('mut.installed',true)}catch(e){}updApp()}else openInstall(false)};
 $('pushBtn').onclick=togglePush;
+$('tmrwPush').onclick=async()=>{track('push_offer',{where:'over',click:1});await togglePush();$('tmrwPush').hidden=pushOn()};
 $('installClose').onclick=()=>closeSheet('installSheet');
 $('installSheet').addEventListener('click',e=>{if(e.target.id==='installSheet')closeSheet('installSheet')});
 $('discShare').onclick=e=>{e.stopPropagation();$('disc').hidden=true;if(discCur)shareForm(discCur.i,discCur.H)};
@@ -2352,7 +2381,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.11d';
+const APP_VER='2026.11.12';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -2522,6 +2551,8 @@ function gameOver(reason){
   else ob.hidden=true;
   $('again').textContent=mode==='trial'&&reason==='win'&&trialIdx<TRIALS.length-1?'Следующее':'Ещё раз';
   grabClip('Финал партии');
+  {const og=$('overGoal');og.hidden=GOAL.lvl==null;if(GOAL.lvl!=null)og.textContent=GOAL.done?`✅ Цель смены выполнена: ${FORMS[GOAL.lvl].name}`:`🎯 Цель смены: ${FORMS[GOAL.lvl].name} — не хватило совсем чуть-чуть. Ещё раз?`}
+  fillTomorrow();clearTimeout(discTimer);$('disc').hidden=true;
   $('over').hidden=false;
 }
 
@@ -2604,7 +2635,7 @@ function perfTick(dt,live){if(!live||opts.lite||PERF.checked||document.hidden)re
 function frame(now){
   const dt=Math.min(50,now-last);last=now;const t=now/1000;NERV=engine&&started&&!over&&!paused?Math.max(0,Math.min(1,(jarFill()-.62)/.3)):0;
   if(engine&&!paused&&!over&&!scream){acc+=dt;while(acc>=1000/60){Engine.update(engine,1000/60);acc-=1000/60;if(queue.length||mutQ.length)processMerges()}
-    parasiteTick(dt);specialTick(dt);pressTick(dt);clearTick(now);prankTick(now);if(isAuto())fallTick(dt,now);
+    parasiteTick(dt);specialTick(dt);pressTick(dt);clearTick(now);goalTick();prankTick(now);if(isAuto())fallTick(dt,now);
     const bad=bodies.some(b=>now-b.born>1500&&b.position.y-b.circleRadius<RIM&&b.speed<2.5);
     danger=bad?danger+dt:Math.max(0,danger-dt*2);
     if(danger>2400){if(canFake())fakeOver();else gameOver()}
