@@ -78,6 +78,7 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .steps li{margin:6px 0}
 .refline{margin:-4px 0 0;font:400 11px/1.5 var(--f-mono);color:var(--muted);text-align:center}
 .menu.newbie .prankbtn,.menu.newbie .refline{display:none}
+#famLine{color:#ffcf7a;margin:-6px 0 0}
 .menu.prank #playBtn,.menu.prank #newbieBox{display:none!important}
 .newbie-box{display:flex;flex-direction:column;gap:10px;text-align:center}
 .newbie-box p{margin:0;font:400 12px/1.5 var(--f-mono);color:var(--muted)}
@@ -365,6 +366,7 @@ body{height:100vh;height:100dvh}
     <button class="jarpick" id="jarBtn">Банка: Обычная</button>
     <button class="big" id="dailyBtn">Дневной забег<small id="dailySub">одинаковые образцы у всех</small></button>
     <div class="streak" id="streakLine"></div>
+    <p class="refline" id="famLine" hidden></p>
     <div class="unlock" id="unlockLine"></div>
     <div class="menugrid">
       <button id="questBtn">Задания<small id="questCount">0/3</small></button>
@@ -557,14 +559,20 @@ const LORE=[
  'Противогаз из того же ящика. Под стёклами — не лицо. Дышит ровно, через фильтр. Я задерживаю дыхание, когда он смотрит.',
  'Подопытная крыса с электродами. Опыт закрыли сорок лет назад. Крысу — нет. Лампочки на проводах мигают в такт моему сердцу.',
  'Объект-0. В журнале НИИ о нём одна строка: «Не вскрывать». Шов на сфере расходится. Изнутри что-то смотрит красным.'];
+// 7 семейств по 5 мутантов: сливаются между собой; две старшие формы становятся мутантом основной цепочки.
+// Каждый день в лабораторию попадает «семейство дня».
+const FAMS=[{"id": "deep", "name": "Глубоководные", "to": "beast", "c": "#2f6f7a", "d": "#0b2228", "forms": [["Светлячок", "Привезли в ведре с забортной водой. Светится, когда в лаборатории гаснет свет. То есть всегда, когда я один."], ["Удильщик", "На лбу — фонарик на ниточке. Я поймал себя на том, что иду на свет. Банка была уже открыта."], ["Мешкорот", "Пасть больше тела. Проглотил пипетку, линейку и мой пропуск. Пропуск выплюнул. Видимо, не понравилась фотография."], ["Кальмар-призрак", "Прозрачный, видно, как бьются три сердца. Четвёртое, кажется, моё — оно бьётся в такт."], ["Левиафан", "Банка тесна, ему нужен океан. Каждую ночь он стучит в стекло в сторону моря. Мы в трёхстах километрах от моря."]]}, {"id": "fungi", "name": "Грибница", "to": "brain", "c": "#b89a74", "d": "#4a3522", "forms": [["Плесень", "Пятно на крышке банки. Утром оно было на столе. В обед — на моём халате."], ["Поганка", "Красная шляпка в белый горошек. Под шляпкой — глаза. Пахнет лесом и формалином."], ["Трутовик", "Растёт полками, как на старой берёзе. На каждой полке кто-то сидит и смотрит."], ["Мицелий", "Белые нити проросли через стекло, стол и пол. Подвал теперь шевелится."], ["Грибное сердце", "Бьётся. Из каждой поры — спора. Два таких сердца думают вместе: получается Мозгляк."]]}, {"id": "swarm", "name": "Рой", "to": "cocoon", "c": "#6b4a2a", "d": "#24170a", "forms": [["Мошка", "Одна. Пока одна. Кружит над банкой и пищит на ультразвуке."], ["Клещ", "Раздулся от крови. Чьей — не знаю. Все в отделе проверили себя. Сторож не проверял."], ["Таракан", "Выжил в формалине. Выживет, наверное, и после нас. Смотрит так, будто знает это."], ["Богомол", "Сложил лапы, будто молится. Когда я отворачиваюсь, он поворачивает голову за мной."], ["Королева роя", "У неё корона из хитина и свита из тысяч мошек. Две королевы сплетают Кокон."]]}, {"id": "swamp", "name": "Болото", "to": "maw", "c": "#5f7a3a", "d": "#1d2810", "forms": [["Ряска", "Зелёная плёнка на поверхности формалина. Под ней что-то дышит."], ["Головастик", "Хвост, глаз и непомерный аппетит. Ест ряску, потом смотрит на мои пальцы."], ["Жаболицый", "Глаза на макушке, рот до ушей. Квакает моим голосом."], ["Тиняк", "Весь в тине и корнях. Тянет корни к раковине — там, где сток."], ["Болотник", "Хозяин трясины. Две таких твари — и в банке разевается Пасть."]]}, {"id": "doll", "name": "Кукольный цех", "to": "multi", "c": "#e8dccb", "d": "#7a6a58", "forms": [["Пуговица", "Пуговица с детского пальто. Четыре дырочки — и все четыре смотрят."], ["Тряпичник", "Сшит из лоскутов халатов, которые пропадали из раздевалки. Пуговицы вместо глаз."], ["Фарфоровая голова", "Трещины по щекам, румянец, стеклянные глаза. Моргает только тогда, когда моргаю я."], ["Марионетка", "Нитки уходят вверх, за крышку банки. Кто за них дёргает — я не вижу."], ["Кукловод", "Держит нитки всех остальных. Две таких — и кукол становится Многоглаз."]]}, {"id": "zone", "name": "Зона", "to": "clot", "c": "#8a8a3a", "d": "#2c2c0c", "forms": [["Изотоп", "Тёплый на ощупь. Дозиметр щёлкает, когда я думаю о нём."], ["Ржавник", "Покрыт ржавыми пятнами. Ест гвозди, скрепки и, кажется, мою зарплату."], ["Свинорыл", "Пятачок, два глаза и полное спокойствие. Хрюкает, когда растёт фон."], ["Фонящий", "Три глаза и ореол. Лампы рядом с ним перегорают по одной в день."], ["Реактор", "Внутри светится знак, который все знают. Два реактора сплавляются в Сгусток."]]}, {"id": "space", "name": "Метеорит", "to": "queen", "c": "#4a2f6e", "d": "#140a24", "forms": [["Звёздная пыль", "Соскоб с упавшего метеорита. В пыли открылся глаз."], ["Метеоспора", "Ощетинилась лучами. Компас в лаборатории теперь показывает на неё."], ["Щупальце", "Тянется вверх, к небу. Ночью — прямо к Полярной звезде."], ["Око бездны", "Один огромный глаз. Если долго смотреть в него, он начинает смотреть в вас."], ["Гость", "Вытянутая голова, чёрные глаза, никакого рта. Два Гостя — и в банке рождается Матка."]]}];
+for(const f of FAMS)f.forms.forEach(([name,lore],k)=>{FORMS.push({id:f.id+k,name,r:[16,22,28,34,40][k],c:shade(f.c,-.07*k),d:f.d,fam:f.id,k,rank:k+1,pts:[9,15,24,34,46][k]});LORE.push(lore)});
+const famToday=()=>FAMS[((DAY_NO-1)%FAMS.length+FAMS.length)%FAMS.length];
+const famOf=i=>FAMS.find(f=>f.id===FORMS[i].fam);
 const LV=Object.fromEntries(FORMS.map((f,i)=>[f.id,i]));
 const PTS=FORMS.map((f,i)=>f.pts!=null?f.pts:i?(i+1)*(i+2)/2:0);
 const MAX=FORMS.findIndex(f=>f.id==='queen');
 const VSTART=FORMS.findIndex(f=>f.virus);
-const NEXT=FORMS.map((f,i)=>f.id==='queen'?FORMS.findIndex(g=>g.id==='hive'):f.id==='hive'?null:f.id==='ebola'?FORMS.findIndex(g=>g.id==='clot'):f.id==='obj0'?FORMS.findIndex(g=>g.id==='brain'):i+1);
+const NEXT=FORMS.map((f,i)=>f.id==='queen'?FORMS.findIndex(g=>g.id==='hive'):f.id==='hive'?null:f.id==='ebola'?FORMS.findIndex(g=>g.id==='clot'):f.id==='obj0'?FORMS.findIndex(g=>g.id==='brain'):f.fam&&f.k===4?FORMS.findIndex(g=>g.id===FAMS.find(q=>q.id===f.fam).to):i+1);
 const NSTART=FORMS.findIndex(f=>f.nii);
 // порядок в реестре: основная цепочка, Улей, вирусы, объекты НИИ
-const REG_ORDER=[...FORMS.keys()].filter(i=>i<=MAX).concat([FORMS.findIndex(f=>f.id==='hive')],[...FORMS.keys()].filter(i=>FORMS[i].virus),[...FORMS.keys()].filter(i=>FORMS[i].nii));
+const REG_ORDER=[...FORMS.keys()].filter(i=>i<=MAX).concat([FORMS.findIndex(f=>f.id==='hive')],[...FORMS.keys()].filter(i=>FORMS[i].virus),[...FORMS.keys()].filter(i=>FORMS[i].nii),[...FORMS.keys()].filter(i=>FORMS[i].fam));
 // гибриды: редкий вариант формы при слиянии (~1 из 70)
 const HYB={slug:{id:'twohead',name:'Двухголовый слизень',d:'Две головы спорят, кто из них главный. Обе смотрят на вас.'},
   eye:{id:'eyemaw',name:'Глазопасть',d:'Глаз научился кусаться. Теперь он не только смотрит.'},
@@ -713,6 +721,7 @@ function drawCreature(ctx,lvl,r,t,seed,look,noBlink){
   ctx.fillStyle=g;blob(ctx,r,t,seed,lvl===0?.05:F.id==='cocoon'?.02:.035);ctx.fill();
   ctx.strokeStyle='rgba(0,0,0,.45)';ctx.lineWidth=Math.max(1,r*.05);ctx.stroke();
   const lid=shade(F.c,-.15),bl=(k)=>!noBlink&&blinkAt(t,seed,k);
+  if(F.fam){drawFam(ctx,F,r,t,seed,look,bl,lid);return}
   switch(F.id){
     case'drop': ctx.fillStyle='rgba(255,255,255,.18)';ctx.beginPath();ctx.arc(r*.25,r*.2,r*.22,0,TAU);ctx.fill();break;
     case'spore': ctx.fillStyle=F.d;for(let i=0;i<6;i++){const a=R()*TAU,d=R()*r*.65;ctx.beginPath();ctx.arc(Math.cos(a)*d,Math.sin(a)*d,r*(.08+R()*.08),0,TAU);ctx.fill()}break;
@@ -940,6 +949,7 @@ function makeSeq(seed){const R=rng(seed);let lastAnom=true;
       if(a){lastAnom=true;return a}}
     lastAnom=false;const vr=R();if(drops>6&&vr<.075&&isOpen('virus'))return vr<.02?LV.corona:LV.phage;
     if(drops>10&&vr>=.075&&vr<.1&&isOpen('nii'))return vr<.083?LV.mask:LV.amp;
+    if(drops>8&&vr>=.1&&vr<.13&&isOpen('fam')){const f=famToday();return LV[f.id+(vr<.11?1:0)]}
     const base=POOL[Math.floor(R()*POOL.length)],up=R(),L=pressLvl();
     // уровень растёт с бросками: образцы крупнее (Глаз → Пиявка → Червивец)
     if(L>=2&&up<Math.min(.42,(L-1)*.06))return Math.min(LV.wormy,Math.max(base+1,LV.larva)+(L>=5&&up<.08?1:0)+(L>=8&&up<.04?1:0));
@@ -1037,10 +1047,10 @@ const isFall=()=>mode==='fall'||(mode==='challenge'&&!!challenge&&challenge.fall
 // падают сами: «Классика», дневной забег, вызов и «Падение»; испытания — прицельный бросок
 const isAuto=()=>!window.__DEMO&&(isFall()||mode==='classic'||mode==='daily'||mode==='challenge');
 // progressive unlocks: the lab opens anomalies and events one game at a time; daily runs and challenges are always complete
-const UNLOCK={rot:2,mutagen:2,sounds:2,parasite:3,acid:3,gaze:3,whisper:3,lightning:3,mirror:4,magnet:4,worm:4,virus:4,knock:5,hand:5,inspect:5,brood:6,doll:6,leak:6,night:6,blackout:6,nii:5};
+const UNLOCK={rot:2,mutagen:2,sounds:2,parasite:3,acid:3,gaze:3,whisper:3,lightning:3,mirror:4,magnet:4,worm:4,virus:4,knock:5,hand:5,inspect:5,brood:6,doll:6,leak:6,night:6,blackout:6,nii:5,fam:3};
 const UNLOCK_NAMES={rot:'Гниль',mutagen:'Мутаген',sounds:'звуки за кадром',parasite:'Паразит',acid:'Кислота',gaze:'взгляды',whisper:'шёпот',lightning:'молния',
   mirror:'Зеркало',magnet:'Магнит',worm:'Зубастый червь',virus:'вирусы',knock:'стук в стекло',hand:'рука из формалина',inspect:'проверка',
-  brood:'Матка паразитов',doll:'Кукла',leak:'утечка формалина',night:'ночная смена',blackout:'отключения света',nii:'объекты НИИ'};
+  brood:'Матка паразитов',doll:'Кукла',leak:'утечка формалина',night:'ночная смена',blackout:'отключения света',nii:'объекты НИИ',fam:'семейство дня'};
 const isCalm=()=>!!opts.calm&&(mode==='classic'||mode==='fall');
 const labLvl=()=>mode==='daily'||mode==='challenge'?99:(typeof stats!=='undefined'?stats.games:0);
 const isOpen=k=>mode==='trial'?false:isCalm()?k==='virus':labLvl()>=(UNLOCK[k]||0);
@@ -1120,6 +1130,85 @@ function pairs(ps){for(const p of ps){const a=p.bodyA,b=p.bodyB;
     if(o.lvl!=null&&NEXT[o.lvl]!=null&&!o.merging&&!m.used){m.used=true;o.merging=true;mutQ.push([m,o])}continue}
   if(a.frozen||b.frozen)continue;if(a.lvl==null||b.lvl==null||a.lvl!==b.lvl||a.merging||b.merging)continue;a.merging=b.merging=true;queue.push([a,b])}}
 
+
+// ---------- рисунки семейств (всё кодом) ----------
+function drawFam(c,F,r,t,seed,look,bl,lid){const k=F.k,id=F.fam;
+  const teeth=(y,w,n,h)=>{c.fillStyle='#f1e6cb';for(let i=0;i<n;i++){const x=-w/2+i*w/(n-1),hw=w/n/2;c.beginPath();c.moveTo(x-hw,y);c.lineTo(x,y+h);c.lineTo(x+hw,y);c.fill()}};
+  const mouth=(y,w,h)=>{c.fillStyle='#140406';c.beginPath();c.ellipse(0,y,w,Math.max(1,h),0,0,TAU);c.fill()};
+  c.lineCap='round';
+  if(id==='deep'){
+    const lures=k===4?3:1;for(let i=0;i<lures;i++){const a=-Math.PI/2+(i-(lures-1)/2)*.6,sw=Math.sin(t*2+i)*.15,bx=Math.cos(a+sw)*r*1.12,by=Math.sin(a+sw)*r*1.12;
+      c.strokeStyle=F.d;c.lineWidth=r*.05;c.beginPath();c.moveTo(Math.cos(a)*r*.6,Math.sin(a)*r*.6);c.quadraticCurveTo(Math.cos(a)*r*1.05,Math.sin(a)*r*.95,bx,by);c.stroke();
+      c.save();c.shadowColor='#9ffcff';c.shadowBlur=r*.4;c.fillStyle=`rgba(190,255,255,${.7+.3*Math.sin(t*4+i)})`;c.beginPath();c.arc(bx,by,r*.12,0,TAU);c.fill();c.restore()}
+    if(k===3)for(let i=0;i<6;i++){const x=-r*.6+i*r*.24;c.strokeStyle='rgba(160,230,240,.55)';c.lineWidth=r*.08;c.beginPath();c.moveTo(x,r*.5);c.quadraticCurveTo(x+Math.sin(t*3+i)*r*.2,r*.9,x+Math.sin(t*2+i)*r*.15,r*1.12);c.stroke()}
+    const ey=k===2?-r*.45:-r*.2,er=r*(k===3?.22:.14);eye(c,k?-r*.28:0,ey,er,look,bl(0),'#c8f0ff',lid);if(k)eye(c,r*.28,ey,er,look,bl(1),'#c8f0ff',lid);
+    if(k===1||k===4){mouth(r*.3,r*.55,r*.28);teeth(r*.06,r*.95,7,r*.2);teeth(r*.54,r*.95,7,-r*.18)}
+    if(k===2){mouth(r*.3,r*.75,r*.45+r*.06*Math.sin(t*2));teeth(-r*.1,r*1.2,9,r*.18)}
+    return}
+  if(id==='fungi'){
+    if(k===0){const RR=rng(seed*13);c.fillStyle='rgba(235,235,215,.55)';for(let i=0;i<14;i++){const a=RR()*TAU,d=RR()*r*.8;c.beginPath();c.arc(Math.cos(a)*d,Math.sin(a)*d,r*(.06+RR()*.08),0,TAU);c.fill()}
+      eye(c,0,0,r*.2,look,bl(0),'#5a6a20',lid);return}
+    if(k===4){const pu=1+.08*Math.sin(t*5);c.save();c.scale(pu,pu);c.fillStyle='#8a1a2a';c.beginPath();c.moveTo(0,r*.6);c.bezierCurveTo(-r*.75,r*.05,-r*.4,-r*.4,0,-r*.08);c.bezierCurveTo(r*.4,-r*.4,r*.75,r*.05,0,r*.6);c.fill();c.restore()}
+    const caps=k===2?3:k===4?4:1;
+    for(let i=0;i<caps;i++){const cx=caps===1?0:(i-(caps-1)/2)*r*.48,cy=caps===1?-r*.32:-r*.58+Math.abs(i-(caps-1)/2)*r*.14,cw=caps===1?r*.85:r*.3;
+      c.fillStyle=['','#b0242a','#8a5226','#efe6d0','#c8763a'][k];c.beginPath();c.ellipse(cx,cy,cw,cw*.55,0,Math.PI,0);c.fill();c.strokeStyle='rgba(40,20,10,.45)';c.lineWidth=r*.03;c.stroke();
+      if(k===1){c.fillStyle='#f4ecd8';for(let j=0;j<5;j++){c.beginPath();c.arc(cx+(j-2)*cw*.35,cy-cw*.22-(j%2)*cw*.12,cw*.07,0,TAU);c.fill()}}
+      c.strokeStyle='rgba(60,40,20,.5)';c.lineWidth=r*.02;for(let j=-3;j<=3;j++){c.beginPath();c.moveTo(cx+j*cw*.12,cy);c.lineTo(cx+j*cw*.16,cy+cw*.22);c.stroke()}}
+    if(k===3){const RR=rng(seed*7);c.strokeStyle='rgba(240,235,215,.6)';c.lineWidth=r*.025;for(let i=0;i<9;i++){let x=0,y=r*.1;c.beginPath();c.moveTo(x,y);for(let j=0;j<4;j++){x+=(RR()-.5)*r*.5;y+=(RR()-.4)*r*.3;c.lineTo(x,y)}c.stroke()}}
+    eye(c,-r*.22,r*.14,r*.13,look,bl(0),'#4a3a10',lid);eye(c,r*.22,r*.14,r*.13,look,bl(1),'#4a3a10',lid);return}
+  if(id==='swarm'){c.strokeStyle='#120a04';c.lineWidth=r*.05;
+    if(k)for(const sx of [-1,1])for(let i=0;i<3;i++){const y=-r*.15+i*r*.3,w=Math.sin(t*12+i+(sx>0?1:0))*r*.08;c.beginPath();c.moveTo(sx*r*.5,y);c.lineTo(sx*r*.92,y-r*.15+w);c.lineTo(sx*r*1.08,y+r*.15+w);c.stroke()}
+    if(k===0||k===3||k===4){c.fillStyle='rgba(220,235,255,.35)';for(const sx of [-1,1]){c.beginPath();c.ellipse(sx*r*.55,-r*.45,r*.42,r*.18,sx*(.5+.15*Math.sin(t*30)),0,TAU);c.fill()}}
+    c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=r*.03;for(let i=1;i<4;i++){c.beginPath();c.arc(0,-r*.6+i*r*.38,r*.75,.25*Math.PI,.75*Math.PI);c.stroke()}
+    c.strokeStyle='#120a04';c.lineWidth=r*.035;for(const sx of [-1,1]){c.beginPath();c.moveTo(sx*r*.15,-r*.7);c.quadraticCurveTo(sx*r*.4,-r*1.15,sx*r*(.6+.05*Math.sin(t*6)),-r*1.2);c.stroke()}
+    if(k===1){c.fillStyle='rgba(90,10,10,.8)';c.beginPath();c.arc(0,r*.25,r*.45,0,TAU);c.fill()}
+    if(k===3){c.strokeStyle=shade(F.c,.25);c.lineWidth=r*.1;for(const sx of [-1,1]){c.beginPath();c.moveTo(sx*r*.3,r*.05);c.lineTo(sx*r*.58,-r*.3);c.lineTo(sx*r*.36,-r*.58);c.stroke()}}
+    const ec=k===3?'#9fd12a':'#c8141a';if(k>=2){eye(c,-r*.25,-r*.35,r*.16,look,bl(0),ec,lid);eye(c,r*.25,-r*.35,r*.16,look,bl(1),ec,lid)}else eye(c,0,-r*.3,r*.2,look,bl(0),ec,lid);
+    c.fillStyle='#1a0a04';for(const sx of [-1,1]){c.beginPath();c.moveTo(sx*r*.08,-r*.05);c.lineTo(sx*r*.26,r*.14);c.lineTo(sx*r*.04,r*.09);c.fill()}
+    if(k===4){c.fillStyle='#e8a317';c.save();c.shadowColor='#ffb300';c.shadowBlur=r*.2;for(let i=0;i<5;i++){const x=-r*.36+i*r*.18;c.beginPath();c.moveTo(x-r*.08,-r*.66);c.lineTo(x,-r*(i%2?.86:.98));c.lineTo(x+r*.08,-r*.66);c.fill()}c.restore()}
+    return}
+  if(id==='swamp'){const RR=rng(seed*5);c.fillStyle='rgba(120,170,40,.7)';for(let i=0;i<(k===0?16:6);i++){const a=RR()*TAU,d=RR()*r*.85;c.beginPath();c.ellipse(Math.cos(a)*d,Math.sin(a)*d,r*.09,r*.06,a,0,TAU);c.fill()}
+    if(k===1){c.fillStyle=F.c;c.beginPath();c.moveTo(r*.6,-r*.1);c.quadraticCurveTo(r*1.15,-r*.3+Math.sin(t*8)*r*.25,r*1.3,Math.sin(t*8)*r*.3);c.quadraticCurveTo(r*1.05,r*.3,r*.6,r*.2);c.fill()}
+    if(k>=2)for(const sx of [-1,1]){c.fillStyle=shade(F.c,.12);c.beginPath();c.arc(sx*r*.35,-r*.55,r*.24,0,TAU);c.fill();eye(c,sx*r*.35,-r*.58,r*.15,look,bl(sx>0?1:0),'#c8a020',lid)}
+    else eye(c,0,-r*.2,r*.2,look,bl(0),'#c8a020',lid);
+    if(k>=2)mouth(r*.25,r*(k===4?.7:.55),r*.1+r*.08*Math.max(0,Math.sin(t*2+seed)));
+    if(k>=3){c.strokeStyle='rgba(60,80,20,.85)';c.lineWidth=r*.05;for(let i=0;i<5;i++){const x=-r*.5+i*r*.25;c.beginPath();c.moveTo(x,r*.6);c.quadraticCurveTo(x+Math.sin(t*2+i)*r*.15,r*.9,x,r*1.1);c.stroke()}}
+    if(k===4){c.strokeStyle='#4a5a20';c.lineWidth=r*.06;for(const sx of [-1,1]){c.beginPath();c.moveTo(sx*r*.7,-r*.1);c.quadraticCurveTo(sx*r*1.08,-r*.6,sx*r*.88,-r*1.02);c.stroke()}}
+    return}
+  if(id==='doll'){
+    if(k===0){c.fillStyle=shade(F.c,-.25);c.beginPath();c.arc(0,0,r*.75,0,TAU);c.fill();c.fillStyle='#2a1a10';for(const [x,y] of [[-.22,-.22],[.22,-.22],[-.22,.22],[.22,.22]]){c.beginPath();c.arc(x*r,y*r,r*.1,0,TAU);c.fill()}
+      c.strokeStyle='#5a3a20';c.lineWidth=r*.05;c.beginPath();c.moveTo(-r*.22,-r*.22);c.lineTo(r*.22,r*.22);c.moveTo(r*.22,-r*.22);c.lineTo(-r*.22,r*.22);c.stroke();
+      const g=Math.sin(t*1.3+seed)>.6;if(g){c.fillStyle='#c8141a';c.beginPath();c.arc(r*.22,-r*.22,r*.05,0,TAU);c.fill()}return}
+    if(k===2||k===4){const RR=rng(seed*3);c.strokeStyle='rgba(90,60,40,.55)';c.lineWidth=r*.025;for(let i=0;i<3;i++){let x=(RR()-.5)*r,y=-r*.8;c.beginPath();c.moveTo(x,y);for(let j=0;j<4;j++){x+=(RR()-.5)*r*.3;y+=r*.2;c.lineTo(x,y)}c.stroke()}}
+    if(k===1){c.strokeStyle='#3a2a1a';c.lineWidth=r*.03;c.setLineDash([r*.06,r*.05]);c.beginPath();c.moveTo(-r*.8,r*.05);c.lineTo(r*.8,r*.05);c.moveTo(0,-r*.8);c.lineTo(0,r*.8);c.stroke();c.setLineDash([])}
+    if(k>=2){c.strokeStyle=k===4?'#1a1010':'#8a5a20';c.lineWidth=r*.04;for(let i=0;i<9;i++){const x=-r*.6+i*r*.15;c.beginPath();c.moveTo(x,-r*.75);c.quadraticCurveTo(x+Math.sin(t+i)*r*.05,-r*.95,x-r*.05,-r*.62+(i%3)*r*.1);c.stroke()}}
+    for(const sx of [-1,1]){const x=sx*r*.28,y=-r*.15;if(k===1||k===3){c.fillStyle='#1a1010';c.beginPath();c.arc(x,y,r*.12,0,TAU);c.fill();c.strokeStyle='#8a7a6a';c.lineWidth=r*.025;c.beginPath();c.moveTo(x-r*.06,y);c.lineTo(x+r*.06,y);c.stroke()}
+      else eye(c,x,y,r*.14,look,bl(sx>0?1:0),'#3a6aa0',lid)}
+    c.strokeStyle='#5a1a1a';c.lineWidth=r*.035;c.beginPath();c.moveTo(-r*.25,r*.32);c.lineTo(r*.25,r*.32);c.stroke();for(let i=0;i<5;i++){const x=-r*.2+i*r*.1;c.beginPath();c.moveTo(x,r*.24);c.lineTo(x,r*.4);c.stroke()}
+    if(k>=2){c.fillStyle='rgba(220,90,100,.35)';for(const sx of [-1,1]){c.beginPath();c.arc(sx*r*.46,r*.12,r*.1,0,TAU);c.fill()}}
+    if(k>=3){c.strokeStyle='rgba(230,225,210,.6)';c.lineWidth=1;for(const x of [-r*.5,0,r*.5]){c.beginPath();c.moveTo(x,-r*.6);c.lineTo(x+Math.sin(t*2)*r*.1,-r*1.5);c.stroke()}}
+    if(k===4){c.fillStyle='#d8c8b0';c.beginPath();c.ellipse(Math.sin(t*2)*r*.1,-r*1.5,r*.5,r*.12,0,0,TAU);c.fill()}
+    return}
+  if(id==='zone'){const g=.5+.5*Math.sin(t*3+seed);c.save();c.globalCompositeOperation='lighter';c.fillStyle=`rgba(170,255,60,${.08+.1*g})`;c.beginPath();c.arc(0,0,r*1.05,0,TAU);c.fill();c.restore();
+    const tre=(y,R,a0)=>{c.fillStyle='#e8d020';for(let i=0;i<3;i++){const a=i/3*TAU-Math.PI/2+a0;c.beginPath();c.moveTo(0,y);c.arc(0,y,R,a-.5,a+.5);c.closePath();c.fill()}c.fillStyle='#1a1a08';c.beginPath();c.arc(0,y,R*.18,0,TAU);c.fill()};
+    if(k===0){tre(0,r*.62,t*.5);return}
+    if(k===1){const RR=rng(seed*11);c.fillStyle='rgba(120,50,20,.7)';for(let i=0;i<9;i++){const a=RR()*TAU,d=RR()*r*.75;c.beginPath();c.arc(Math.cos(a)*d,Math.sin(a)*d,r*(.08+RR()*.1),0,TAU);c.fill()}}
+    if(k===2){c.fillStyle='#d98a8a';c.beginPath();c.ellipse(0,r*.25,r*.32,r*.22,0,0,TAU);c.fill();c.fillStyle='#4a1a1a';for(const sx of [-1,1]){c.beginPath();c.ellipse(sx*r*.12,r*.25,r*.06,r*.09,0,0,TAU);c.fill()}}
+    const ne=k===3?3:2;for(let i=0;i<ne;i++){const x=(i-(ne-1)/2)*r*.42,y=-r*.3-(ne===3&&i===1?r*.12:0);eye(c,x,y,r*.14,look,bl(i),'#b8e020',lid)}
+    if(k===3){c.strokeStyle='rgba(200,255,90,.6)';c.lineWidth=r*.03;for(let i=0;i<6;i++){const a=i/6*TAU+t;c.beginPath();c.moveTo(Math.cos(a)*r*.85,Math.sin(a)*r*.85);c.lineTo(Math.cos(a)*r*1.1,Math.sin(a)*r*1.1);c.stroke()}}
+    if(k===4){c.fillStyle=`rgba(220,255,80,${.6+.4*g})`;c.beginPath();c.arc(0,r*.28,r*.34,0,TAU);c.fill();c.save();c.translate(0,r*.28);c.scale(.5,.5);tre(0,r*.6,0);c.restore()}
+    else if(k===1||k===3)mouth(r*.4,r*.3,r*.08);
+    return}
+  if(id==='space'){const RR=rng(seed*17);c.fillStyle='#fff';for(let i=0;i<10;i++){const a=RR()*TAU,d=RR()*r*.85;c.globalAlpha=.4+.5*Math.abs(Math.sin(t*3+i));c.beginPath();c.arc(Math.cos(a)*d,Math.sin(a)*d,r*.03+RR()*r*.03,0,TAU);c.fill()}c.globalAlpha=1;
+    if(k===0){eye(c,0,0,r*.2,look,bl(0),'#b06aff',lid);return}
+    if(k===1){c.strokeStyle='rgba(200,150,255,.65)';c.lineWidth=r*.05;for(let i=0;i<8;i++){const a=i/8*TAU+t*.3;c.beginPath();c.moveTo(Math.cos(a)*r*.6,Math.sin(a)*r*.6);c.lineTo(Math.cos(a)*r*1.05,Math.sin(a)*r*1.05);c.stroke()}eye(c,0,0,r*.24,look,bl(0),'#b06aff',lid);return}
+    if(k===2){c.strokeStyle=shade(F.c,.3);c.lineWidth=r*.18;for(let i=0;i<3;i++){const a=Math.PI*.3+i*.4,w=Math.sin(t*2+i)*.5;c.beginPath();c.moveTo(Math.cos(a)*r*.5,Math.sin(a)*r*.5);c.quadraticCurveTo(Math.cos(a+.4)*r,Math.sin(a+.4)*r,Math.cos(a+w)*r*1.2,Math.sin(a+w)*r*1.2);c.stroke()}
+      eye(c,-r*.15,-r*.2,r*.17,look,bl(0),'#b06aff',lid);return}
+    if(k===3){c.save();c.shadowColor='#b06aff';c.shadowBlur=r*.3;eye(c,0,0,r*.55,look,bl(0),'#6a1aff',lid);c.restore();return}
+    c.fillStyle=shade(F.c,.22);c.beginPath();c.ellipse(0,-r*.1,r*.55,r*.75,0,0,TAU);c.fill();
+    for(const sx of [-1,1]){c.save();c.translate(sx*r*.24,-r*.12);c.rotate(sx*.45);c.fillStyle='#050208';c.beginPath();c.ellipse(0,0,r*.13,r*.26,0,0,TAU);c.fill();c.fillStyle='rgba(180,140,255,.7)';c.beginPath();c.arc(-r*.03,-r*.08,r*.04,0,TAU);c.fill();c.restore()}
+    c.strokeStyle='#140a24';c.lineWidth=r*.025;c.beginPath();c.moveTo(-r*.08,r*.42);c.lineTo(r*.08,r*.42);c.stroke();return}
+}
 function drawHybrid(c,id,r,t,seed,look){c.save();
   if(id==='albino'){c.beginPath();c.arc(0,0,r*1.02,0,TAU);c.clip();c.globalCompositeOperation='saturation';c.fillStyle='#888';c.fillRect(-r*1.1,-r*1.1,r*2.2,r*2.2);
     c.globalCompositeOperation='screen';c.fillStyle='rgba(255,215,215,.45)';c.fillRect(-r*1.1,-r*1.1,r*2.2,r*2.2)}
@@ -1498,6 +1587,8 @@ function drop(px,py,vy){
   const b=spawn(cur,x+(Math.random()-.5)*.5,py!=null?py:SPAWN_Y);tutEv('drop');if(vy)Body.setVelocity(b,{x:0,y:vy});plop();vibe(6);
   cur=nxt;nxt=seq.next();canDropAt=t+(isAuto()?320:420);drawNext();fallY=SPAWN_Y;fastFall=false;
   if(isAnom(nxt)&&!found.has('a:'+nxt)){found.add('a:'+nxt);store.set('mut.found',[...found]);toast('Новая аномалия',ANOM[nxt].name,ANOM[nxt].rule)}
+  else if(!isAnom(nxt)&&FORMS[nxt].fam&&!found.has(nxt)){found.add(nxt);store.set('mut.found',[...found]);renderReg();const f=famOf(nxt);
+    toast('Семейство дня: '+f.name,FORMS[nxt].name,'Сливаются между собой: '+f.forms.map(x=>x[0]).join(' → ')+'. Два «'+f.forms[4][0]+'» становятся «'+FORMS[LV[f.to]].name+'».')}
   else if(!isAnom(nxt)&&FORMS[nxt].nii&&!found.has(nxt)){found.add(nxt);store.set('mut.found',[...found]);renderReg();toast('Объект НИИ в очереди',FORMS[nxt].name,'Объекты из спецхрана сливаются между собой: Ампула-7 → Противогаз → Крыса НИИ → Объект-0. Два Объекта-0 становятся Мозгляком.')}
   else if(!isAnom(nxt)&&FORMS[nxt].virus&&!found.has(nxt)){found.add(nxt);store.set('mut.found',[...found]);renderReg();toast('Вирус в очереди',FORMS[nxt].name,'Вирусы сливаются между собой: Бактериофаг → Коронавирус → Грипп → Бешенство → Эбола. Две Эболы становятся Сгустком.');checkAch()}
 }
@@ -1688,6 +1779,8 @@ const LIQ_CYCLE=[['#5a5a16','#1f2106'],['#432060','#140820'],['#1d5c3c','#061d10
 function hexMix(a,b,k){const pa=parseInt(a.slice(1),16),pb=parseInt(b.slice(1),16);const m=(sh)=>Math.round(((pa>>sh)&255)*(1-k)+((pb>>sh)&255)*k);
   return'#'+[m(16),m(8),m(0)].map(v=>v.toString(16).padStart(2,'0')).join('')}
 const ACH=[
+ ['fam1','Натуралист','Откройте мутанта из любого семейства',()=>FORMS.some((f,i)=>f.fam&&found.has(i))],
+ ['famall','Коллекционер','Откройте всех 35 мутантов из семи семейств',()=>FORMS.every((f,i)=>!f.fam||found.has(i))],
  ['clear','Зачистка','Уберите группу крупных мутантов',()=>(stats.clears||0)>=1],
  ['hive','Пасечник','Слейте две Матки в Улей',()=>found.has(LV.hive)],
  ['nii','Секретный отдел','Откройте все объекты НИИ',()=>FORMS.every((f,i)=>!f.nii||found.has(i))],
@@ -1781,6 +1874,8 @@ function updNewbie(){const nb=isNewbie()||prankPending();document.querySelector(
   const mid=started&&!over;$('playLbl').textContent=nb?(mid?'Начать заново':'Начать смену'):'Играть';$('playSub').textContent=nb?(mid?'новая смена с обучением':'обучение — 20 секунд'):'классика · случайные образцы';
   const tag=document.querySelector('.menu .tag');if(nb&&tag&&!tag.classList.contains('whisper'))tag.innerHTML='Сливай двух одинаковых мутантов — получишь нового, страшнее.<br>Не дай банке переполниться.'}
 function updProg(){updUnlock();updNewbie();updApp();
+  {const f=famToday(),i0=LV[f.id+'0'],n=[0,1,2,3,4].filter(k=>found.has(i0+k)).length;$('famLine').hidden=!(labLvl()>=UNLOCK.fam||mode==='daily')||isCalm();
+   $('famLine').textContent=`Семейство дня: «${f.name}» · найдено ${n} из 5`}
   const n=streakNow();
   $('streakLine').textContent=n>0?`Серия: ${n} ${plural(n,'день','дня','дней')}`+(streak.last===DAY?' · сегодня засчитан':' · сыграйте дневной забег, чтобы продлить')
     :'Сыграйте дневной забег, чтобы начать серию';
@@ -1954,6 +2049,8 @@ function renderReg(){
     d.innerHTML=`<span class="n">${n}</span><canvas width="112" height="112"></canvas><span class="nm"></span>`;d.querySelector('.nm').textContent=name;
     const c=d.querySelector('canvas').getContext('2d');c.translate(56,56);draw(c);el.appendChild(d);return d};
   REG_ORDER.forEach((i,pos)=>{const F=FORMS[i],k=found.has(i);
+    if(FORMS[i].fam&&FORMS[i].k===0){const f=famOf(i),sf=document.createElement('div');sf.className='sec';
+      sf.textContent=`Семейство «${f.name}»${f===famToday()?' — сегодня в лаборатории':''}: два «${f.forms[4][0]}» становятся «${FORMS[LV[f.to]].name}»`;el.appendChild(sf)}
     if(i===NSTART){const sn=document.createElement('div');sn.className='sec';sn.textContent='Объекты НИИ — из спецхрана; сливаются между собой, два Объекта-0 становятся Мозгляком';el.appendChild(sn)}
     if(i===VSTART){const sv=document.createElement('div');sv.className='sec';sv.textContent='Вирусы — сливаются между собой, две Эболы становятся Сгустком';el.appendChild(sv)}
     const cd=card('№'+String(pos+1).padStart(2,'0'),k?F.name:'???',k?'known':'unk',c=>{const s=Math.min(1.6,46/F.r);c.scale(s,s);
@@ -2052,7 +2149,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.11c';
+const APP_VER='2026.11.11d';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
