@@ -43,6 +43,11 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .abil{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px}
 .abil #abDown{border-color:var(--amber)}
 .abil #abLeak{animation:flick 1.6s infinite;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+.abil #abExt{animation:flick 1.2s infinite;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;border-color:#ff6a1a}
+.abil #abExt small{font:400 10px var(--f-mono);text-transform:none;letter-spacing:0}
+.abil #abExt:disabled{animation:none}
+.firecard{border-color:#ff6a1a!important}
+.firecard b{color:#ff7a1a!important}
 .abil #abLeak small{font:400 10px var(--f-mono);text-transform:none;letter-spacing:0}
 .abil #abLeak:disabled{animation:none}
 .abil button{letter-spacing:.02em;white-space:nowrap;overflow:hidden}
@@ -333,6 +338,14 @@ body{height:100vh;height:100dvh}
   <div class="stage" id="stage">
     <canvas id="cv" tabindex="0" aria-label="Банка. Ведите пальцем и отпустите, чтобы бросить образец. Стрелки двигают, пробел бросает."></canvas>
     <div class="modechip" id="modeChip">Классика</div>
+    <div class="leakpop" id="firePop" hidden>
+      <div class="leakcard firecard" role="alertdialog" aria-labelledby="fireTitle">
+        <b id="fireTitle">Пожар в лаборатории!</b>
+        <p id="fireText"></p>
+        <button class="primary" id="firePay">Потушить за 300</button>
+        <button id="fireLater">Позже</button>
+      </div>
+    </div>
     <div class="leakpop" id="leakPop" hidden>
       <div class="leakcard" role="alertdialog" aria-labelledby="leakTitle">
         <b id="leakTitle">Утечка формалина!</b>
@@ -364,6 +377,7 @@ body{height:100vh;height:100dvh}
     <button id="abSwap">Заменить</button>
     <button id="abFire" aria-label="Огнемёт">🔥<span class="lbl"> Огнемёт</span><i id="fireN"></i></button>
     <button id="abDown" hidden aria-label="Сбросить мутанта вниз">Вниз</button>
+    <button id="abExt" class="primary" hidden aria-label="Потушить пожар за 300 очков">🧯<small></small></button>
     <button id="abLeak" class="primary" hidden aria-label="Залатать утечку за 200 очков">Залатать −200</button>
   </div>
   <div class="bar">
@@ -1225,10 +1239,10 @@ const isFall=()=>mode==='fall'||(mode==='challenge'&&!!challenge&&challenge.fall
 // падают сами: «Классика», дневной забег, вызов и «Падение»; испытания — прицельный бросок
 const isAuto=()=>!window.__DEMO&&(isFall()||mode==='classic'||mode==='daily'||mode==='challenge');
 // progressive unlocks: the lab opens anomalies and events one game at a time; daily runs and challenges are always complete
-const UNLOCK={rot:2,mutagen:2,sounds:2,parasite:3,acid:3,gaze:3,whisper:3,lightning:3,mirror:4,magnet:4,worm:4,virus:4,knock:5,hand:5,inspect:5,brood:6,doll:6,leak:6,night:6,blackout:6,nii:5,fam:3};
+const UNLOCK={rot:2,mutagen:2,sounds:2,parasite:3,acid:3,gaze:3,whisper:3,lightning:3,mirror:4,magnet:4,worm:4,virus:4,knock:5,hand:5,inspect:5,brood:6,doll:6,leak:6,night:6,blackout:6,nii:5,fam:3,blaze:7};
 const UNLOCK_NAMES={rot:'Гниль',mutagen:'Мутаген',sounds:'звуки за кадром',parasite:'Паразит',acid:'Кислота',gaze:'взгляды',whisper:'шёпот',lightning:'молния',
   mirror:'Зеркало',magnet:'Магнит',worm:'Зубастый червь',virus:'вирусы',knock:'стук в стекло',hand:'рука из формалина',inspect:'проверка',
-  brood:'Матка паразитов',doll:'Кукла',leak:'утечка формалина',night:'ночная смена',blackout:'отключения света',nii:'объекты НИИ',fam:'семейство дня'};
+  brood:'Матка паразитов',doll:'Кукла',leak:'утечка формалина',night:'ночная смена',blackout:'отключения света',nii:'объекты НИИ',fam:'семейство дня',blaze:'пожар в лаборатории'};
 const isCalm=()=>!!opts.calm&&(mode==='classic'||mode==='fall');
 const labLvl=()=>mode==='daily'||mode==='challenge'?99:(typeof stats!=='undefined'?stats.games:0);
 const isOpen=k=>mode==='trial'?false:isCalm()?k==='virus':labLvl()>=(UNLOCK[k]||0);
@@ -1241,7 +1255,7 @@ function newGame(m){
   const seed=m==='daily'?hashStr('mutaciya:'+DAY):m==='challenge'&&challenge?challenge.seed:(Math.random()*2**32)>>>0;gameSeed=seed;
   seq=makeSeq(seed);const R0=rng(seed^0x9e3779b9);
   jarKey=m==='trial'?'normal':m==='daily'?DAILY_JAR:m==='challenge'&&challenge&&challenge.jar?challenge.jar:(opts.jar||'normal');if(!JARS[jarKey])jarKey='normal';jar=JARS[jarKey];
-  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;blackoutAt=performance.now()+55000+Math.random()*40000;inBlackout=false;darkUntil=0;abil={shake:1,remove:1,swap:1,fire:1};FIRE.aim=false;FIRE.adUsed=false;FIRE.jets=[];FIRE.p=[];targeting=false;bossSeen=false;updAbil();hzReset();updLeak();
+  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;blackoutAt=performance.now()+55000+Math.random()*40000;inBlackout=false;darkUntil=0;abil={shake:1,remove:1,swap:1,fire:1};FIRE.aim=false;FIRE.adUsed=false;FIRE.jets=[];FIRE.p=[];targeting=false;bossSeen=false;updAbil();hzReset();updLeak();updBlaze();
   for(const bb of bubbles){bb.x=JL+8+Math.random()*(JR-JL-16)}
   engine=Engine.create();engine.positionIterations=8;engine.velocityIterations=6;engine.gravity.y=jar.grav||1;
   const o={isStatic:true,friction:.4,restitution:.1};
@@ -1737,7 +1751,7 @@ const HZ={t:0,waveT:-99};
 function hzReset(){Object.assign(HZ,{t:0,gazeUntil:0,nextGaze:rnd(35e3,60e3),waveT:-99,nextWave:rnd(18e3,35e3),whispers:[],nextWhisper:rnd(30e3,55e3),
   hand:null,nextHand:rnd(80e3,130e3),lightning:null,nextLight:rnd(45e3,85e3),figure:0,glitchUntil:0,cracks:[],heal:0,nextKnock:rnd(25e3,40e3),
   heartT:0,beat:0,nextSound:rnd(15e3,35e3),night:null,nightDone:false,inspect:null,nextInspect:rnd(70e3,120e3),preFlicker:0,silence:false,
-  liqFrom:0,liqTo:0,liqK:1,nextLiq:40e3,fake:null,liqY:RIM,leak:null,nextLeak:rnd(60e3,100e3),refill:false,puddle:0,thoughts:[],nextThought:0,shade:null,nextShade:rnd(8e3,16e3)})}
+  liqFrom:0,liqTo:0,liqK:1,nextLiq:40e3,fake:null,liqY:RIM,leak:null,nextLeak:rnd(60e3,100e3),blaze:null,nextBlaze:rnd(90e3,150e3),foam:null,refill:false,puddle:0,thoughts:[],nextThought:0,shade:null,nextShade:rnd(8e3,16e3)})}
 hzReset();
 function jarFill(){let top=FLOOR;for(const b of bodies)top=Math.min(top,b.position.y-b.circleRadius);return Math.max(0,Math.min(1,(FLOOR-top)/(FLOOR-RIM)))}
 function liquidNow(){const base=skinNow()?skinNow().liq:(LIQ[opts.liquid]||LIQ.amber).c;const pal=i=>i===0?base:LIQ_CYCLE[(i-1)%LIQ_CYCLE.length];
@@ -1770,6 +1784,7 @@ function hzTick(dt){
     if(Lk.t>45000){HZ.leak=null;HZ.nextLeak=T+rnd(70e3,120e3);toast('Утечка остановилась','Формалин медленно возвращается');updLeak()}}
   else if(HZ.liqY>RIM){HZ.liqY=Math.max(RIM,HZ.liqY-dt*(HZ.refill?.09:.008));if(HZ.liqY<=RIM)HZ.refill=false}
   if(!HZ.leak)HZ.puddle=Math.max(0,HZ.puddle-dt/60000);
+  blazeTick(dt,T,now);
   for(const b of bodies.slice()){if(b.lvl==null)continue;const above=b.position.y<HZ.liqY;b.dry=above?(b.dry||0)+dt:Math.max(0,(b.dry||0)-dt*2);
     if(b.dry>4000+rk(b.lvl)*600){const x=b.position.x,y=b.position.y;removeBody(b);spawn('rot',x,y);splat(x,y,'#6a5434',14,1.1);floater(x,y-18,'высох',false,'#c8a878');thud()}}
   if(T>HZ.nextLiq){HZ.nextLiq=T+rnd(35e3,48e3);HZ.liqFrom=HZ.liqTo;HZ.liqTo=HZ.liqTo+1;HZ.liqK=0;floater(W/2,RIM+28,'формалин меняется',false,'#d8c9a8')}
@@ -1808,12 +1823,63 @@ function hzMenu(){const n=Math.floor((Date.now()-(store.get('mut.lastSeenPrev',D
   if(opts.scare&&n>=1){const nm=typeof player==='function'&&store.get('mut.player',null)&&store.get('mut.player').name;tag.classList.add('whisper');
     tag.textContent=(nm?nm+'. ':'')+`Ты вернулся. Мы считали дни: ${n}.`}}
 let pausedAt=0;
+// ---------- пожар в лаборатории: под банкой пламя, формалин закипает; потушить — 300 очков ----------
+const BLAZE_COST=300,BLAZE_MAX=40000;
+function blazeTick(dt,T,now){
+  if(isOpen('blaze')&&!HZ.blaze&&!HZ.leak&&!HZ.foam&&drops>25&&T>HZ.nextBlaze){HZ.blaze={t:0,heat:0,ui:0,cook:0};HZ.blazePop='show';blazeAlarm();
+    track('blaze_start',{score});vibe([60,40,60,40,120]);shake=Math.max(shake,5);updBlaze()}
+  const B=HZ.blaze;
+  if(B){B.t+=dt;B.heat=Math.min(1,B.t/22000);if((B.ui+=dt)>250){B.ui=0;updBlaze()}
+    if(Math.random()<dt/420)crackle();
+    // кипение: пузыри выталкивают нижних мутантов вверх
+    for(const b of bodies){if(b.position.y<FLOOR-170||b.anom==='wormseg')continue;const f=b.mass*.00055*B.heat*(.4+Math.random());Body.applyForce(b,b.position,{x:(Math.random()-.5)*f*.6,y:-f})}
+    // долго не тушат — нижние мутанты свариваются в гниль
+    if(B.heat>=1&&(B.cook+=dt)>5000){B.cook=0;const low=bodies.filter(b=>b.lvl!=null&&!b.burn&&!b.rot).sort((a,c)=>c.position.y-a.position.y)[0];
+      if(low){const x=low.position.x,y=low.position.y;removeBody(low);spawn('rot',x,y);floater(x,y-20,'сварился в гниль',false,'#ff9a3a');splat(x,y,'#6e7550',10,1)}}
+    if(B.t>BLAZE_MAX){HZ.blaze=null;HZ.nextBlaze=T+rnd(100e3,160e3);toast('Огонь погас сам','Горелка выгорела','В следующий раз тушите раньше — дешевле обойдётся.');updBlaze()}}
+  if(HZ.foam&&now-HZ.foam.t0>6000)HZ.foam=null}
+function updBlaze(){const b=$('abExt'),pop=$('firePop');b.hidden=!HZ.blaze||over;if(!HZ.blaze||over){pop.hidden=true;return}
+  const ok=score>=BLAZE_COST,need=BLAZE_COST-score,left=Math.max(0,Math.ceil((BLAZE_MAX-HZ.blaze.t)/1000));
+  b.disabled=!ok;b.querySelector('small').textContent=ok?'−300':`ещё ${need}`;
+  if(HZ.blazePop==='poorLater'&&ok)HZ.blazePop='show';pop.hidden=HZ.blazePop!=='show';if(pop.hidden)return;$('disc').hidden=true;
+  $('fireText').textContent=ok?`Под банкой горит горелка. Формалин закипает: пузыри выталкивают мутантов к краю${HZ.blaze.heat>=1?', а нижние уже свариваются в гниль':''}. Сам огонь погаснет через ${left} с.`
+    :`Не хватает ${need} ${plural(need,'очка','очков','очков')}. Сливайте мутантов — окно вернётся, как только наберёте ${BLAZE_COST}.`;
+  const pay=$('firePay');pay.disabled=!ok;pay.textContent=ok?`🧯 Потушить за ${BLAZE_COST}`:`Нужно ещё ${need}`}
+function putOut(){if(!HZ.blaze||score<BLAZE_COST||over||paused)return;score-=BLAZE_COST;updHud();HZ.blaze.out=performance.now();HZ.foam={t0:performance.now(),p:[]};
+  const B=HZ.blaze;setTimeout(()=>{if(HZ.blaze===B){HZ.blaze=null;HZ.nextBlaze=HZ.t+rnd(100e3,160e3);updBlaze()}},1500);HZ.blazePop='hide';updBlaze();
+  floater(W/2,RIM+60,`пожар потушен −${BLAZE_COST}`,true,'#9fe0ff');toast('Пожар потушен','Пена из огнетушителя','Банка цела. Формалин остывает.');foamSound();vibe([20,20,20,20,20,20,60]);
+  stats.blazes=(stats.blazes||0)+1;saveStats();checkAch();track('blaze_out',{t:Math.round(B.t/1000)})}
+function blazeAlarm(){for(let i=0;i<6;i++)tone('square',960,960,.16,.07,0,i*.32),tone('square',740,740,.16,.07,0,i*.32+.16);noise(1.4,'bandpass',500,.6,.35,0,.1,1800)}
+function crackle(){noise(.05,'highpass',2800,1,.14,(Math.random()-.5)*.8);if(Math.random()<.3)noise(.4,'lowpass',220,1,.2)}
+function foamSound(){noise(1.4,'highpass',1800,.6,.45,0,0,700);noise(.8,'lowpass',400,1,.3,0,.3)}
+$('abExt').onclick=putOut;$('firePay').onclick=putOut;
+$('fireLater').onclick=()=>{HZ.blazePop=score>=BLAZE_COST?'later':'poorLater';updBlaze();cv.focus({preventScroll:true})};
+// отрисовка: языки пламени под банкой и по бокам, кипение, пена огнетушителя
+function drawBlaze(now,t){const B=HZ.blaze,F=HZ.foam;if(!B&&!F)return;ctx.save();
+  if(B){const out=B.out?Math.min(1,(now-B.out)/1300):0,I=(.45+.55*B.heat)*(1-out);
+    if(I>0){const g=ctx.createLinearGradient(0,FLOOR-140,0,FLOOR);g.addColorStop(0,'rgba(255,90,20,0)');g.addColorStop(1,`rgba(255,110,30,${.32*I})`);ctx.fillStyle=g;ctx.fillRect(JL,FLOOR-140,JR-JL,140);
+      ctx.globalCompositeOperation='lighter';
+      for(let i=0;i<22;i++){const x=JL-14+i*(JR-JL+28)/21,h=(26+40*I)*(.6+.4*Math.sin(t*9+i*1.7))*(.7+.3*Math.sin(t*5.3+i)),w=10+5*Math.sin(t*7+i);
+        const gr=ctx.createLinearGradient(0,H,0,H-h-26);gr.addColorStop(0,`rgba(255,250,200,${.9*I})`);gr.addColorStop(.35,`rgba(255,170,40,${.85*I})`);gr.addColorStop(1,'rgba(200,30,0,0)');
+        ctx.fillStyle=gr;ctx.beginPath();ctx.moveTo(x-w,H);ctx.quadraticCurveTo(x-w*.6+Math.sin(t*11+i)*4,H-h*.6,x+Math.sin(t*6+i)*6,H-h-24);ctx.quadraticCurveTo(x+w*.6,H-h*.5,x+w,H);ctx.fill()}
+      for(const sx of [JL-4,JR+4])for(let k=0;k<3;k++){const h=(40+50*I)*(.6+.4*Math.sin(t*8+k+sx)),y0=FLOOR-k*12;ctx.fillStyle=`rgba(255,120,30,${.5*I})`;
+        ctx.beginPath();ctx.moveTo(sx-6,y0);ctx.quadraticCurveTo(sx+Math.sin(t*9+k)*8,y0-h*.6,sx,y0-h);ctx.quadraticCurveTo(sx+6,y0-h*.5,sx+6,y0);ctx.fill()}
+      ctx.globalCompositeOperation='source-over';
+      ctx.strokeStyle=`rgba(255,240,220,${.35*B.heat*(1-out)})`;ctx.lineWidth=1.5;for(let i=0;i<9;i++){const k=((t*(.6+B.heat)+i*.11)%1),x=JL+20+((i*71)%(JR-JL-40)),y=FLOOR-6-k*(FLOOR-RIM)*.7;
+        ctx.beginPath();ctx.arc(x+Math.sin(t*4+i)*5,y,3+6*B.heat*(1-k*.5),0,TAU);ctx.stroke()}}}
+  if(F){const k=(now-F.t0)/1000,nx=JR+26,ny=FLOOR-70;
+    if(k<1.6){ctx.save();ctx.translate(nx,ny);ctx.rotate(-.25);ctx.fillStyle='#c81414';ctx.beginPath();ctx.roundRect(-9,-38,18,46,5);ctx.fill();ctx.fillStyle='#222';ctx.fillRect(-12,-44,22,7);ctx.strokeStyle='#222';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-10,-40);ctx.quadraticCurveTo(-26,-30,-24,-12);ctx.stroke();ctx.restore();
+      if(k<1.3)for(let i=0;i<10;i++)F.p.push({x:nx-26,y:ny-14,vx:-rnd(3,8),vy:rnd(-1,2.2),r:rnd(4,9),life:1})}
+    ctx.fillStyle='#f4f8fa';for(const f of F.p){f.x+=f.vx;f.y+=f.vy;f.vx*=.93;f.vy+=.12;if(f.y>FLOOR+8){f.y=FLOOR+8;f.vy=0;f.vx*=.6}f.life-=.0035;ctx.globalAlpha=Math.max(0,Math.min(1,f.life*1.4));
+      ctx.beginPath();ctx.arc(f.x,f.y,f.r*(1.3-f.life*.3),0,TAU);ctx.fill()}F.p=F.p.filter(f=>f.life>0&&f.x>JL-30);ctx.globalAlpha=1;
+    if(k<2.2){ctx.fillStyle=`rgba(230,240,245,${.35*(1-k/2.2)})`;for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(JL+40+i*70,FLOOR-20-k*60-i*6,22+k*18,0,TAU);ctx.fill()}}}
+  ctx.restore()}
 function updLeak(){const b=$('abLeak'),pop=$('leakPop');b.hidden=!HZ.leak;
   if(!HZ.leak||over){pop.hidden=true;return}
   const ok=score>=200,need=200-score,left=Math.max(0,Math.ceil((45000-HZ.leak.t)/1000));
   b.disabled=!ok;b.innerHTML='Залатать<small></small>';b.querySelector('small').textContent=ok?'−200 очков':`ещё ${need}`;
   if(HZ.leakPop==='poorLater'&&ok)HZ.leakPop='show';
-  pop.hidden=HZ.leakPop!=='show';if(pop.hidden)return;
+  pop.hidden=HZ.leakPop!=='show';if(pop.hidden)return;$('disc').hidden=true;
   $('leakText').textContent=ok?`Уровень падает. Всё, что окажется над жидкостью, высохнет в гниль. Сама утечка стихнет через ${left} с.`
     :`Не хватает ${need} ${plural(need,'очка','очков','очков')}. Сливайте мутантов — окно вернётся, как только наберёте 200.`;
   const pay=$('leakPay');pay.disabled=!ok;pay.textContent=ok?'Залатать за 200':`Нужно ещё ${need}`}
@@ -2133,6 +2199,7 @@ const LIQ_CYCLE=[['#5a5a16','#1f2106'],['#432060','#140820'],['#1d5c3c','#061d10
 function hexMix(a,b,k){const pa=parseInt(a.slice(1),16),pb=parseInt(b.slice(1),16);const m=(sh)=>Math.round(((pa>>sh)&255)*(1-k)+((pb>>sh)&255)*k);
   return'#'+[m(16),m(8),m(0)].map(v=>v.toString(16).padStart(2,'0')).join('')}
 const ACH=[
+ ['blaze','Пожарный','Потушите пожар в лаборатории',()=>(stats.blazes||0)>0],
  ['fam1','Натуралист','Откройте мутанта из любого семейства',()=>FORMS.some((f,i)=>f.fam&&found.has(i))],
  ['famall','Коллекционер','Откройте всех 35 мутантов из семи семейств',()=>FORMS.every((f,i)=>!f.fam||found.has(i))],
  ['clear','Зачистка','Уберите группу крупных мутантов',()=>(stats.clears||0)>=1],
@@ -2380,7 +2447,7 @@ function startDemo(){if(window.__DEMO)return;
 function stopDemo(done){if(!window.__DEMO)return;demoTimers.forEach(clearTimeout);demoTimers=[];
   found=new Set(demoBackup.found);Object.keys(stats).forEach(k=>delete stats[k]);Object.assign(stats,demoBackup.stats);ach=demoBackup.ach;loreRead=new Set(demoBackup.lore);qp=demoBackup.qp;
   Object.keys(opts).forEach(k=>delete opts[k]);Object.assign(opts,demoBackup.opts);window.__DEMO=false;$('demoBar').hidden=true;
-  HZ.leak=null;darkUntil=0;sc.hidden=true;scream=null;over=false;started=false;newGame('classic');paused=true;openMenu();renderReg();syncToggles();
+  HZ.leak=null;HZ.blaze=null;HZ.foam=null;darkUntil=0;sc.hidden=true;scream=null;over=false;started=false;newGame('classic');paused=true;openMenu();renderReg();syncToggles();
   if(done)toast('Конец демо','Спасибо за внимание','')}
 $('demoBtn').onclick=startDemo;$('demoBar').onclick=()=>stopDemo(false);
 
@@ -2508,7 +2575,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.12c';
+const APP_VER='2026.11.12d';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -2659,7 +2726,7 @@ function gameOver(reason){
   if(stats.games===2&&PUBLIC_URL&&!IS_APP&&!store.get('mut.installTip',false)&&(installEvt||IS_IOS||/Android/.test(navigator.userAgent))){store.set('mut.installTip',true);
     setTimeout(()=>toast('Совет','Установите игру на телефон','Меню → «На телефон»: иконка рядом с приложениями, работает без интернета.'),1800)}
   track('game_end',{lvl:pressLvl(),score,top:topLvl,dur:Math.round(HZ.t/1000),drops,reason:reason||'overflow',lab:Math.min(labLvl(),9),cracks:HZ.cracks.length});anFlush();
-  $('leakPop').hidden=true;
+  $('leakPop').hidden=true;$('firePop').hidden=true;$('abExt').hidden=true;
   $('overTitle').textContent=reason==='win'?'Испытание пройдено':reason==='crack'?'Банка лопнула':'Банка переполнена';
   if(mode==='trial'&&reason!=='win'&&trial)track('trial_end',{id:trial.def.id,win:false,score,dur:Math.round(HZ.t/1000)});
   over=true;stats.games++;stats.best=Math.max(stats.best,score);if(isFall())stats.fallBest=Math.max(stats.fallBest,score);if(mode==='daily'){stats.dailies++;bumpStreak()}saveStats();
@@ -2805,7 +2872,7 @@ function frame(now){
     for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,TAU);ctx.fill()}
     ctx.globalAlpha=1;
     if(jar.dark||darkUntil>now||isTrial('uv'))drawDark(now,(jar.dark||isTrial('uv'))&&!(darkUntil>now));
-    drawGlass();drawSkinDeco(now);drawLabel();
+    drawGlass();drawSkinDeco(now);drawLabel();drawBlaze(now,t);
     drawHorror(now,t);
     drawTut(now);drawPress(now);drawMergeFx(now);drawFire(now);
     ctx.textAlign='center';for(const f of floaters){ctx.globalAlpha=Math.min(1,f.life*1.5);ctx.font=f.big?'22px "Rubik Distressed",sans-serif':'600 13px "IBM Plex Mono",monospace';
@@ -2831,7 +2898,7 @@ setTimeout(loadRefs,3000);setTimeout(pushTouch,4000);setTimeout(loadOwned,2500);
 track('session_start',{ref:AN.firstRun?REF_IN:null,prank:!!prank,first:AN.firstRun,games:stats.games,app:!!(matchMedia('(display-mode: standalone)').matches||navigator.standalone),w:innerWidth,h:innerHeight,lang:(navigator.language||'').slice(0,5),challenge:!!challenge});
 applyLite();
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={G:()=>({FORMS,HYB,LV,drawCreature,drawHybrid,shine,found}),drops:()=>drops,count:l=>bodies.filter(b=>b.lvl===l).length,spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={G:()=>({FORMS,HYB,LV,drawCreature,drawHybrid,shine,found,HZ}),setScore2:v=>{score=v},drops:()=>drops,count:l=>bodies.filter(b=>b.lvl===l).length,spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
