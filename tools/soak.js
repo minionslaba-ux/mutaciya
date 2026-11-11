@@ -21,7 +21,7 @@ const DUR=+process.argv[2]||45;
     while(Date.now()-t0<DUR*1000){
       const r=Math.random();
       if(r<.55){await p.mouse.move(box.x+box.width*Math.random(),box.y+60);await p.mouse.down();await p.mouse.move(box.x+box.width*Math.random(),box.y+70,{steps:2});await p.mouse.up()}
-      else if(r<.6){await p.evaluate(()=>{for(const id of ['abShake','abSwap','abDown'])if(Math.random()<.4){const e=document.getElementById(id);if(e&&!e.hidden&&!e.disabled)e.click()}})}
+      else if(r<.6){await p.evaluate(()=>{for(const id of ['abShake','abSwap','abDown','abFire'])if(Math.random()<.4){const e=document.getElementById(id);if(e&&!e.hidden&&!e.disabled)e.click()}})}
       else if(r<.64){await p.evaluate(()=>__mut.hzSet({nextLeak:0,nextKnock:0,nextHand:0,nextInspect:0,nextLight:0,nextGaze:0}))}
       else if(r<.67){await p.evaluate(()=>{const b=document.getElementById('leakPay');if(!b.closest('.leakpop').hidden&&!b.disabled)b.click();else{const l=document.getElementById('leakLater');if(!l.closest('.leakpop').hidden)l.click()}})}
       else if(r<.69){await p.tap('#regBtn');await p.waitForTimeout(150);await p.tap('#regClose')}
@@ -34,6 +34,8 @@ const DUR=+process.argv[2]||45;
       const s=await p.evaluate(()=>({over:!document.getElementById('over').hidden,overFlag:__mut.fall().mode&&true,menu:!document.getElementById('menu').hidden,
         hzT:__mut.hz().t,scream:!document.getElementById('scream').hidden,leakPop:!document.getElementById('leakPop').hidden,leak:__mut.leak().leak,
         sheets:[...document.querySelectorAll('.scrim')].filter(x=>!x.hidden).length,bodies:__mut.bodies().length}));
+      // «Продолжить смену» (только на сайте): случайно продолжаем или заканчиваем
+      if(await p.evaluate(()=>!document.getElementById('contSheet').hidden)){await p.evaluate(()=>document.getElementById(Math.random()<.5?'contAd':'contEnd').click());await p.waitForTimeout(300);lastT=-1;continue}
       if(s.over){games++;await p.tap('#again').catch(()=>{});await p.waitForTimeout(300);lastT=-1;continue}
       if(s.leakPop&&!s.leak)problems.push(name+': окно утечки без утечки');
       if(s.scream){maxScream++;if(maxScream>12)problems.push(name+': скример завис')}else maxScream=0;

@@ -57,3 +57,16 @@ select public.mutaciya_report_period('2026-11-04', '2026-11-10'); -- за пер
 Все отчёты бота читают представление `public.mutaciya_ev` — события без тестовых устройств (таблица `mutaciya_testers`,
 команда бота `/mut_tester ID` отмечает и снимает отметку) и без роботов (единственное событие `session_start`
 с нерусским языком браузера). Сырые данные остаются в `mutaciya_events`.
+
+## Покупки (Робокасса) и реклама (РСЯ)
+
+- Функция `mutaciya-pay` (без JWT): `{a:'buy', player, item, email}` → ссылка на оплату; `{a:'owned', player}` → купленное;
+  `{a:'status', player, inv}` → статус счёта; `?rk=result` — Result URL для Робокассы (подпись MD5(OutSum:InvId:Пароль#2)).
+- Секреты: `MUT_RK_LOGIN` (идентификатор магазина), `MUT_RK_PASS1`, `MUT_RK_PASS2`, `MUT_RK_TEST=1` — тестовый режим,
+  `MUT_RK_RECEIPT=0` — не передавать состав чека. Таблица `mutaciya_purchases` (счета с 1001).
+- Товары и цены — в функции (`ITEMS`) и на странице «Цены»: noads 199, rust 99, neon 99, relic 149, all 349 ₽.
+- Настройки магазина в Робокассе: Result URL `https://auequuxfcwdshblqrwbd.supabase.co/functions/v1/mutaciya-pay?rk=result` (POST),
+  Success URL `https://mutaciya.com/?pay=ok`, Fail URL `https://mutaciya.com/?pay=fail`, алгоритм MD5.
+- Реклама: блоки РСЯ вписываются в `ADS` в `src/game.html` (rewarded/fullscreen × touch/desktop). Пока пусто —
+  реклама не показывается, «Продолжить смену» и заряд огнемёта даются бесплатно.
+- Бот: `/mut_sales` — продажи и реклама; `/mut_grant ID товар` — выдать покупку вручную.
