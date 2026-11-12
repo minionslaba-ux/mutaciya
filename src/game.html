@@ -98,6 +98,7 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .overgoal{margin:0;font:600 13px var(--f-mono);color:#ffcf7a}
 .shopbtn{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-color:#7a5a1a!important}
 .menu.newbie .shopbtn{display:none}
+body.pk #prankBtn,body.pk #overPrank,body.pk #shareChal,body.pk #refLine,body.pk .site-legal,body.pk #appRow,body.pk #tmrwPush,body.pk #demoBtn{display:none!important}
 .shop{display:flex;flex-direction:column;gap:8px;margin:6px 0}
 .shopitem{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}
 .shopitem canvas{width:56px;height:56px;flex:none}
@@ -458,7 +459,7 @@ body{height:100vh;height:100dvh}
   <div class="sheet" role="dialog" aria-label="Реестр мутаций">
     <div class="grip"></div>
     <h2>Реестр мутаций</h2>
-    <p class="note">Неизвестные формы откроются, когда вы их выведете. Нажмите на открытую форму, чтобы прочитать запись из журнала лаборанта. Две Матки уничтожают друг друга и дают +500.</p>
+    <p class="note">Неизвестные формы откроются, когда вы их выведете. Нажмите на открытую форму, чтобы прочитать запись из журнала лаборанта. Две Матки срастаются в Улей, два Улья схлопываются (+2000). Семейство дня меняется каждый день.</p>
     <div class="reg" id="reg"></div>
     <div class="row"><button id="regClose">Закрыть</button></div>
   </div>
@@ -691,7 +692,7 @@ const formsFound=()=>[...found].filter(x=>typeof x==='number');
 
 // ---------- storage ----------
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
-  set(k,v){if(window.__DEMO)return;try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+  set(k,v){if(window.__DEMO)return;try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}if(window.MUT_PLATFORM==='pikabu'&&typeof pkSave==='function')pkSave()}};
 let found=new Set(store.get('mut.found',[0,1,2]));
 let loreRead=new Set(store.get('mut.lore',[]));
 if(store.get('mut.formsV',1)<2){const map={8:9,9:11,10:13};found=new Set([...found].map(x=>typeof x==='number'&&map[x]!=null?map[x]:x));store.set('mut.found',[...found]);store.set('mut.formsV',2)}
@@ -711,7 +712,10 @@ const WEEK=(()=>{const d=new Date(WEEK_DAYS[3]+'T00:00:00Z'),y=d.getUTCFullYear(
 const fmtD=(s,o)=>new Date(s+'T12:00:00Z').toLocaleDateString('ru-RU',Object.assign({timeZone:'UTC'},o));
 const WEEK_LABEL=fmtD(WEEK_DAYS[0],{day:'numeric'})+'–'+fmtD(WEEK_DAYS[6],{day:'numeric',month:'long'});
 // public site: https://mutaciya.com/ (any other public host, e.g. the old address, also links to the domain)
-const PUBLIC_URL=/^https?:$/.test(location.protocol)&&!(window.claude&&window.claude.use)?'https://mutaciya.com/':'';
+// Пикабу Игры: сборка pikabu/index.html (tools/build_pikabu.py) ставит window.MUT_PLATFORM='pikabu' — свой SDK площадки,
+// без ссылок наружу, оплаты и рекламы сайта, напоминаний, установки и общей таблицы рекордов
+const PIKABU=window.MUT_PLATFORM==='pikabu';
+const PUBLIC_URL=!PIKABU&&/^https?:$/.test(location.protocol)&&!(window.claude&&window.claude.use)?'https://mutaciya.com/':'';
 const DAILY_JAR=(()=>{const wd=(new Date(DAY+'T00:00:00Z').getUTCDay()+6)%7;return['normal','viscous','narrow','shaky','dark','normal',JAR_KEYS[1+hashStr('jar:'+DAY)%4]][wd]})();
 const GAME_URL=PUBLIC_URL||'https://mutaciya.com/';
 // challenge link: #vyzov-<seed base36>-<score>
@@ -1105,7 +1109,7 @@ const skinNow=()=>opts.skin&&hasItem(opts.skin)?SKINS[opts.skin]:null;
 async function payApi(body){const r=await fetch(PAY_FN(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({player:player().id,...body})});return r.json()}
 async function loadOwned(){if(!PUBLIC_URL||!useSupa())return;try{const r=await payApi({a:'owned'});if(r&&Array.isArray(r.items)){const was=owned.size;owned=new Set(r.items);store.set('mut.owned',[...owned]);
   if(owned.size>was&&was>=0)renderShop();updShopBtn()}}catch(e){}}
-function updShopBtn(){const b=$('shopBtn');if(b)b.hidden=!PUBLIC_URL}
+function updShopBtn(){const b=$('shopBtn');if(b)b.hidden=!PUBLIC_URL&&!PIKABU}
 function drawSkinIcon(c,id){c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,112,112);const S=SKINS[id];
   if(!S){c.fillStyle='#c8141a';c.font='54px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(id==='noads'?'🚫':'🎁',56,60);return}
   const g=c.createLinearGradient(0,30,0,104);g.addColorStop(0,S.liq[0]);g.addColorStop(1,S.liq[1]);c.fillStyle=g;c.beginPath();c.roundRect(26,30,60,74,10);c.fill();
@@ -1119,8 +1123,9 @@ function renderShop(){const el=$('shopList');if(!el)return;el.innerHTML='';
     if(own&&it.skin){const on=opts.skin===it.id;b.textContent=on?'Снять':'Надеть';b.className=on?'':'primary';b.onclick=()=>{opts.skin=on?null:it.id;saveOpts();renderShop();track('skin',{id:opts.skin||'none'})}}
     else if(own){b.textContent='Куплено ✓';b.disabled=true}
     else if(it.id==='all'&&['noads','rust','neon','relic'].every(hasItem)){b.textContent='Всё куплено ✓';b.disabled=true}
-    else{b.textContent=it.rub+' ₽';b.className='primary';b.onclick=()=>buy(it)}
+    else{b.textContent=PIKABU?(PK.prices[it.id]||it.rub+' ₽'):it.rub+' ₽';b.className='primary';b.onclick=()=>PIKABU?pkBuy(it):buy(it)}
     el.appendChild(d)}
+  if(PIKABU){$('shopId').textContent='Покупки сохраняются в аккаунте Пикабу.';$('shopMail').parentNode.hidden=true;return}
   $('shopId').textContent='Покупки привязаны к этому браузеру. Сменили телефон — напишите на piter_00000@mail.ru и укажите ID: '+player().id}
 async function buy(it){const note=$('shopNote');note.textContent='Создаю счёт…';track('buy_click',{item:it.id,rub:it.rub});
   try{const email=($('shopMail').value||'').trim();if(email)store.set('mut.mail',email);
@@ -1128,7 +1133,7 @@ async function buy(it){const note=$('shopNote');note.textContent='Создаю �
     if(r&&r.url){store.set('mut.payInv',{inv:r.inv_id,item:it.id,t:Date.now()});note.textContent='Переходим на страницу оплаты…';location.href=r.url;return}
     note.textContent=r&&r.error==='not_configured'?'Оплата скоро заработает: магазин ещё подключается.':'Не удалось создать счёт. Попробуйте ещё раз.'}
   catch(e){note.textContent='Нет связи с сервером. Попробуйте ещё раз.'}}
-function openShop(){track('shop',{});$('shopMail').value=store.get('mut.mail','');$('shopNote').textContent='';renderShop();openSheet('shopSheet');loadOwned().then(renderShop)}
+function openShop(){track('shop',{});if(PIKABU)$('shopSheet').querySelector('.note').textContent='Игра бесплатна. Покупки — для тех, кто хочет поддержать игру или украсить банку. Оплата — через Пикабу.';$('shopMail').value=store.get('mut.mail','');$('shopNote').textContent='';renderShop();openSheet('shopSheet');loadOwned().then(renderShop)}
 // возврат с оплаты: проверяем счёт, пока Робокасса не подтвердит (до 2 минут)
 async function checkPayReturn(){const q=new URLSearchParams(location.search),pend=store.get('mut.payInv',null);
   if(q.has('pay')){history.replaceState(null,'',location.pathname+location.hash);if(q.get('pay')==='fail'){store.set('mut.payInv',null);setTimeout(()=>toast('Оплата не прошла','Деньги не списаны','Можно попробовать ещё раз в «Магазине лаборатории».'),800);return}}
@@ -1142,19 +1147,20 @@ let adSdk=false;
 function loadAdSdk(){if(adSdk)return;adSdk=true;window.yaContextCb=window.yaContextCb||[];const sc=document.createElement('script');sc.src='https://yandex.ru/ads/system/context.js';sc.async=true;document.head.appendChild(sc)}
 function adBlock(type){return(ADS[type]||{})[IS_TOUCH?'touch':'desktop']||''}
 // cb(true) — награда положена: реклама досмотрена, либо её нет/не загрузилась (игрок не виноват)
-function showAd(type,cb){const id=adBlock(type);let done=false,rew=false,to=0;const fin=ok=>{if(done)return;done=true;clearTimeout(to);try{if(ac&&ac.state==='suspended')ac.resume()}catch(e){}cb(ok)};
+function showAd(type,cb){if(PIKABU){track('ad',{type,pk:1});pkAd(type).then(r=>cb(type==='rewarded'?(r?r.reward:true):true));return}
+  const id=adBlock(type);let done=false,rew=false,to=0;const fin=ok=>{if(done)return;done=true;clearTimeout(to);try{if(ac&&ac.state==='suspended')ac.resume()}catch(e){}cb(ok)};
   if(!PUBLIC_URL||!id){fin(type==='rewarded');return}
   track('ad',{type});loadAdSdk();to=setTimeout(()=>{if(!window.Ya)fin(type==='rewarded')},7000);
   window.yaContextCb.push(()=>{try{clearTimeout(to);Ya.Context.AdvManager.render({blockId:id,type,platform:IS_TOUCH?'touch':'desktop',
     onRewarded:r=>{rew=!!r},onClose:()=>fin(type==='rewarded'?rew:true),onError:()=>fin(type==='rewarded')})}catch(e){fin(type==='rewarded')}})}
 // межстраничная: не в первых 3 партиях, не чаще раза в 3 партии и 3 минуты, не у купивших «Без рекламы»
 let adGames=0,adLast=Date.now();
-function maybeInterstitial(go){adGames++;if(!PUBLIC_URL||noAds()||stats.games<3||adGames%3||Date.now()-adLast<180000||!adBlock('fullscreen')){go();return}
+function maybeInterstitial(go){adGames++;if(!(PUBLIC_URL||PIKABU)||noAds()||stats.games<3||adGames%3||Date.now()-adLast<180000||!(PIKABU||adBlock('fullscreen'))){go();return}
   adLast=Date.now();paused=true;showAd('fullscreen',()=>{go()})}
 // «Продолжить смену» после переполнения: один раз за партию, «Классика» и «Падение»
 let contUsed=false;
-function canContinue(){return !!PUBLIC_URL&&!contUsed&&(mode==='classic'||mode==='fall')&&!window.__DEMO&&drops>12}
-function offerContinue(){contUsed=true;paused=true;$('contSub').textContent=noAds()||!adBlock('rewarded')?'бесплатно':'посмотреть короткую рекламу';$('contSheet').hidden=false;track('continue_offer',{score})}
+function canContinue(){return (!!PUBLIC_URL||PIKABU)&&!contUsed&&(mode==='classic'||mode==='fall')&&!window.__DEMO&&drops>12}
+function offerContinue(){contUsed=true;paused=true;$('contSub').textContent=noAds()||!(PIKABU||adBlock('rewarded'))?'бесплатно':'посмотреть короткую рекламу';$('contSheet').hidden=false;track('continue_offer',{score})}
 function doContinue(){$('contSheet').hidden=true;
   const list=bodies.slice().sort((a,b)=>(a.position.y-a.circleRadius)-(b.position.y-b.circleRadius));let n=0;
   for(const b of list){if(jarFill()<.5||n>=Math.ceil(bodies.length*.45))break;if(b.anom==='wormseg')continue;if(b.anom==='worm'){killWorm(b,0,'');n++;continue}removeBody(b);splat(b.position.x,b.position.y,b.lvl!=null?FORMS[b.lvl].c:'#888',10,1);n++}
@@ -1194,6 +1200,49 @@ function drawBurn(b,r,now){const k=Math.max(0,Math.min(1,(now-b.burn)/BURN_MS));
   ctx.globalCompositeOperation='lighter';ctx.fillStyle=`rgba(255,${120-80*k|0},20,${.5*(1-k)})`;ctx.beginPath();ctx.arc(0,r*.2,r*.9,0,TAU);ctx.fill();
   ctx.globalCompositeOperation='source-over';ctx.strokeStyle=`rgba(255,140,40,${.8*k})`;ctx.lineWidth=Math.max(1,r*.04);for(let i=0;i<5;i++){const a=i*1.3+b.seed;ctx.beginPath();ctx.moveTo(Math.cos(a)*r*.2,Math.sin(a)*r*.2);ctx.lineTo(Math.cos(a+.3)*r*.7,Math.sin(a+.3)*r*.7);ctx.stroke()}
   ctx.restore()}
+// ---------- Пикабу Игры (PkbSDK): облачное сохранение, реклама, покупки ----------
+var PK={sdk:null,p:null,prices:{},saveT:0,dead:false,buying:0}; // var: store.set может позвать pkSave раньше этой строки
+const PK_SKIP=new Set(['mut.dev','mut.payInv','mut.refIn','mut.refs']);
+function pkSnap(){const d={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('mut.')&&!PK_SKIP.has(k))d[k]=localStorage.getItem(k)}return d}
+const pkScore=d=>{try{const st=JSON.parse(d['mut.stats']||'{}'),fd=JSON.parse(d['mut.found']||'[]');return(st.games||0)*10+fd.length}catch(e){return 0}};
+function pkLoad(){if(!PIKABU||PK.p)return PK.p;PK.p=new Promise(res=>{const sc=document.createElement('script');sc.async=true;sc.src='https://games.pikabu.ru/sdk/sdk.js';
+  sc.onload=async()=>{try{const sdk=await window.PkbSDK.init();PK.sdk=sdk;try{sdk.gameStarted()}catch(e){}
+      try{sdk.on('storageSaveError',r=>{if(r==='REVISION_CONFLICT'&&!PK.dead){PK.dead=true;toast('Прогресс изменён в другой вкладке','Перезапустите игру, чтобы не потерять его')}})}catch(e){}
+      try{sdk.on('userAuthorized',()=>pkCloudLoad())}catch(e){}
+      pkCloudLoad();res(sdk);setTimeout(pkStoreInit,1500)}catch(e){track('pk_error',{m:String(e&&e.message||e).slice(0,80)});res(null)}};
+  sc.onerror=()=>{track('pk_error',{m:'sdk load'});res(null)};document.head.appendChild(sc);setTimeout(()=>res(PK.sdk),20000)});return PK.p}
+// облако: ключ «mut» = все записи mut.* из браузера; при запуске выигрывает сторона, где сыграно больше
+function pkCloudLoad(){const sdk=PK.sdk;if(!sdk)return;let c=null;try{c=sdk.storage.get('mut')}catch(e){}
+  const local=pkSnap();
+  if(c&&c.d&&pkScore(c.d)>pkScore(local)&&!sessionStorage.getItem('mut.pkApplied')&&!started){try{sessionStorage.setItem('mut.pkApplied','1')}catch(e){}
+    for(const [k,v] of Object.entries(c.d))try{localStorage.setItem(k,v)}catch(e){}location.reload();return}
+  pkSave()}
+function pkSave(){if(!PK||!PK.sdk||PK.dead||PK.saveT)return;PK.saveT=setTimeout(()=>{PK.saveT=0;try{const d=pkSnap(),json=JSON.stringify(d);if(json.length<180000)PK.sdk.storage.set('mut',{v:1,t:Date.now(),d})}catch(e){}},3000)}
+async function pkAd(kind){const sdk=PK.sdk||await pkLoad(),ad=sdk&&sdk.ads&&sdk.ads[kind];if(!ad||ad.isSupported===false)return null;
+  try{if(!(await ad.canShow()))return null}catch(e){return null}
+  const was=paused;paused=true;try{if(ac&&ac.state==='running')ac.suspend()}catch(e){}
+  try{const r=await ad.show();return r&&r.rendered?{reward:!!r.reward}:null}catch(e){return null}
+  finally{paused=was;try{if(ac&&opts.sound)ac.resume()}catch(e){}}}
+async function pkStoreInit(){const st=PK.sdk&&PK.sdk.store;if(!st)return;
+  try{const list=await st.getProducts();for(const x of list||[])PK.prices[x.id]=x.formattedPrice||(x.price/100)+' ₽'}catch(e){}
+  try{const ps=await st.getPurchases();for(const x of ps||[])await pkHandle(x,false)}catch(e){}
+  if(!$('shopSheet').hidden)renderShop()}
+async function pkHandle(purchase,loud){const id=purchase.productId;if(!SHOP.find(x=>x.id===id))return false;let j=null;
+  try{const signedData=await purchase.getSignedData();const r=await fetch(SUPA.url+'/functions/v1/mutaciya-pikabu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({signedData})});j=await r.json().catch(()=>null)}catch(e){}
+  if(!j||!j.ok){if(loud)toast('Оплата прошла','Покупка придёт при следующем запуске','Проверить её сейчас не получилось.');return false}
+  const was=hasItem(id);owned.add(id);store.set('mut.owned',[...owned]);
+  if(!was){const it=SHOP.find(x=>x.id===id);if(it&&it.skin){opts.skin=id;saveOpts()}if(id==='all'&&!opts.skin){opts.skin='relic';saveOpts()}
+    if(loud)toast('Спасибо за покупку!',it?it.name:'Покупка получена','Уже действует.');track('buy_done',{item:id,pk:1})}
+  renderShop();return true}
+async function pkBuy(it){const st=PK.sdk&&PK.sdk.store,note=$('shopNote');if(!st){note.textContent='Магазин Пикабу загружается — попробуйте через пару секунд.';pkLoad();return}
+  if(PK.buying&&Date.now()-PK.buying<20000)return;PK.buying=Date.now();note.textContent='Открываю оплату…';track('buy_click',{item:it.id,pk:1});
+  try{const pl=PK.sdk.player;if(pl&&pl.isAuthorized===false&&PK.sdk.auth&&PK.sdk.auth.openAuthDialog){note.textContent='Войдите в аккаунт Пикабу — после входа откроется оплата.';
+      try{await PK.sdk.auth.openAuthDialog()}catch(e){}if(PK.sdk.player&&PK.sdk.player.isAuthorized===false){note.textContent='Для покупки нужно войти в аккаунт Пикабу.';PK.buying=0;return}}
+    const r=await st.purchase({productId:it.id,developerPayload:JSON.stringify({from:'shop'})});
+    if(!r||!r.success){const why=r&&r.reason;if(why==='NON_CONSUMABLE_ALREADY_OWNED'){note.textContent='Уже куплено — возвращаю покупку.';await pkStoreInit()}
+      else note.textContent=why==='USER_CANCELLED'?'Покупка отменена.':why==='USER_UNAUTHORIZED'?'Для покупки нужно войти в аккаунт Пикабу.':'Покупка не прошла. Попробуйте ещё раз.'}
+    else{note.textContent='';await pkHandle(r.purchase,true)}}catch(e){note.textContent='Покупка не прошла. Попробуйте ещё раз.'}
+  PK.buying=0}
 // ---------- рефералы: сколько новых игроков пришло по моим ссылкам ----------
 let refCount=store.get('mut.refs',0);
 const REF_REWARDS=[[1,'toxic','ядовитый формалин'],[3,'violet','фиолетовый формалин'],[10,'gold','золотой формалин']];
@@ -1645,9 +1694,9 @@ async function shareForm(i,H){const F=FORMS[i],name=H?H.name:F.name;track('share
   g.save();g.translate(540,620);const s=290/F.r;g.scale(s,s);drawCreature(g,i,F.r,1.3,3,{x:.2,y:.15});if(H)drawHybrid(g,H.id,F.r,1.3,3,{x:.2,y:.15});shine(g,F.r);g.restore();
   g.fillStyle='#ece3cb';g.font='96px "Rubik Distressed",sans-serif';g.fillText(name,540,1060);
   g.fillStyle='#9d9174';g.font='36px "IBM Plex Sans",sans-serif';wrapText(g,H?H.d:firstLine(LORE[i]),540,1128,900,46);
-  g.fillStyle='#e0302a';g.font='600 36px "IBM Plex Mono",monospace';g.fillText('Я ВЫВЕЛ. А ТЫ?',540,1268);g.fillStyle='#9d9174';g.font='28px "IBM Plex Mono",monospace';g.fillText('mutaciya.com',540,1316);
+  g.fillStyle='#e0302a';g.font='600 36px "IBM Plex Mono",monospace';g.fillText('Я ВЫВЕЛ. А ТЫ?',540,1268);g.fillStyle='#9d9174';g.font='28px "IBM Plex Mono",monospace';g.fillText(PIKABU?'Пикабу Игры':'mutaciya.com',540,1316);
   const blob=await new Promise(r=>c.toBlob(r,'image/png'));if(!blob)return;const file=new File([blob],`mutaciya-${H?H.id:F.id}.png`,{type:'image/png'});
-  const text=`Я вывел «${name}» в «Мутации» 🧪 А ты сможешь? ${GAME_URL}#ref-${myRef()}`,was=paused;paused=true;
+  const text=`Я вывел «${name}» в «Мутации» 🧪 А ты сможешь? `+(PIKABU?'Ищи «Мутацию» на Пикабу Играх':`${GAME_URL}#ref-${myRef()}`),was=paused;paused=true;
   try{if(navigator.canShare&&navigator.canShare({files:[file]}))await navigator.share({files:[file],text});
     else{await saveBlob(blob,file.name);try{await navigator.clipboard.writeText(text)}catch(e){}toast('Картинка сохранена','Текст со ссылкой скопирован')}}catch(e){}
   paused=was}
@@ -1730,12 +1779,12 @@ function specialTick(dt){
 }
 function doShake(k){for(const q of bodies){Body.setVelocity(q,{x:q.velocity.x+(Math.random()-.5)*6*k,y:q.velocity.y-(3+Math.random()*5)*k})}shake=12;vibe([40,30,60]);sound(8,false)}
 function updAbil(){for(const [id,k] of [['abShake','shake'],['abRemove','remove'],['abSwap','swap']]){$(id).disabled=!abil[k];$(id).classList.toggle('arm',k==='remove'&&targeting)}
-  {const n=abil.fire||0,adOk=!n&&!FIRE.adUsed&&!!PUBLIC_URL&&!window.__DEMO;$('abFire').disabled=!n&&!adOk;$('abFire').classList.toggle('arm',FIRE.aim);
+  {const n=abil.fire||0,adOk=!n&&!FIRE.adUsed&&(!!PUBLIC_URL||PIKABU)&&!window.__DEMO;$('abFire').disabled=!n&&!adOk;$('abFire').classList.toggle('arm',FIRE.aim);
    $('fireN').textContent=n?'×'+n:adOk?'+1':'';$('abFire').title=n?'Огнемёт: нажмите и коснитесь банки':adOk?'Ещё заряд за рекламу':'Заряд — за зачистку'}
   $('abRemove').textContent=targeting?'Коснитесь цели':'Удалить'}
 $('abShake').onclick=()=>{if(!abil.shake||over||paused)return;abil.shake=0;doShake(1);updAbil();cv.focus({preventScroll:true})};
 $('abFire').onclick=()=>{if(over||paused)return;
-  if(!(abil.fire>0)){if(FIRE.adUsed||!PUBLIC_URL)return;FIRE.adUsed=true;track('fire_ad',{});const was=paused;paused=true;
+  if(!(abil.fire>0)){if(FIRE.adUsed||!(PUBLIC_URL||PIKABU))return;FIRE.adUsed=true;track('fire_ad',{});const was=paused;paused=true;
     const give=()=>{paused=was;abil.fire=1;updAbil();toast('Огнемёт заправлен','Нажмите 🔥 и коснитесь банки')};if(noAds())give();else showAd('rewarded',ok=>{paused=was;if(ok)give();else updAbil()});return}
   FIRE.aim=!FIRE.aim;targeting=false;updAbil();if(FIRE.aim&&!store.get('mut.fireAimTip',false)){store.set('mut.fireAimTip',true);toast('Огнемёт','Коснитесь банки','Сгорят 3–5 мутантов вокруг места касания.')}};
 $('abSwap').onclick=()=>{if(!abil.swap||over||paused)return;abil.swap=0;cur=seq.next();drawNext();updAbil();floater(W/2,SPAWN_Y+40,'образец заменён',false)};
@@ -2568,7 +2617,8 @@ function nextToast(){const it=toastQ.shift();if(!it){toastBusy=false;return}toas
   $('toast').querySelector('.k').textContent=k;$('toastName').textContent=v;const de=$('toastDesc');de.hidden=!d;de.textContent=d||'';
   $('toast').classList.add('on');setTimeout(()=>{$('toast').classList.remove('on');setTimeout(nextToast,260)},d?3000:1600)}
 
-function renderReg(){
+let regDirty=true;
+function renderReg(force){if(!force&&$('regSheet').hidden){regDirty=true;return}regDirty=false;
   const el=$('reg');el.innerHTML='';
   const card=(n,name,cls,draw)=>{const d=document.createElement('div');d.className='card '+cls;
     d.innerHTML=`<span class="n">${n}</span><canvas width="112" height="112"></canvas><span class="nm"></span>`;d.querySelector('.nm').textContent=name;
@@ -2609,7 +2659,7 @@ function openSheet(id){$(id).hidden=false;if(!paused&&!over){paused=true;resumeA
 let resumeAfterSheet=false;
 function closeSheet(id){$(id).hidden=true;if(resumeAfterSheet&&$('menu').hidden){paused=false}resumeAfterSheet=false}
 ['regSheet','boardSheet','questSheet','achSheet'].forEach(id=>$(id).addEventListener('click',e=>{if(e.target.id===id)closeSheet(id)}));
-$('regBtn').onclick=()=>{renderReg();openSheet('regSheet')};
+$('regBtn').onclick=()=>{openSheet('regSheet');renderReg(true)};
 $('regClose').onclick=()=>closeSheet('regSheet');
 $('boardBtn').onclick=()=>{openSheet('boardSheet');loadBoard()};
 $('menuBoardBtn').onclick=()=>{openSheet('boardSheet');loadBoard()};
@@ -2679,7 +2729,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.12e';
+const APP_VER='2026.11.12f';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -2709,7 +2759,8 @@ async function supaSubmit(sc,top){const p=player();
 $('nameForm').addEventListener('submit',async e=>{e.preventDefault();const v=$('nameInput').value.trim().slice(0,24);const p=player();p.name=v;store.set('mut.player',p);
   $('nameInput').value=v;try{await supa('/rest/v1/rpc/mutaciya_rename',{p_player:p.id,p_secret:p.secret,p_name:playerName()})}catch(err){}loadBoard()});
 async function submitDaily(sc,top){
-  if(useSupa()){try{const r=await supaSubmit(sc,top);return r==='kept'?'kept':'saved'}catch(e){return'error'}}
+  if(useSupa()&&!PIKABU){try{const r=await supaSubmit(sc,top);return r==='kept'?'kept':'saved'}catch(e){return'error'}}
+  if(PIKABU)return'local';
   if(!db)return'local';if(!uid)return'anon';
   try{const ref=db.doc('scores/'+uid);const s=await withTimeout(ref.get(),10000);const d=(s.exists&&s.data())||{};
     if(d.day===DAY&&Number(d.score)>=sc)return'kept';
@@ -2731,8 +2782,8 @@ async function loadBoard(){
   const myDay=store.get('mut.daily.'+DAY,0),lw=localWeek();
   const mine=wk?`Ваша сумма за неделю: ${lw.sum} (забегов: ${lw.n}).`:`Ваш рекорд дня: ${myDay}.`;
   if(!boardReady){note.textContent='Подключаюсь к таблице…';return}
-  const supaMode=useSupa();$('nameForm').hidden=!supaMode;if(supaMode&&document.activeElement!==$('nameInput'))$('nameInput').value=player().name||'';
-  if(!db&&!supaMode){note.textContent='Общая таблица работает в версии игры в интернете. Здесь хранятся только ваши результаты. '+mine;return}
+  const supaMode=useSupa()&&!PIKABU;$('nameForm').hidden=!supaMode;if(supaMode&&document.activeElement!==$('nameInput'))$('nameInput').value=player().name||'';
+  if(!db&&!supaMode){note.textContent=(PIKABU?'Ваши результаты сохраняются в аккаунте Пикабу. ':'Общая таблица работает в версии игры в интернете. Здесь хранятся только ваши результаты. ')+mine;return}
   note.textContent='Загрузка…';
   try{
     let rows,names={},meId=uid;
@@ -2770,7 +2821,7 @@ function emoChain(){const top=Math.min(topLvl,MAX);let s='';for(let i=0;i<=top;i
   const v=FORMS.filter((f,i)=>f.virus&&found.has(i)&&seenThisGame&&seenThisGame.has(i)).length;return s+(v?' '+'🦠'.repeat(Math.min(v,5)):'')}
 function shareText(){const canChal=mode!=='trial';
   return[`🧪 Мутация · ${modeLabel()}`,`${score} ${plural(score,'очко','очка','очков')}`+(isPress()?` · уровень ${pressLvl()}`:'')+` · ${FORMS[topLvl].name}`,emoChain(),
-    canChal?`Побьёшь на тех же образцах? ${chalUrl()}`:`Сможешь больше? ${GAME_URL}#ref-${myRef()}`].join('\n')}
+    PIKABU?'Сможешь больше? «Мутация» на Пикабу Играх':canChal?`Побьёшь на тех же образцах? ${chalUrl()}`:`Сможешь больше? ${GAME_URL}#ref-${myRef()}`].join('\n')}
 function chalText(){return`Вызываю тебя в «Мутации»${isFall()?' (режим «Падение»)':''}: побей ${score} очков на тех же образцах. ${emoChain()} ${chalUrl()}`}
 async function makeShareCanvas(){
   try{await Promise.all(['112px "Rubik Wet Paint"','96px "Rubik Distressed"','600 34px "IBM Plex Mono"','36px "IBM Plex Sans"'].map(f=>document.fonts.load(f)))}catch(e){}
@@ -2929,7 +2980,7 @@ for(const c of [ctx,sctx,ecx])Object.defineProperty(c,'shadowBlur',{get(){return
 function applyLite(){document.body.classList.toggle('lite',!!opts.lite);fit()}
 const PERF={sum:0,n:0,checked:false};
 function perfTick(dt,live){if(!live||opts.lite||PERF.checked||document.hidden)return;PERF.sum+=dt;PERF.n++;
-  if(PERF.n>=240){const avg=PERF.sum/PERF.n;PERF.sum=0;PERF.n=0;if(avg>27){opts.lite=true;opts.liteAuto=true;saveOpts();applyLite();syncToggles();toast('Лёгкая графика','Включена автоматически','Телефон не успевал рисовать все эффекты. Выключить можно в меню.');track('lite_auto',{ms:Math.round(avg)})}else if(avg<20)PERF.checked=true}}
+  if(PERF.n>=90){const avg=PERF.sum/PERF.n;PERF.sum=0;PERF.n=0;if(avg>27){opts.lite=true;opts.liteAuto=true;saveOpts();applyLite();syncToggles();toast('Лёгкая графика','Включена автоматически','Телефон не успевал рисовать все эффекты. Выключить можно в меню.');track('lite_auto',{ms:Math.round(avg)})}else if(avg<20)PERF.checked=true}}
 function frame(now){
   const dt=Math.min(50,now-last);last=now;const t=now/1000;NERV=engine&&started&&!over&&!paused?Math.max(0,Math.min(1,(jarFill()-.62)/.3)):0;
   if(engine&&!paused&&!over&&!scream){acc+=dt;while(acc>=1000/60){Engine.update(engine,1000/60);acc-=1000/60;if(queue.length||mutQ.length)processMerges()}
@@ -2989,7 +3040,7 @@ function frame(now){
   }
   if(scream)drawScream(now);
   const live=!!engine&&started&&!paused&&$('menu').hidden;recTick(dt,live&&!over);ambTick(dt,live&&!over);musicTick();perfTick(dt,live&&!over);tutTick();ecgTick(dt,live);psyTick(dt,live);
-  if(!$('menu').hidden&&started&&!over&&opts.scare&&pausedAt){const w=Date.now()-pausedAt;if(w>20000){$('pauseNote').hidden=false;$('pauseNote').textContent=w>60000?'Они начали без тебя.':'Ты ушёл. Они ждали.'}}if(recActive()&&live&&!over)drawClipFrame();
+  if(!$('menu').hidden&&started&&!over&&opts.scare&&pausedAt){const w=Date.now()-pausedAt;if(w>20000){$('pauseNote').hidden=false;$('pauseNote').textContent=w>60000?'Они начали без тебя.':'Ты ушёл. Они ждали.'}}if(recActive()&&live&&!over&&HZ.t>15000&&now-(REC.lastF||0)>=64){REC.lastF=now;drawClipFrame()} // 15 к/с и не в первые 15 с — иначе тормозит старт
   if(now>nextTick){drawNext();nextTick=now+250}
   requestAnimationFrame(frame);
 }
@@ -2999,7 +3050,10 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){try{ac&&ac
 store.set('mut.lastSeenPrev',store.get('mut.lastSeen',Date.now()));store.set('mut.lastSeen',Date.now());hzMenu();
 if(REF_IN&&!store.get('mut.refIn',null)&&AN.firstRun)store.set('mut.refIn',REF_IN);
 setTimeout(loadRefs,3000);setTimeout(pushTouch,4000);setTimeout(loadOwned,2500);setTimeout(checkPayReturn,1500);
-track('session_start',{ref:AN.firstRun?REF_IN:null,prank:!!prank,first:AN.firstRun,games:stats.games,app:!!(matchMedia('(display-mode: standalone)').matches||navigator.standalone),w:innerWidth,h:innerHeight,lang:(navigator.language||'').slice(0,5),challenge:!!challenge});
+if(PIKABU){document.body.classList.add('pk');setTimeout(pkLoad,800);addEventListener('pagehide',()=>{if(PK.sdk&&!PK.dead)try{PK.sdk.storage.set('mut',{v:1,t:Date.now(),d:pkSnap()})}catch(e){}});
+  if(isNewbie()&&!challenge){let touched=false;addEventListener('pointerdown',()=>{touched=true},{once:true,capture:true});
+    setTimeout(()=>{if(!touched&&!started&&!$('menu').hidden&&isNewbie()){track('autostart',{});startMode('classic')}},2600)}}
+track('session_start',{pk:PIKABU||undefined,ref:AN.firstRun?REF_IN:null,prank:!!prank,first:AN.firstRun,games:stats.games,app:!!(matchMedia('(display-mode: standalone)').matches||navigator.standalone),w:innerWidth,h:innerHeight,lang:(navigator.language||'').slice(0,5),challenge:!!challenge});
 applyLite();
 // test hook, only with #test in the address
 if(location.hash==='#test')window.__mut={G:()=>({FORMS,HYB,LV,drawCreature,drawHybrid,shine,found,HZ}),emg:id=>emgStart(id),emgNow:()=>EMG&&EMG.id,setScore2:v=>{score=v},drops:()=>drops,count:l=>bodies.filter(b=>b.lvl===l).length,spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};

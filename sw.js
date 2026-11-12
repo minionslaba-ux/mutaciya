@@ -1,5 +1,5 @@
 // Офлайн-режим «Мутации». Файл генерирует build.py — правьте src/sw.template.js.
-const CACHE = "mutaciya-c113c293913a";
+const CACHE = "mutaciya-5f18dbccd7e0";
 const ASSETS = [
   "./",
   "index.html",
@@ -48,7 +48,8 @@ self.addEventListener("fetch", (e) => {
     // страница: сначала сеть, чтобы приходили обновления; без сети — из кэша.
     // Игра кэшируется как index.html, остальные страницы (оферта, контакты…) — под своим адресом.
     const path = new URL(req.url).pathname;
-    const isGame = path === "/" || path.endsWith("/index.html") || path.endsWith("/");
+    const isGame = path === "/" || path === "/index.html";
+    if (path.startsWith("/pikabu")) return;   // сборка для Пикабу живёт без офлайн-кэша
     const key = isGame ? "index.html" : req;
     e.respondWith(
       fetch(req)

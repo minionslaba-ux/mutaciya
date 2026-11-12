@@ -114,3 +114,4 @@ sw = (ROOT / "src" / "sw.template.js").read_text(encoding="utf-8")
 sw = sw.replace("__VERSION__", version).replace("__ASSETS__", ",\n  ".join(f'"{a}"' for a in assets))
 (ROOT / "sw.js").write_text(sw, encoding="utf-8")
 print("index.html собран:", len(out), "байт; sw.js версия", version)
+runpy.run_path(str(ROOT / "tools" / "build_pikabu.py"))  # сборка для Пикабу Игр

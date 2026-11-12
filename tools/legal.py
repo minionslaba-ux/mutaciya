@@ -430,7 +430,7 @@ page('karta-sajta.html', 'Карта сайта', 'Все страницы са�
   </ul>""")
 
 PAGES = ['ob-igre.html', 'tseny.html', 'kontakty.html', 'oferta.html', 'politika.html', 'pravila.html', 'karta-sajta.html']
-(OUT / 'robots.txt').write_text(f"User-agent: *\nAllow: /\nDisallow: /src/\nDisallow: /tools/\n\nSitemap: {SITE}sitemap.xml\n", encoding='utf-8')
+(OUT / 'robots.txt').write_text(f"User-agent: *\nAllow: /\nDisallow: /src/\nDisallow: /tools/\nDisallow: /pikabu/\n\nSitemap: {SITE}sitemap.xml\n", encoding='utf-8')
 urls = [('', '1.0', 'weekly'), ('ob-igre.html', '0.8', 'monthly')] + [(p, '0.3', 'yearly') for p in PAGES[1:]]
 (OUT / 'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + ''.join(
     f'  <url>\n    <loc>{SITE}{u}</loc>\n    <lastmod>2026-11-10</lastmod>\n    <changefreq>{f}</changefreq>\n    <priority>{p}</priority>\n  </url>\n' for u, p, f in urls) + '</urlset>\n', encoding='utf-8')
