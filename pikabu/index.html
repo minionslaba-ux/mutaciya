@@ -125,6 +125,7 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .overgoal{margin:0;font:600 13px var(--f-mono);color:#ffcf7a}
 .shopbtn{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-color:#7a5a1a!important}
 .menu.newbie .shopbtn{display:none}
+body.pk .menu.newbie .shopbtn:not([hidden]){display:flex}
 body.pk #prankBtn,body.pk #overPrank,body.pk #shareChal,body.pk #refLine,body.pk .site-legal,body.pk #appRow,body.pk #tmrwPush,body.pk #demoBtn{display:none!important}
 .shop{display:flex;flex-direction:column;gap:8px;margin:6px 0}
 .shopitem{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}
@@ -2765,7 +2766,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.12g';
+const APP_VER='2026.11.12h';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
