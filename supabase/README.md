@@ -70,3 +70,9 @@ select public.mutaciya_report_period('2026-11-04', '2026-11-10'); -- за пер
 - Реклама: блоки РСЯ вписываются в `ADS` в `src/game.html` (rewarded/fullscreen × touch/desktop). Пока пусто —
   реклама не показывается, «Продолжить смену» и заряд огнемёта даются бесплатно.
 - Бот: `/mut_sales` — продажи и реклама; `/mut_grant ID товар` — выдать покупку вручную.
+
+## Пикабу Игры в статистике
+- Игроки Пикабу — устройства с `session_start.data.pk=true` или версией `…-pk` (сборка `pikabu/index.html`, с 13.11.2026).
+- Игра пишет ещё `fps` (один замер за заход после 60 с игры: fps, медленные кадры, телефон/ПК) и `boot` в `session_start` (мс до запуска).
+- `/mut_pikabu [дни]` — сводка по площадке (`mutaciya_pikabu_text`); в `/mut`, `/mut_week` и т. д. добавляется строка «Пикабу».
+- SQL: `supabase/sql/2026-11-13-mut-pikabu.sql` (обёртки `mutaciya_bot` → `mutaciya_bot_core`, `mutaciya_report_period` → `_core`).
