@@ -1185,7 +1185,7 @@ let adSdk=false;
 function loadAdSdk(){if(adSdk)return;adSdk=true;window.yaContextCb=window.yaContextCb||[];const sc=document.createElement('script');sc.src='https://yandex.ru/ads/system/context.js';sc.async=true;document.head.appendChild(sc)}
 function adBlock(type){return(ADS[type]||{})[IS_TOUCH?'touch':'desktop']||''}
 // cb(true) — награда положена: реклама досмотрена, либо её нет/не загрузилась (игрок не виноват)
-function showAd(type,cb){if(PIKABU){track('ad',{type,pk:1});pkAd(type).then(r=>cb(type==='rewarded'?(r?r.reward:true):true));return}
+function showAd(type,cb){if(PIKABU){track('ad',{type,pk:1});pkAd(type).then(r=>{track('ad_res',{type,pk:1,ok:!!r,rew:r?!!r.reward:false,why:r?'':PK.adWhy||''});cb(type==='rewarded'?(r?r.reward:true):true)});return}
   const id=adBlock(type);let done=false,rew=false,to=0;const fin=ok=>{if(done)return;done=true;clearTimeout(to);try{if(ac&&ac.state==='suspended')ac.resume()}catch(e){}cb(ok)};
   if(!PUBLIC_URL||!id){fin(type==='rewarded');return}
   track('ad',{type});loadAdSdk();to=setTimeout(()=>{if(!window.Ya)fin(type==='rewarded')},7000);
@@ -1256,10 +1256,10 @@ function pkCloudLoad(){const sdk=PK.sdk;if(!sdk)return;let c=null;try{c=sdk.stor
     for(const [k,v] of Object.entries(c.d))try{localStorage.setItem(k,v)}catch(e){}location.reload();return}
   pkSave()}
 function pkSave(){if(!PK||!PK.sdk||PK.dead||PK.saveT)return;PK.saveT=setTimeout(()=>{PK.saveT=0;try{const d=pkSnap(),json=JSON.stringify(d);if(json.length<180000)PK.sdk.storage.set('mut',{v:1,t:Date.now(),d})}catch(e){}},3000)}
-async function pkAd(kind){const sdk=PK.sdk||await pkLoad(),ad=sdk&&sdk.ads&&sdk.ads[kind];if(!ad||ad.isSupported===false)return null;
-  try{if(!(await ad.canShow()))return null}catch(e){return null}
+async function pkAd(kind){PK.adWhy='';const sdk=PK.sdk||await pkLoad(),ad=sdk&&sdk.ads&&sdk.ads[kind];if(!ad||ad.isSupported===false){PK.adWhy=sdk?'unsupported':'no_sdk';return null}
+  try{if(!(await ad.canShow())){PK.adWhy='cant_show';return null}}catch(e){PK.adWhy='cant_show_err';return null}
   const was=paused;paused=true;try{if(ac&&ac.state==='running')ac.suspend()}catch(e){}
-  try{const r=await ad.show();return r&&r.rendered?{reward:!!r.reward}:null}catch(e){return null}
+  try{const r=await ad.show();if(!(r&&r.rendered))PK.adWhy='not_rendered';return r&&r.rendered?{reward:!!r.reward}:null}catch(e){PK.adWhy='error:'+String(e&&e.message||e).slice(0,60);return null}
   finally{paused=was;try{if(ac&&opts.sound)ac.resume()}catch(e){}}}
 async function pkStoreInit(){const st=PK.sdk&&PK.sdk.store;if(!st)return;
   try{const list=await st.getProducts();for(const x of list||[])PK.prices[x.id]=x.formattedPrice||(x.price/100)+' ₽'}catch(e){}
@@ -2776,7 +2776,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.13c';
+const APP_VER='2026.11.14a';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -2786,6 +2786,11 @@ function anFlush(keep){if(!AN.q.length)return;if(!opts.stats||!useSupa()){AN.q=[
   try{fetch(SUPA.url+'/rest/v1/rpc/mutaciya_log',{method:'POST',keepalive:!!keep,headers:{apikey:SUPA.key,'Content-Type':'application/json'},
     body:JSON.stringify({p_device:anDevice(),p_session:AN.session,p_ver:PIKABU?APP_VER+'-pk':APP_VER,p_events:batch})}).catch(()=>{})}catch(e){}}
 setInterval(()=>anFlush(),15000);
+// «кто сейчас в игре» (/mut_online_pikabu): раз в минуту, пока вкладка видна
+function anPing(){try{if(!opts.stats||!useSupa()||document.hidden||window.__DEMO)return;const st=!started||!$('menu').hidden?'menu':over?'over':paused?'pause':'play';
+  fetch(SUPA.url+'/rest/v1/rpc/mutaciya_ping',{method:'POST',headers:{apikey:SUPA.key,'Content-Type':'application/json'},
+    body:JSON.stringify({p_device:anDevice(),p_pk:PIKABU,p_ver:APP_VER,p_mode:mode+(isCalm()?'_calm':''),p_state:st,p_score:score|0,p_top:FORMS[Math.min(topLvl,FORMS.length-1)].id,p_w:innerWidth})}).catch(()=>{})}catch(e){}}
+setTimeout(anPing,5000);setInterval(anPing,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)anPing()});
 // ошибки JS у игроков (для /mut_errors в боте): не больше 5 разных за заход, без личных данных
 const anErr=new Set();function anError(msg,src,line){try{msg=String(msg||'').slice(0,200);const k=msg+'|'+line;if(!msg||anErr.has(k)||anErr.size>=5)return;anErr.add(k);
   track('error',{msg,src:String(src||'').replace(/^.*\//,'').slice(0,60),line:line||0,ua:/iPhone|iPad/.test(navigator.userAgent)?'ios':/Android/.test(navigator.userAgent)?'android':'desktop'})}catch(e){}}
