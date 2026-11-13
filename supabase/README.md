@@ -76,3 +76,7 @@ select public.mutaciya_report_period('2026-11-04', '2026-11-10'); -- за пер
 - Игра пишет ещё `fps` (один замер за заход после 60 с игры: fps, медленные кадры, телефон/ПК) и `boot` в `session_start` (мс до запуска).
 - `/mut_pikabu [дни]` — сводка по площадке (`mutaciya_pikabu_text`); в `/mut`, `/mut_week` и т. д. добавляется строка «Пикабу».
 - SQL: `supabase/sql/2026-11-13-mut-pikabu.sql` (обёртки `mutaciya_bot` → `mutaciya_bot_core`, `mutaciya_report_period` → `_core`).
+- `/mut_online_pikabu` · `/mut_online_site` — кто сейчас в игре: игра раз в минуту зовёт `mutaciya_ping` → таблица `mutaciya_online` (активность за 2 минуты).
+- Реклама: событие `ad` — попытка, `ad_res` — результат (`ok`, причина `why`); в `/mut_pikabu` — «показано X из Y».
+- Сводка по Пикабу за день приходит сама в 20:00 МСК: pg_cron `mutaciya-pikabu-daily` → `mutaciya_tg_pikabu()` → `tg-notify`.
+- SQL: `supabase/sql/2026-11-14-mut-online-pikabu.sql`. Ответы `/mut_*` бот шлёт без HTML-разметки, поэтому «<» в тексте их не ломает.
