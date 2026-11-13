@@ -1,5 +1,7 @@
 # Пикабу Игры
 
+**Опубликована 13.11.2026:** https://games.pikabu.ru/game/mutatsiya (песочница: https://games.pikabu.ru/sandbox/113f3ea2-3556-4459-8529-95e0979b9c62).
+
 Публикуем **напрямую через Пикабу** (как «Ночной тариф»: самозанятому — 50% чистого дохода).
 Игра лежит на нашем сайте: **https://mutaciya.com/pikabu/** — страница `pikabu/index.html`, её собирает `tools/build_pikabu.py`
 (вызывается из `build.py`). Шрифты и физика — из общих папок сайта через `<base href="/">`; поисковикам — `noindex` и `Disallow` в robots.txt.
