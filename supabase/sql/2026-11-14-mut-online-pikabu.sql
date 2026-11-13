@@ -172,7 +172,7 @@ begin
   with pk as (select distinct device from public.mutaciya_events
                where (ev = 'session_start' and data->>'pk' = 'true') or ver like '%-pk')
   select count(*) into all_pl from pk;
-  select count(*), coalesce(sum(case product_id when 'all' then 349 when 'noads' then 199 when 'relic' then 149
+  select count(*), coalesce(sum(case product_id when 'starter' then 79 when 'all' then 349 when 'noads' then 199 when 'relic' then 149
                                       when 'rust' then 99 when 'neon' then 99 else 0 end), 0)
     into all_buy, all_rub from public.mutaciya_pk_purchases where not test;
 

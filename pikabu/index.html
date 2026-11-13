@@ -123,6 +123,13 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .tmrw span{font-size:12px;color:var(--muted);line-height:1.35}
 .tmrw button{min-height:38px;font-size:13px;margin-top:4px;align-self:flex-start;padding:0 12px;border-color:#8a1a1a}
 .overgoal{margin:0;font:600 13px var(--f-mono);color:#ffcf7a}
+.overq{margin:2px 0;padding:8px 10px;border:1px solid #3a2a18;border-radius:12px;background:rgba(30,20,10,.55);text-align:left;font:12px var(--f-mono);color:#d8c8a8}
+.overq b{display:block;font:600 12px var(--f-mono);color:#ffcf7a;margin-bottom:3px}.overq div{display:flex;justify-content:space-between;gap:8px;padding:1px 0}.overq .ok{color:#8fd27a}
+.overx{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}.overx button{flex:1 1 140px;min-height:40px;font-size:13px}
+#chestAd small{display:block}
+.chestdays{display:flex;gap:5px;justify-content:center;margin:10px 0}.chestdays i{width:30px;height:30px;border-radius:8px;border:1px solid #5a3a1a;display:grid;place-items:center;font:600 11px var(--f-mono);color:#9d9174;font-style:normal}
+.chestdays i.got{background:#3a2a10;color:#ffcf7a}.chestdays i.now{background:#7a1a14;color:#fff;border-color:#e0302a;box-shadow:0 0 10px rgba(224,48,42,.6)}
+.chestbig{font-size:54px;text-align:center;margin:6px 0;animation:chestWob 1.2s ease-in-out infinite}@keyframes chestWob{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg) scale(1.05)}}
 .shopbtn{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-color:#7a5a1a!important}
 .menu.newbie .shopbtn{display:none}
 body.pk .menu.newbie .shopbtn:not([hidden]){display:flex}
@@ -419,6 +426,8 @@ body{height:100vh;height:100dvh}
         <div class="sc" id="overScore">0</div>
         <p id="overText">Высшая форма: —</p>
         <p class="overgoal" id="overGoal" hidden></p>
+        <div class="overq" id="overQ" hidden></div>
+        <div class="overx" id="overX"><button id="overChest" hidden>🎁 Сундук дня</button><button id="overFire" hidden>🎬 +1 🔥 на след. смену</button><button id="overStarter" hidden>🔥 Набор новичка</button></div>
         <p id="overBoard" hidden></p>
         <button class="share" id="shareBtn">Поделиться результатом</button>
         <div class="tmrw" id="tmrw" hidden><canvas id="tmrwCv" width="120" height="120" aria-hidden="true"></canvas><div class="dt"><small>Завтра в лаборатории</small><b id="tmrwName"></b><span id="tmrwSub"></span><button id="tmrwPush" hidden>🔔 Напомнить завтра в 19:00</button></div></div>
@@ -566,6 +575,17 @@ body{height:100vh;height:100dvh}
     <p class="note" id="shopNote"></p>
     <p class="note small" id="shopId"></p>
     <div class="row"><button id="shopClose">Закрыть</button></div>
+  </div>
+</div>
+<div class="scrim" id="chestSheet" hidden>
+  <div class="sheet" role="dialog" aria-label="Сундук лаборатории">
+    <div class="grip"></div>
+    <h2>Сундук лаборатории</h2>
+    <div class="chestbig" aria-hidden="true">🧰</div>
+    <p class="note" id="chestNote"></p>
+    <div class="chestdays" id="chestDays"></div>
+    <div class="row"><button class="primary" id="chestAd">▶ Забрать ×2<small id="chestAdSub">посмотреть рекламу</small></button></div>
+    <div class="row"><button id="chestTake">Забрать</button></div>
   </div>
 </div>
 <div class="scrim" id="contSheet" hidden>
@@ -1134,6 +1154,7 @@ const PAY_FN=()=>SUPA.url+'/functions/v1/mutaciya-pay';
 const ADS={rewarded:{touch:'',desktop:''},fullscreen:{touch:'',desktop:''}};
 const IS_TOUCH=matchMedia('(pointer:coarse)').matches;
 const SHOP=[
+  {id:'starter',name:'Набор новичка',rub:79,desc:'«Ржавая банка» и +1 заряд огнемёта в каждой смене — навсегда.',hot:true},
   {id:'all',name:'Всё сразу',rub:349,desc:'Без рекламы навсегда и все три набора банок. Выгоднее на 197 ₽.',best:true},
   {id:'noads',name:'Лаборатория без рекламы',rub:199,desc:'Навсегда: без межстраничной рекламы, а «Продолжить смену» — без просмотра рекламы.'},
   {id:'rust',name:'Набор «Ржавая банка»',rub:99,desc:'Ржавый обод с заклёпками и мутный бурый формалин.',skin:true},
@@ -1141,7 +1162,7 @@ const SHOP=[
   {id:'relic',name:'Набор «Золотой реликварий»',rub:149,desc:'Золотая оправа с камнями и густой винный формалин.',skin:true}];
 const SKINS={rust:{liq:['#5a2e16','#1c0904'],glass:'rgba(170,95,45,.85)',w:5},neon:{liq:['#1f5f2c','#05180a'],glass:'rgba(120,255,150,.9)',w:3},relic:{liq:['#52101e','#160206'],glass:'rgba(232,190,90,.9)',w:5}};
 let owned=new Set(store.get('mut.owned',[]));
-const hasItem=k=>owned.has(k)||owned.has('all');
+const hasItem=k=>owned.has(k)||owned.has('all')&&k!=='starter'||k==='rust'&&owned.has('starter');
 const noAds=()=>hasItem('noads');
 const skinNow=()=>opts.skin&&hasItem(opts.skin)?SKINS[opts.skin]:null;
 async function payApi(body){const r=await fetch(PAY_FN(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({player:player().id,...body})});return r.json()}
@@ -1149,7 +1170,7 @@ async function loadOwned(){if(!PUBLIC_URL||!useSupa())return;try{const r=await p
   if(owned.size>was&&was>=0)renderShop();updShopBtn()}}catch(e){}}
 function updShopBtn(){const b=$('shopBtn');if(b)b.hidden=!PUBLIC_URL&&!PIKABU}
 function drawSkinIcon(c,id){c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,112,112);const S=SKINS[id];
-  if(!S){c.fillStyle='#c8141a';c.font='54px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(id==='noads'?'🚫':'🎁',56,60);return}
+  if(!S){c.fillStyle='#c8141a';c.font='54px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(id==='noads'?'🚫':id==='starter'?'🔥':'🎁',56,60);return}
   const g=c.createLinearGradient(0,30,0,104);g.addColorStop(0,S.liq[0]);g.addColorStop(1,S.liq[1]);c.fillStyle=g;c.beginPath();c.roundRect(26,30,60,74,10);c.fill();
   c.strokeStyle=S.glass;c.lineWidth=S.w;c.beginPath();c.roundRect(26,20,60,84,12);c.stroke();if(id==='neon'){c.shadowColor='#7aff90';c.shadowBlur=12;c.stroke();c.shadowBlur=0}
   c.fillStyle=id==='relic'?'#e8b84a':id==='rust'?'#8a4a20':'#3a5a3a';c.fillRect(22,14,68,10)}
@@ -1365,7 +1386,7 @@ function newGame(m){
   const seed=m==='daily'?hashStr('mutaciya:'+DAY):m==='challenge'&&challenge?challenge.seed:(Math.random()*2**32)>>>0;gameSeed=seed;
   seq=makeSeq(seed);const R0=rng(seed^0x9e3779b9);
   jarKey=m==='trial'?'normal':m==='daily'?DAILY_JAR:m==='challenge'&&challenge&&challenge.jar?challenge.jar:(opts.jar||'normal');if(!JARS[jarKey])jarKey='normal';jar=JARS[jarKey];
-  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;blackoutAt=performance.now()+55000+Math.random()*40000;inBlackout=false;darkUntil=0;abil={shake:1,remove:1,swap:1,fire:1};FIRE.aim=false;FIRE.adUsed=false;FIRE.jets=[];FIRE.p=[];targeting=false;bossSeen=false;updAbil();hzReset();updLeak();updBlaze();if(EMG)emgEnd(false);
+  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;blackoutAt=performance.now()+55000+Math.random()*40000;inBlackout=false;darkUntil=0;abil={shake:1,remove:1,swap:1,fire:1+(hasItem('starter')?1:0)};FIRE.aim=false;FIRE.adUsed=false;FIRE.jets=[];FIRE.p=[];targeting=false;bossSeen=false;updAbil();hzReset();updLeak();updBlaze();if(EMG)emgEnd(false);
   for(const bb of bubbles){bb.x=JL+8+Math.random()*(JR-JL-16)}
   engine=Engine.create();engine.positionIterations=8;engine.velocityIterations=6;engine.gravity.y=jar.grav||1;
   const o={isStatic:true,friction:.4,restitution:.1};
@@ -1375,6 +1396,7 @@ function newGame(m){
   const fs=firstShift();
   if(fs){const cx=W/2;for(const [l,x] of [[LV.larva,cx],[LV.eye,cx+53],[LV.leech,JL+40],[LV.slug,JR-30],[LV.spore,JR-70]]){const b=spawn(l,x,FLOOR-30);b.born=-1e9}topLvl=LV.larva}
   else for(let i=0;i<5;i++){const l=Math.floor(R0()*3);const b=spawn(l,JL+36+R0()*(JR-JL-72),FLOOR-50-i*28);b.born=-1e9}
+  {const bf=store.get('mut.bonusFire',0)|0;if(bf>0&&m!=='trial'&&m!=='daily'){abil.fire+=bf;store.set('mut.bonusFire',0);updAbil();setTimeout(()=>toast('Запас огнемёта','+'+bf+' '+plural(bf,'заряд','заряда','зарядов'),'Из сундука и наград. Кнопка 🔥 внизу.'),1200)}}
   cur=seq.next();nxt=seq.next();if(fs){cur=LV.larva;nxt=LV.larva;FG.t=performance.now();FG.fire=false;FG.mid=false;HZ.nextLight=rnd(65e3,80e3)}pressReset();goalReset();contUsed=false;
   $('over').hidden=true;started=true;
   if(m==='trial')trialStart();else{trial=null;won=false}
@@ -2776,7 +2798,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.14a';
+const APP_VER='2026.11.14b';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -2953,9 +2975,41 @@ function gameOver(reason){
   $('again').textContent=mode==='trial'&&reason==='win'&&trialIdx<TRIALS.length-1?'Следующее':'Ещё раз';
   grabClip('Финал партии');
   {const og=$('overGoal');og.hidden=GOAL.lvl==null;if(GOAL.lvl!=null)og.textContent=GOAL.done?`✅ Цель смены выполнена: ${FORMS[GOAL.lvl].name}`:`🎯 Цель смены: ${FORMS[GOAL.lvl].name} — не хватило совсем чуть-чуть. Ещё раз?`}
-  fillTomorrow();clearTimeout(discTimer);$('disc').hidden=true;
+  fillTomorrow();clearTimeout(discTimer);$('disc').hidden=true;fillOverExtra();
   $('over').hidden=false;
 }
+// ---------- экран итогов: задания дня, сундук, огнемёт за рекламу, набор новичка ----------
+const ADS_ON=()=>!!PUBLIC_URL||PIKABU;
+let overFireUsed=false;
+function fillOverExtra(){const q=$('overQ');q.hidden=mode==='trial'||window.__DEMO;
+  if(!q.hidden){q.innerHTML='<b>Задания дня · '+questDone()+'/'+QUESTS.length+'</b>';for(const x of QUESTS){const p=questProg(x),d=document.createElement('div');if(p>=x.n)d.className='ok';
+    d.innerHTML='<span></span><span></span>';d.children[0].textContent=(p>=x.n?'✅ ':'▫️ ')+x.text;d.children[1].textContent=p+'/'+x.n;q.appendChild(d)}}
+  overFireUsed=false;const f=$('overFire');f.hidden=!ADS_ON()||mode==='trial'||window.__DEMO;f.disabled=false;f.textContent=noAds()?'🔥 +1 заряд на след. смену':'🎬 +1 🔥 на след. смену';
+  $('overChest').hidden=!chestAvail()||window.__DEMO;
+  const st=$('overStarter');st.hidden=!ADS_ON()||hasItem('starter')||owned.has('all')||stats.games<2||window.__DEMO;
+  if(!st.hidden){st.textContent='🔥 Набор новичка · '+(PIKABU?(PK.prices.starter||'79 ₽'):'79 ₽');if(!st.dataset.seen){st.dataset.seen=1;track('starter_offer',{games:stats.games})}}}
+function giveBonusFire(n,why){const v=Math.min(9,(store.get('mut.bonusFire',0)|0)+n);store.set('mut.bonusFire',v);track('bonus_fire',{n,why,total:v});return v}
+// ---------- сундук лаборатории: раз в день, 7 дней по кругу ----------
+const CHEST_REW=[1,1,2,2,2,3,3];
+let chest=Object.assign({last:'',day:0},store.get('mut.chest',{}));
+const chestAvail=()=>chest.last!==DAY&&mode!=='demo';
+const chestDayNow=()=>chest.last===YDAY?chest.day%7+1:1;
+let chestShown='';
+function openChest(src){if(!chestAvail())return;chestShown=DAY;const d=chestDayNow(),r=CHEST_REW[d-1];
+  $('chestNote').textContent=`День ${d} из 7. Внутри: ${r} ${plural(r,'заряд','заряда','зарядов')} огнемёта на следующую смену. Заходите каждый день — награда растёт, на 7-й день — 3 заряда.`;
+  const el=$('chestDays');el.innerHTML='';for(let i=1;i<=7;i++){const x=document.createElement('i');x.textContent=i<d?'✓':CHEST_REW[i-1]+'🔥';if(i<d)x.className='got';if(i===d)x.className='now';el.appendChild(x)}
+  $('chestAdSub').textContent=noAds()||!ADS_ON()?'бесплатно':'посмотреть рекламу';$('chestAd').hidden=!ADS_ON()&&!noAds();
+  $('chestSheet').hidden=false;track('chest_open',{day:d,src})}
+function takeChest(mult){const d=chestDayNow(),r=CHEST_REW[d-1]*mult;chest={last:DAY,day:d};store.set('mut.chest',chest);giveBonusFire(r,'chest');
+  $('chestSheet').hidden=true;$('overChest').hidden=true;track('chest_take',{day:d,mult});vibe([20,30,60]);
+  toast('Сундук открыт','+'+r+' '+plural(r,'заряд','заряда','зарядов')+' огнемёта','Они добавятся в следующей смене. Завтра — день '+(d%7+1)+'.')}
+$('chestTake').onclick=()=>takeChest(1);
+$('chestAd').onclick=()=>{if(noAds()||!ADS_ON())return takeChest(2);showAd('rewarded',ok=>takeChest(ok?2:1))};
+$('overChest').onclick=()=>openChest('over');
+$('overFire').onclick=()=>{if(overFireUsed)return;const give=()=>{overFireUsed=true;const b=$('overFire');b.disabled=true;const v=giveBonusFire(1,'over_ad');b.textContent='✓ Заряд в запасе ('+v+')'};
+  track('over_fire_click',{});if(noAds())give();else showAd('rewarded',ok=>{if(ok)give()})};
+$('overStarter').onclick=()=>{track('starter_click',{});openShop()};
+setInterval(()=>{if(chestShown===DAY||!chestAvail()||stats.games<1||window.__DEMO||$('menu').hidden||document.querySelector('.scrim:not([hidden])'))return;openChest('menu')},1500);
 
 // ---------- render ----------
 function drawJar(t){
