@@ -200,6 +200,8 @@ body.pk #prankBtn,body.pk #overPrank,body.pk #shareChal,body.pk #refLine,body.pk
 .scrim{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}
 .sheet{width:100%;max-width:480px;max-height:82%;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-bottom:0;border-radius:20px 20px 0 0;
   padding:10px max(16px,env(safe-area-inset-right,0px)) max(20px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));animation:up .22s ease-out}
+#abFire.hint{animation:fireHint .7s ease-in-out infinite alternate;border-color:#ff9a3a!important}
+@keyframes fireHint{from{box-shadow:0 0 0 0 rgba(255,140,40,0)}to{box-shadow:0 0 18px 4px rgba(255,140,40,.75);transform:scale(1.06)}}
 @keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
 .grip{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 12px}
 .sheet h2{font-family:var(--f-display);font-weight:400;font-size:22px;margin:0 0 4px}
@@ -1290,11 +1292,13 @@ async function loadRefs(){if(!useSupa()||PIKABU)return;try{const n=await supa('/
 // ---------- цель первых смен: Глаз → Червивец → Зубастик ----------
 const FIRST_GOALS=[[LV.eye,100],[LV.wormy,200],[LV.teeth,300]];
 const GOAL={lvl:null,pts:0,done:false};
+const FG={t:0,fire:false,mid:false};
 function goalReset(){const g=mode==='classic'&&!isCalm()?FIRST_GOALS[stats.games]:null;GOAL.lvl=g?g[0]:null;GOAL.pts=g?g[1]:0;GOAL.done=false;
   if(g&&stats.games>0)setTimeout(()=>toast('Цель смены','Выведите: '+FORMS[g[0]].name,`Награда +${g[1]} очков.`),900)}
 function goalTick(){if(GOAL.lvl==null||GOAL.done||over||topLvl<GOAL.lvl||topLvl>MAX&&topLvl!==LV.hive)return;GOAL.done=true;score+=GOAL.pts;updHud();flash=1;shake=Math.max(shake,8);
   floater(W/2,RIM+60,`цель выполнена +${GOAL.pts}`,true,'#ffcf7a');toast('Цель смены выполнена!',FORMS[GOAL.lvl].name,`+${GOAL.pts} очков. Играйте дальше — сколько продержитесь?`);
-  vibe([40,30,80]);track('goal',{form:FORMS[GOAL.lvl].id,games:stats.games})}
+  vibe([40,30,80]);track('goal',{form:FORMS[GOAL.lvl].id,games:stats.games});
+  if(firstShift()){const n=FIRST_GOALS.find(g=>g[0]>topLvl);if(n)setTimeout(()=>{if(over||!firstShift()||topLvl>=n[0])return;GOAL.lvl=n[0];GOAL.pts=n[1];GOAL.done=false;updHud();toast('Новая цель','Выведите: '+FORMS[n[0]].name,`Награда +${n[1]} очков.`)},3400)}}
 // ---------- «Завтра в лаборатории» на экране конца партии ----------
 function fillTomorrow(){const el=$('tmrw');if(!el)return;if(mode==='trial'||window.__DEMO){el.hidden=true;return}
   const f=FAMS[((DAY_NO)%FAMS.length+FAMS.length)%FAMS.length],i0=LV[f.id+'0'],F=FORMS[i0],open=labLvl()>=UNLOCK.fam,n=streakNow();
@@ -1349,7 +1353,9 @@ const UNLOCK_NAMES={rot:'Гниль',mutagen:'Мутаген',sounds:'звуки
   brood:'Матка паразитов',doll:'Кукла',leak:'утечка формалина',night:'ночная смена',blackout:'отключения света',nii:'объекты НИИ',fam:'семейство дня',blaze:'пожар в лаборатории'};
 const isCalm=()=>!!opts.calm&&(mode==='classic'||mode==='fall');
 const labLvl=()=>mode==='daily'||mode==='challenge'?99:(typeof stats!=='undefined'?stats.games:0);
-const isOpen=k=>mode==='trial'?false:isCalm()?k==='virus':labLvl()>=(UNLOCK[k]||0);
+const firstShift=()=>stats.games===0&&mode==='classic'&&!isCalm()&&!window.__DEMO;
+const FIRST_OPEN={lightning:1};
+const isOpen=k=>mode==='trial'?false:firstShift()&&FIRST_OPEN[k]?true:isCalm()?k==='virus':labLvl()>=(UNLOCK[k]||0);
 function unlockedAt(n){return Object.keys(UNLOCK).filter(k=>UNLOCK[k]===n).map(k=>UNLOCK_NAMES[k])}
 function bestKey(){return mode==='trial'?'mut.trial.'+TRIALS[trialIdx].id:mode==='daily'?'mut.daily.'+DAY:mode==='challenge'?'mut.chal':(isFall()?'mut.fall':'mut.best')+(isCalm()?'.calm':'')}
 function bestScore(){return store.get(bestKey(),0)}
@@ -1366,8 +1372,10 @@ function newGame(m){
   Composite.add(engine.world,[Bodies.rectangle(W/2,FLOOR+40,W,80,o),Bodies.rectangle(JL-40,H/2,80,H*2,o),Bodies.rectangle(JR+40,H/2,80,H*2,o)]);
   Events.on(engine,'collisionStart',e=>pairs(e.pairs));Events.on(engine,'collisionActive',e=>pairs(e.pairs));
   bodies=[];queue=[];mutQ=[];particles=[];floaters=[];shot=null;crushedGame=0;score=0;danger=0;over=false;topLvl=0;seenThisGame=new Set();
-  for(let i=0;i<5;i++){const l=Math.floor(R0()*3);const b=spawn(l,JL+36+R0()*(JR-JL-72),FLOOR-50-i*28);b.born=-1e9}
-  cur=seq.next();nxt=seq.next();pressReset();goalReset();contUsed=false;
+  const fs=firstShift();
+  if(fs){const cx=W/2;for(const [l,x] of [[LV.larva,cx],[LV.eye,cx+53],[LV.leech,JL+40],[LV.slug,JR-30],[LV.spore,JR-70]]){const b=spawn(l,x,FLOOR-30);b.born=-1e9}topLvl=LV.larva}
+  else for(let i=0;i<5;i++){const l=Math.floor(R0()*3);const b=spawn(l,JL+36+R0()*(JR-JL-72),FLOOR-50-i*28);b.born=-1e9}
+  cur=seq.next();nxt=seq.next();if(fs){cur=LV.larva;nxt=LV.larva;FG.t=performance.now();FG.fire=false;FG.mid=false;HZ.nextLight=rnd(65e3,80e3)}pressReset();goalReset();contUsed=false;
   $('over').hidden=true;started=true;
   if(m==='trial')trialStart();else{trial=null;won=false}
   $('modeChip').textContent=(m==='trial'?`Испытание ${trialIdx+1}`:m==='daily'?`Дневной забег №${DAY_NO}`:m==='challenge'?`Вызов ${challenge.target}`+(challenge.fall?' · падение':''):m==='fall'?'Падение':'Классика')+(jarKey!=='normal'?' · '+jar.name:'');
@@ -1871,6 +1879,8 @@ function knock(b){const side=b.position.x<(JL+JR)/2?-1:1,x=side<0?JL:JR,y=Math.m
   if(HZ.cracks.length===3)toast('Стекло трескается','Ещё две трещины — и банка лопнет','Слияния от Пиявки и выше затягивают трещины слизью')}
 function hzTick(dt){
   const T=(HZ.t+=dt),sc=opts.scare,now=performance.now();
+  if(firstShift()&&!FG.fire&&T>50e3&&!over&&(abil.fire||0)>0){FG.fire=true;const b=$('abFire');b.classList.add('hint');setTimeout(()=>b.classList.remove('hint'),9000);
+    toast('Огнемёт заряжен 🔥','Тесно в банке? Сожгите!','Нажмите 🔥 внизу, потом коснитесь банки — сгорят 3–5 мутантов рядом.')}
   engine.gravity.y=(jar.grav||1)*(HZ.night?1.35:1);
   // liquid colour drifts every ~40 s
   if(HZ.liqK<1)HZ.liqK+=dt/4000;
@@ -2766,7 +2776,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.13b';
+const APP_VER='2026.11.13c';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -3015,11 +3025,11 @@ let last=performance.now(),acc=0,nextTick=0;
 const shDesc=Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype,'shadowBlur');
 for(const c of [ctx,sctx,ecx])Object.defineProperty(c,'shadowBlur',{get(){return shDesc.get.call(this)},set(v){shDesc.set.call(this,opts.lite?0:v)}});
 function applyLite(){document.body.classList.toggle('lite',!!opts.lite);fit()}
-const PERF={sum:0,n:0,checked:false};
+const PERF={sum:0,n:0,checked:false,warm:0,bad:0};
 const FPSM={t:0,f:0,slow:0,sent:false};
 function perfTick(dt,live){if(live&&!document.hidden&&!FPSM.sent&&dt<1000){FPSM.t+=dt;FPSM.f++;if(dt>50)FPSM.slow++;if(FPSM.t>=60000){FPSM.sent=true;track('fps',{fps:Math.round(FPSM.f*1000/FPSM.t),slow:FPSM.slow,lite:!!opts.lite,mob:matchMedia('(pointer:coarse)').matches})}}
-  if(!live||opts.lite||PERF.checked||document.hidden)return;PERF.sum+=dt;PERF.n++;
-  if(PERF.n>=90){const avg=PERF.sum/PERF.n;PERF.sum=0;PERF.n=0;if(avg>27){opts.lite=true;opts.liteAuto=true;saveOpts();applyLite();syncToggles();toast('Лёгкая графика','Включена автоматически','Телефон не успевал рисовать все эффекты. Выключить можно в меню.');track('lite_auto',{ms:Math.round(avg)})}else if(avg<20)PERF.checked=true}}
+  if(!live||opts.lite||PERF.checked||document.hidden)return;if(PERF.warm<10000){PERF.warm+=Math.min(dt,100);return}PERF.sum+=dt;PERF.n++;
+  if(PERF.n>=90){const avg=PERF.sum/PERF.n;PERF.sum=0;PERF.n=0;PERF.bad=avg>27?PERF.bad+1:0;if(PERF.bad>=2){opts.lite=true;opts.liteAuto=true;saveOpts();applyLite();syncToggles();if(stats.games>0)toast('Лёгкая графика','Включена автоматически','Телефон не успевал рисовать все эффекты. Выключить можно в меню.');track('lite_auto',{ms:Math.round(avg)})}else if(avg<20)PERF.checked=true}}
 function frame(now){
   const dt=Math.min(50,now-last);last=now;const t=now/1000;NERV=engine&&started&&!over&&!paused?Math.max(0,Math.min(1,(jarFill()-.62)/.3)):0;
   if(engine&&!paused&&!over&&!scream){acc+=dt;while(acc>=1000/60){Engine.update(engine,1000/60);acc-=1000/60;if(queue.length||mutQ.length)processMerges()}
@@ -3095,7 +3105,7 @@ if(PIKABU){document.body.classList.add('pk');setTimeout(pkLoad,800);addEventList
 track('session_start',{pk:PIKABU||undefined,boot:Math.round(performance.now()),ref:AN.firstRun?REF_IN:null,prank:!!prank,first:AN.firstRun,games:stats.games,app:!!(matchMedia('(display-mode: standalone)').matches||navigator.standalone),w:innerWidth,h:innerHeight,lang:(navigator.language||'').slice(0,5),challenge:!!challenge});
 applyLite();
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={G:()=>({FORMS,HYB,LV,drawCreature,drawHybrid,shine,found,HZ}),emg:id=>emgStart(id),emgNow:()=>EMG&&EMG.id,setScore2:v=>{score=v},drops:()=>drops,count:l=>bodies.filter(b=>b.lvl===l).length,spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={st:()=>({top:topLvl,goal:GOAL.lvl,done:GOAL.done,score,b:bodies.filter(b=>b.lvl!=null).map(b=>FORMS[b.lvl].id).join(',')}),G:()=>({FORMS,HYB,LV,drawCreature,drawHybrid,shine,found,HZ}),emg:id=>emgStart(id),emgNow:()=>EMG&&EMG.id,setScore2:v=>{score=v},drops:()=>drops,count:l=>bodies.filter(b=>b.lvl===l).length,spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
