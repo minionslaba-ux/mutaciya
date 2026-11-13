@@ -1,7 +1,7 @@
 -- «Мутация» на Пикабу Играх: сводка по площадке для бота (/mut_pikabu [дни]) и блок «Пикабу» в отчётах.
 -- Игроки Пикабу = устройства, у которых session_start с data.pk=true или версия с суффиксом -pk (с 13.11.2026).
 -- Обёртки: mutaciya_bot → mutaciya_bot_core, mutaciya_report_period → mutaciya_report_period_core
--- (старая логика не трогается, права копируются). Всё в одной транзакции: ошибка — ничего не меняется.
+-- (старая логика не трогается, имена параметров и права — как у старых функций). Всё в одной транзакции: ошибка — ничего не меняется.
 
 create or replace function public.mutaciya_pikabu_text(d1 date, d2 date, short boolean default false)
 returns text language plpgsql security definer set search_path = '' as $$
@@ -167,18 +167,19 @@ end $$;
 -- обёртка отчёта: к /mut, /mut_week и утреннему отчёту добавляется строка «Пикабу»
 alter function public.mutaciya_report_period(date, date) rename to mutaciya_report_period_core;
 
-create function public.mutaciya_report_period(d1 date, d2 date)
+create function public.mutaciya_report_period(p_from date, p_to date)
 returns text language plpgsql security definer set search_path = '' as $$
 begin
-  return public.mutaciya_report_period_core(d1, d2) || e'\n\n' || public.mutaciya_pikabu_text(d1, d2, true);
+  return public.mutaciya_report_period_core(p_from, p_to) || e'\n\n' || public.mutaciya_pikabu_text(p_from, p_to, true);
 end $$;
 
 -- права новых обёрток — как у старых функций
 do $$
 declare g record;
 begin
-  revoke all on function public.mutaciya_bot(text, text) from public;
-  revoke all on function public.mutaciya_report_period(date, date) from public;
+  -- Supabase по умолчанию даёт anon/authenticated право запуска новых функций в public — снимаем явно
+  revoke all on function public.mutaciya_bot(text, text) from public, anon, authenticated;
+  revoke all on function public.mutaciya_report_period(date, date) from public, anon, authenticated;
   for g in select distinct grantee from information_schema.routine_privileges
             where routine_schema = 'public' and routine_name = 'mutaciya_bot_core' and privilege_type = 'EXECUTE' loop
     execute format('grant execute on function public.mutaciya_bot(text, text) to %s', case when g.grantee = 'PUBLIC' then 'public' else quote_ident(g.grantee) end);
