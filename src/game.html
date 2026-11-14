@@ -95,6 +95,7 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .tmrw b{font-family:var(--f-display);font-weight:400;font-size:18px}
 .tmrw span{font-size:12px;color:var(--muted);line-height:1.35}
 .tmrw button{min-height:38px;font-size:13px;margin-top:4px;align-self:flex-start;padding:0 12px;border-color:#8a1a1a}
+.modechip.late,#modeChip.late{color:#ff5a4a!important;animation:lamp 1s infinite}
 .overgoal{margin:0;font:600 13px var(--f-mono);color:#ffcf7a}
 .overq{margin:2px 0;padding:8px 10px;border:1px solid #3a2a18;border-radius:12px;background:rgba(30,20,10,.55);text-align:left;font:12px var(--f-mono);color:#d8c8a8}
 .overq b{display:block;font:600 12px var(--f-mono);color:#ffcf7a;margin-bottom:3px}.overq div{display:flex;justify-content:space-between;gap:8px;padding:1px 0}.overq .ok{color:#8fd27a}
@@ -432,6 +433,7 @@ body{height:100vh;height:100dvh}
     </div>
     <p class="pausenote" id="pauseNote" hidden></p>
     <button class="big" id="resumeBtn" hidden>Продолжить<small id="resumeSub"></small></button>
+    <button class="big primary" id="resumeShiftBtn" hidden>▶ Продолжить смену<small id="resumeShiftSub"></small></button>
     <button class="big primary" id="playBtn"><span id="playLbl">Играть</span><small id="playSub">классика · случайные образцы</small></button>
     <div class="newbie-box" id="newbieBox" hidden>
       <p class="warn">16+ · в игре есть скримеры и резкие звуки</p>
@@ -460,6 +462,7 @@ body{height:100vh;height:100dvh}
       <button id="tVibe" aria-pressed="true">Вибрация</button>
       <button id="tClips" aria-pressed="true">Запись клипов</button>
       <button id="tCalm" aria-pressed="false">Спокойный режим</button>
+      <button id="tEndless" aria-pressed="false">Смена без таймера</button>
       <button id="tStats" aria-pressed="true">Статистика</button>
       <button id="tLite" aria-pressed="false">Лёгкая графика</button>
     </div>
@@ -722,7 +725,7 @@ let loreRead=new Set(store.get('mut.lore',[]));
 if(store.get('mut.formsV',1)<2){const map={8:9,9:11,10:13};found=new Set([...found].map(x=>typeof x==='number'&&map[x]!=null?map[x]:x));store.set('mut.found',[...found]);store.set('mut.formsV',2)}
 if(store.get('mut.formsV',1)<3){const sh=x=>typeof x==='number'&&x>=6?x+1:x;found=new Set([...found].map(sh));loreRead=new Set([...loreRead].map(sh));store.set('mut.found',[...found]);store.set('mut.lore',[...loreRead]);store.set('mut.formsV',3)}
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const opts=Object.assign({sound:true,scare:!reduced,vibe:true,clips:true,calm:false,stats:true,lite:false},store.get('mut.opts',{}));
+const opts=Object.assign({endless:false,sound:true,scare:!reduced,vibe:true,clips:true,calm:false,stats:true,lite:false},store.get('mut.opts',{}));
 const saveOpts=()=>store.set('mut.opts',opts);
 
 // ---------- day ----------
@@ -1284,9 +1287,9 @@ const FG={t:0,fire:false,mid:false};
 function goalReset(){const g=mode==='classic'&&!isCalm()?FIRST_GOALS[stats.games]:null;GOAL.lvl=g?g[0]:null;GOAL.pts=g?g[1]:0;GOAL.done=false;
   if(g&&stats.games>0)setTimeout(()=>toast('Цель смены','Выведите: '+FORMS[g[0]].name,`Награда +${g[1]} очков.`),900)}
 function goalTick(){if(GOAL.lvl==null||GOAL.done||over||topLvl<GOAL.lvl||topLvl>MAX&&topLvl!==LV.hive)return;GOAL.done=true;score+=GOAL.pts;updHud();flash=1;shake=Math.max(shake,8);
-  floater(W/2,RIM+60,`цель выполнена +${GOAL.pts}`,true,'#ffcf7a');toast('Цель смены выполнена!',FORMS[GOAL.lvl].name,`+${GOAL.pts} очков. Играйте дальше — сколько продержитесь?`);
+  floater(W/2,RIM+60,`цель выполнена +${GOAL.pts}`,true,'#ffcf7a');if(!firstShift())toast('Цель смены выполнена!',FORMS[GOAL.lvl].name,`+${GOAL.pts} очков. Играйте дальше — сколько продержитесь?`);
   vibe([40,30,80]);track('goal',{form:FORMS[GOAL.lvl].id,games:stats.games});
-  if(firstShift()){const n=FIRST_GOALS.find(g=>g[0]>topLvl);if(n)setTimeout(()=>{if(over||!firstShift()||topLvl>=n[0])return;GOAL.lvl=n[0];GOAL.pts=n[1];GOAL.done=false;updHud();toast('Новая цель','Выведите: '+FORMS[n[0]].name,`Награда +${n[1]} очков.`)},3400)}}
+  if(firstShift()){const n=FIRST_GOALS.find(g=>g[0]>topLvl);if(n)setTimeout(()=>{if(over||!firstShift()||topLvl>=n[0])return;GOAL.lvl=n[0];GOAL.pts=n[1];GOAL.done=false;updHud();floater(W/2,RIM+90,'новая цель: '+FORMS[n[0]].name,false,'#ffcf7a')},2600)}}
 // ---------- «Завтра в лаборатории» на экране конца партии ----------
 function fillTomorrow(){const el=$('tmrw');if(!el)return;if(mode==='trial'||window.__DEMO){el.hidden=true;return}
   const f=FAMS[((DAY_NO)%FAMS.length+FAMS.length)%FAMS.length],i0=LV[f.id+'0'],F=FORMS[i0],open=labLvl()>=UNLOCK.fam,n=streakNow();
@@ -1297,6 +1300,28 @@ function fillTomorrow(){const el=$('tmrw');if(!el)return;if(mode==='trial'||wind
   c.fillStyle='#c8141a';c.font='bold 44px "Rubik Distressed",sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('?',60,62);
   const offer=!!PUBLIC_URL&&!pushOn()&&(PUSH_OK||(IS_IOS&&!IS_APP))&&!(PUSH_OK&&Notification.permission==='denied');
   $('tmrwPush').hidden=!offer;if(offer)track('push_offer',{where:'over',show:1});el.hidden=false}
+// смена в «Классике» — 5 минут: в конце «Смена закончена», награда за выживание и экран итогов (выключается в меню: «Смена без таймера»)
+const SHIFT_MS=300000,SHIFT_BONUS=300;
+const isTimed=()=>mode==='classic'&&!opts.endless&&!window.__DEMO;
+let shiftWarn=0,shiftShown=-1;
+function shiftTick(){if(!isTimed()||over)return;const left=SHIFT_MS-HZ.t,sec=Math.max(0,Math.ceil(left/1000));
+  if(sec!==shiftShown){shiftShown=sec;$('modeChip').textContent=$('modeChip').textContent.replace(/ · \d+:\d\d$/,'')+' · '+Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');$('modeChip').classList.toggle('late',sec<=30)}
+  if(left<=30000&&shiftWarn<1){shiftWarn=1;toast('30 секунд до конца смены','Продержитесь!',`За целую банку в конце — +${SHIFT_BONUS} очков.`)}
+  if(left<=0){score+=SHIFT_BONUS;updHud();floater(W/2,RIM+60,`смена закончена +${SHIFT_BONUS}`,true,'#7dffc8');track('shift_done',{score});gameOver('time')}}
+// сохранение смены: ушли посреди «Классики» — при следующем заходе «Продолжить смену» (3 дня)
+function saveShift(){try{if(!started||over||mode!=='classic'||window.__DEMO||!engine||!bodies.length)return;
+  const bs=bodies.filter(b=>!b.burn&&!b.clearing&&b.anom!=='wormseg').slice(0,80).map(b=>[b.anom||b.lvl,Math.round(b.position.x),Math.round(b.position.y),b.hy||0]);
+  store.set('mut.save',{v:1,t:Date.now(),score,drops,top:topLvl,cur,nxt,abil:{...abil},ht:Math.round(HZ.t),goal:[GOAL.lvl,GOAL.pts,GOAL.done],jar:jarKey,bs})}catch(e){}}
+function saveGet(){const s=store.get('mut.save',null);return s&&s.v===1&&Date.now()-s.t<3*864e5&&Array.isArray(s.bs)&&s.bs.length?s:null}
+function saveClear(){if(store.get('mut.save',null))store.set('mut.save',null)}
+function resumeShift(){const sv=saveGet();if(!sv){startMode('classic');return}
+  startMode('classic');for(const b of bodies.slice())removeBody(b);
+  for(const [k,x,y,hy] of sv.bs){if(k==null)continue;const b=spawn(k,x,y);b.born=-1e9;if(hy)b.hy=hy}
+  score=sv.score|0;drops=sv.drops|0;topLvl=sv.top|0;if(sv.cur!=null)cur=sv.cur;if(sv.nxt!=null)nxt=sv.nxt;for(const k in sv.abil||{})abil[k]=Math.max(abil[k]||0,sv.abil[k]|0);HZ.t=Math.min(sv.ht|0,SHIFT_MS-20000);
+  if(Array.isArray(sv.goal)){GOAL.lvl=sv.goal[0];GOAL.pts=sv.goal[1];GOAL.done=!!sv.goal[2]}
+  TUT.step=-1;setTimeout(()=>{TUT.step=-1},30);updHud();updAbil();drawNext();saveClear();track('shift_resume',{score,age:Math.round((Date.now()-sv.t)/60000)});
+  toast('Смена продолжается','Банка ждала вас',score+' очков · всё на месте')}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)saveShift()});addEventListener('pagehide',saveShift);setInterval(saveShift,15000);
 // давление, как в тетрисе: «Классика», дневной забег и вызов (не «Падение» и не испытания)
 const isPress=()=>(mode==='classic'||mode==='daily'||mode==='challenge')&&!isFall();
 const PRESS_EVERY=30;
@@ -1322,7 +1347,7 @@ function clearTick(now){if(mode==='trial'||over)return;
     if(list.length===need-1&&CLR.warned[l]!==list.length){CLR.warned[l]=list.length;const b=list[list.length-1];floater(b.position.x,b.position.y-b.circleRadius-8,`ещё 1 — и ${need} исчезнут`,false,'#ffcf7a')}
     else if(list.length<need-1)CLR.warned[l]=0}}
 function pressTick(dt){if(!isPress()||window.__DEMO)return;const L=pressLvl();
-  if(L>PRESS.lvl){PRESS.lvl=L;updHud();
+  if(L>PRESS.lvl){PRESS.lvl=L;updHud();if(firstShift()&&L<4){floater(W/2,RIM+40,'уровень '+L,false,'#ff8a7e');return}
     toast('Уровень '+L,L===2?'Образцы крупнее':L===3?'Падают быстрее':L===4?'Лаборатория начала подсыпать образцы':'Быстрее · подсыпка каждые '+Math.round(pressInterval(L)/1000)+' с',
       L===2?'Чем дольше смена, тем крупнее то, что падает в банку.':L===3?'Как в тетрисе: каждый уровень — быстрее.':L===4?'Сверху мигнёт метка — туда упадёт лишний образец. Освободите место.':'')}
   if(L<4)return;PRESS.t+=dt;const iv=pressInterval(L);
@@ -1369,7 +1394,7 @@ function newGame(m){
   $('over').hidden=true;started=true;
   if(m==='trial')trialStart();else{trial=null;won=false}
   $('modeChip').textContent=(m==='trial'?`Испытание ${trialIdx+1}`:m==='daily'?`Дневной забег №${DAY_NO}`:m==='challenge'?`Вызов ${challenge.target}`+(challenge.fall?' · падение':''):m==='fall'?'Падение':'Классика')+(jarKey!=='normal'?' · '+jar.name:'');
-  fallY=SPAWN_Y;fastFall=false;shownLevel=1;$('abDown').hidden=!isAuto();
+  shiftWarn=0;shiftShown=-1;$('modeChip').classList.remove('late');fallY=SPAWN_Y;fastFall=false;shownLevel=1;$('abDown').hidden=!isAuto();
   if(stats.games>0&&!store.get('mut.fireNews',false)&&mode!=='trial'){store.set('mut.fireNews',true);setTimeout(()=>toast('Новое: огнемёт 🔥','Сжигает 3–5 мутантов','Кнопка «🔥» внизу, потом коснитесь банки. Новый заряд — за каждую зачистку.'),2600)}
   if(!isFall()&&isAuto()&&stats.games>0&&!store.get('mut.autoTip',false)){store.set('mut.autoTip',true);
     setTimeout(()=>toast('Новое','Мутанты падают сами','Ведите '+FINGER+' влево-вправо. '+(FINGER==='мышью'?'Кликните или нажмите ↓':'Коснитесь или смахните вниз')+' — упадёт быстрее. Как в тетрисе.'),700)}
@@ -2449,7 +2474,7 @@ const ACH=[
  ['chal','Принято','Выиграйте вызов друга',()=>stats.chalWon>0],
 ];
 function checkAch(){if(window.__DEMO)return;let ch=false;for(const [id,name,desc,ok] of ACH){if(ach[id])continue;let v=false;try{v=ok()}catch(e){}
-  if(v){ach[id]=Date.now();ch=true;toast('Достижение',name,desc);vibe([20,40,20])}}
+  if(v){ach[id]=Date.now();ch=true;if(!(typeof firstShift==='function'&&firstShift()&&started&&!over))toast('Достижение',name,desc);vibe([20,40,20])}}
   if(ch){store.set('mut.ach',ach);updProg()}}
 const QPOOL=[
  {id:'r6',text:'Выведите Зубастика',ev:'make',lvl:LV.teeth,reach:true,n:1},
@@ -2725,8 +2750,11 @@ function openMenu(){if(window.__DEMO){stopDemo(false);return}paused=true;$('menu
   $('chalCard').hidden=!challenge&&!prankPending();
   if(prankPending()){$('chalHead').textContent='Друг прислал тебе банку';$('chalText').textContent='Спорим, не выведешь «Глаз» быстрее чем за минуту? Сливай одинаковых мутантов — они растут. 16+';$('chalBtn').textContent='Принять спор'}if(challenge)$('chalText').textContent=`Побейте ${challenge.target} ${plural(challenge.target,'очко','очка','очков')}`+(challenge.fall?' в режиме «Падение»: мутанты падают сами':'')+`. У вас будут те же образцы, что и у друга`+((JARS[challenge.jar]&&challenge.jar!=='normal')?`, банка: ${JARS[challenge.jar].name.toLowerCase()}.`:'.');
   $('resumeBtn').hidden=!(started&&!over);$('resumeSub').textContent=(mode==='trial'?`испытание ${trialIdx+1} · `:mode==='daily'?`дневной забег · `:isFall()?'падение · ':'классика · ')+score+' очков'}
-function startMode(m){unlockAudio();toastQ.length=0;setTimeout(tutStart,0);if(m==='trial')track('trial_start',{id:TRIALS[trialIdx].id});$('menu').hidden=true;newGame(m);paused=false;track('game_start',{jar:jarKey,lab:Math.min(labLvl(),9),games:stats.games});cv.focus({preventScroll:true})}
+function startMode(m){saveClear();unlockAudio();toastQ.length=0;setTimeout(tutStart,0);if(m==='trial')track('trial_start',{id:TRIALS[trialIdx].id});$('menu').hidden=true;newGame(m);paused=false;track('game_start',{jar:jarKey,lab:Math.min(labLvl(),9),games:stats.games});cv.focus({preventScroll:true})}
 $('menuBtn').onclick=openMenu;
+$('resumeShiftBtn').onclick=()=>resumeShift();
+function updResumeBtn(){const sv=!started&&saveGet(),b=$('resumeShiftBtn');if(!b)return;b.hidden=!sv;if(sv){$('resumeShiftSub').textContent=sv.score+' очков · банка ждёт';$('playBtn').classList.remove('primary')}else $('playBtn').classList.add('primary')}
+setTimeout(updResumeBtn,0);setInterval(updResumeBtn,2000);
 $('resumeBtn').onclick=()=>{$('menu').hidden=true;paused=false;cv.focus({preventScroll:true})};
 $('playBtn').onclick=()=>startMode('classic');
 $('installBtn').onclick=async()=>{if(installEvt){const ev=installEvt;installEvt=null;ev.prompt();try{const r=await ev.userChoice;track('install_prompt',{outcome:r.outcome});if(r.outcome==='accepted')store.set('mut.installed',true)}catch(e){}updApp()}else openInstall(false)};
@@ -2759,12 +2787,12 @@ function updJarBtn(){const k=opts.jar||'normal';$('jarBtn').textContent='Бан�
 $('jarBtn').onclick=()=>{const i=JAR_KEYS.indexOf(opts.jar||'normal');opts.jar=JAR_KEYS[(i+1)%JAR_KEYS.length];saveOpts();updJarBtn();toast('Банка: '+JARS[opts.jar].name,JARS[opts.jar].desc)};updJarBtn();
 
 function syncToggles(){
-  for(const [id,k] of [['tSound','sound'],['tScare','scare'],['tVibe','vibe'],['tClips','clips'],['tCalm','calm'],['tStats','stats'],['tLite','lite']])$(id).setAttribute('aria-pressed',String(opts[k]));
+  for(const [id,k] of [['tSound','sound'],['tScare','scare'],['tVibe','vibe'],['tClips','clips'],['tCalm','calm'],['tStats','stats'],['tLite','lite'],['tEndless','endless']])$(id).setAttribute('aria-pressed',String(opts[k]));
   $('tClips').hidden=!REC.ok;
   $('soundBtn').setAttribute('aria-pressed',String(opts.sound));$('soundState').textContent=opts.sound?'вкл':'выкл'}
 function toggle(k){if(k==='stats'&&opts.stats)track('setting',{k,v:false});opts[k]=!opts[k];saveOpts();if(k!=='stats')track('setting',{k,v:opts[k]});if(k==='sound'&&opts.sound)unlockAudio();syncToggles()}
 $('tSound').onclick=()=>toggle('sound');$('soundBtn').onclick=()=>toggle('sound');
-$('tScare').onclick=()=>toggle('scare');$('tClips').onclick=()=>toggle('clips');$('tLite').onclick=()=>{toggle('lite');opts.liteAuto=false;saveOpts();applyLite();toast(opts.lite?'Лёгкая графика':'Полная графика',opts.lite?'Меньше эффектов — плавнее на слабых телефонах':'')};
+$('tEndless').onclick=()=>{toggle('endless');toast(opts.endless?'Смена без таймера':'Смена 5 минут',opts.endless?'Играйте, пока банка не переполнится':'В конце — награда за выживание','')};$('tScare').onclick=()=>toggle('scare');$('tClips').onclick=()=>toggle('clips');$('tLite').onclick=()=>{toggle('lite');opts.liteAuto=false;saveOpts();applyLite();toast(opts.lite?'Лёгкая графика':'Полная графика',opts.lite?'Меньше эффектов — плавнее на слабых телефонах':'')};
 $('tStats').onclick=()=>{toggle('stats');toast(opts.stats?'Статистика включена':'Статистика выключена',opts.stats?'Анонимно: только игровые действия':'Игра ничего не отправляет')};
 $('tCalm').onclick=()=>{toggle('calm');updProg();toast(opts.calm?'Спокойный режим':'Обычный режим',opts.calm?'Только слияния':'Аномалии и события вернулись',opts.calm?'Для классики и «Падения»: без аномалий, событий и скримеров. Рекорды отдельные.':'')};$('tVibe').onclick=()=>{toggle('vibe');vibe(30)};
 syncToggles();
@@ -2781,7 +2809,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.14e';
+const APP_VER='2026.11.14f';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -2939,7 +2967,7 @@ function gameOver(reason){
     setTimeout(()=>toast('Совет','Установите игру на телефон','Меню → «На телефон»: иконка рядом с приложениями, работает без интернета.'),1800)}
   track('game_end',{lvl:pressLvl(),score,top:topLvl,dur:Math.round(HZ.t/1000),drops,reason:reason||'overflow',lab:Math.min(labLvl(),9),cracks:HZ.cracks.length});anFlush();
   $('leakPop').hidden=true;$('firePop').hidden=true;$('abExt').hidden=true;if(EMG)emgEnd(false);
-  $('overTitle').textContent=reason==='win'?'Испытание пройдено':reason==='crack'?'Банка лопнула':'Банка переполнена';
+  $('overTitle').textContent=reason==='win'?'Испытание пройдено':reason==='time'?'Смена закончена!':reason==='crack'?'Банка лопнула':'Банка переполнена';
   if(mode==='trial'&&reason!=='win'&&trial)track('trial_end',{id:trial.def.id,win:false,score,dur:Math.round(HZ.t/1000)});
   over=true;stats.games++;stats.best=Math.max(stats.best,score);if(isFall())stats.fallBest=Math.max(stats.fallBest,score);if(mode==='daily'){stats.dailies++;bumpStreak()}saveStats();
   ev('game');ev('score',score);if(mode==='daily')ev('daily');updProg();try{shot=document.createElement('canvas');shot.width=cv.width;shot.height=cv.height;shot.getContext('2d').drawImage(cv,0,0)}catch(e){shot=null}if(reason==='win'){[523,659,784,1047].forEach((f,i)=>tone('triangle',f,f,.35,.07,0,i*.12));vibe([30,40,30,40,90])}else{sound(9,true);vibe([120,60,200])}
@@ -2955,7 +2983,7 @@ function gameOver(reason){
   else if(mode==='trial'&&trial){ob.hidden=false;const st=trialStarCount();
     ob.textContent=reason==='win'?`${'★'.repeat(st)}${'☆'.repeat(3-st)}  ${trial.def.name}. `+(trialIdx<TRIALS.length-1?'Следующее испытание открыто.':'Все испытания пройдены!'):`Не получилось: ${trialGoalLong(trial.def).toLowerCase()}. Попробуйте ещё раз.`}
   else ob.hidden=true;
-  $('again').textContent=mode==='trial'&&reason==='win'&&trialIdx<TRIALS.length-1?'Следующее':'Ещё раз';
+  $('again').textContent=mode==='trial'&&reason==='win'&&trialIdx<TRIALS.length-1?'Следующее':reason==='time'?'Ещё смена':'Ещё раз';saveClear();
   grabClip('Финал партии');
   {const og=$('overGoal');og.hidden=GOAL.lvl==null;if(GOAL.lvl!=null)og.textContent=GOAL.done?`✅ Цель смены выполнена: ${FORMS[GOAL.lvl].name}`:`🎯 Цель смены: ${FORMS[GOAL.lvl].name} — не хватило совсем чуть-чуть. Ещё раз?`}
   fillTomorrow();clearTimeout(discTimer);$('disc').hidden=true;fillOverExtra();
@@ -3075,7 +3103,7 @@ function perfTick(dt,live){if(live&&!document.hidden&&!FPSM.sent&&dt<1000){FPSM.
 function frame(now){
   const dt=Math.min(50,now-last);last=now;const t=now/1000;NERV=engine&&started&&!over&&!paused?Math.max(0,Math.min(1,(jarFill()-.62)/.3)):0;
   if(engine&&!paused&&!over&&!scream){acc+=dt;while(acc>=1000/60){Engine.update(engine,1000/60);acc-=1000/60;if(queue.length||mutQ.length)processMerges()}
-    parasiteTick(dt);specialTick(dt);pressTick(dt);clearTick(now);goalTick();fireTick(now);prankTick(now);if(isAuto())fallTick(dt,now);
+    parasiteTick(dt);specialTick(dt);pressTick(dt);shiftTick();clearTick(now);goalTick();fireTick(now);prankTick(now);if(isAuto())fallTick(dt,now);
     const bad=bodies.some(b=>now-b.born>1500&&b.position.y-b.circleRadius<RIM&&b.speed<2.5);
     danger=bad?danger+dt:Math.max(0,danger-dt*2);
     if(danger>2400){if(canFake())fakeOver();else if(canContinue())offerContinue();else gameOver()}
@@ -3143,7 +3171,7 @@ if(REF_IN&&!store.get('mut.refIn',null)&&AN.firstRun)store.set('mut.refIn',REF_I
 setTimeout(loadRefs,3000);setTimeout(pushTouch,4000);setTimeout(loadOwned,2500);setTimeout(checkPayReturn,1500);
 if(PIKABU){document.body.classList.add('pk');setTimeout(pkLoad,800);addEventListener('pagehide',()=>{if(PK.sdk&&!PK.dead)try{PK.sdk.storage.set('mut',{v:1,t:Date.now(),d:pkSnap()})}catch(e){}});
   if(isNewbie()&&!challenge){let touched=false;addEventListener('pointerdown',()=>{touched=true},{once:true,capture:true});
-    setTimeout(()=>{if(!touched&&!started&&!$('menu').hidden&&isNewbie()){track('autostart',{});startMode('classic')}},2600)}}
+    setTimeout(()=>{if(!touched&&!started&&!$('menu').hidden&&isNewbie()){track('autostart',{});saveGet()?resumeShift():startMode('classic')}},2600)}}
 track('session_start',{pk:PIKABU||undefined,boot:Math.round(performance.now()),ref:AN.firstRun?REF_IN:null,prank:!!prank,first:AN.firstRun,games:stats.games,app:!!(matchMedia('(display-mode: standalone)').matches||navigator.standalone),w:innerWidth,h:innerHeight,lang:(navigator.language||'').slice(0,5),challenge:!!challenge});
 applyLite();
 // test hook, only with #test in the address
