@@ -1831,7 +1831,7 @@ function removeAt(p){const hit=bodies.find(q=>Math.hypot(q.position.x-p.x,q.posi
 const fallLevel=()=>1+Math.floor(Math.max(0,score)/500);
 const fallSpeed=()=>Math.min(300,70*(1+.3*(fallLevel()-1)))*(HZ.night?1.4:1);
 // «Классика»: спокойнее, ускоряется с уровнем; на обучении ещё медленнее
-const autoSpeed=()=>(isFall()?fallSpeed():Math.min(260,100*(1+.15*(pressLvl()-1)))*(HZ.night?1.3:1))*(TUT.step>=0&&TUT.step<2?.6:1);
+const autoSpeed=()=>firstShift()&&drops<=4?220:(isFall()?fallSpeed():Math.min(260,100*(1+.15*(pressLvl()-1)))*(HZ.night?1.3:1))*(TUT.step>=0&&TUT.step<2?.6:1);
 let shownLevel=1;
 function checkLevel(){if(mode!=='fall'||over)return;const L=fallLevel();if(L>shownLevel){shownLevel=L;toast('Скорость растёт','Уровень '+L);sound(L+3,true);vibe([30,40,30]);flash=Math.max(flash,.5)}updHud()}
 function fallTick(dt,now){
@@ -2764,7 +2764,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.14b';
+const APP_VER='2026.11.14c';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
