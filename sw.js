@@ -1,5 +1,5 @@
 // Офлайн-режим «Мутации». Файл генерирует build.py — правьте src/sw.template.js.
-const CACHE = "mutaciya-fd1b7d8ec0b0";
+const CACHE = "mutaciya-2450f7b741d5";
 const ASSETS = [
   "./",
   "index.html",

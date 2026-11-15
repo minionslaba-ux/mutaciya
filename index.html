@@ -2917,7 +2917,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.15a';
+const APP_VER='2026.11.15b';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -3127,16 +3127,17 @@ let chest=Object.assign({last:'',day:0},store.get('mut.chest',{}));
 const chestAvail=()=>chest.last!==DAY&&mode!=='demo';
 const chestDayNow=()=>chest.last===YDAY?chest.day%7+1:1;
 let chestShown='';
+let chestGot=0;
 function openChest(src){if(!chestAvail())return;chestShown=DAY;const d=chestDayNow(),r=CHEST_REW[d-1];
-  $('chestNote').textContent=`День ${d} из 7. Внутри: ${r} ${plural(r,'заряд','заряда','зарядов')} огнемёта на следующую смену. Заходите каждый день — награда растёт, на 7-й день — 3 заряда.`;
+  chest={last:DAY,day:d};store.set('mut.chest',chest);giveBonusFire(r,'chest');chestGot=r;$('overChest').hidden=true;track('chest_take',{day:d,mult:1,src});vibe([20,30,60]);
+  $('chestNote').textContent=`Получено: ${r} 🔥 — ${plural(r,'заряд','заряда','зарядов')} огнемёта на следующую смену! День ${d} из 7: заходите каждый день — награда растёт.`;
   const el=$('chestDays');el.innerHTML='';for(let i=1;i<=7;i++){const x=document.createElement('i');x.textContent=i<d?'✓':CHEST_REW[i-1]+'🔥';if(i<d)x.className='got';if(i===d)x.className='now';el.appendChild(x)}
-  $('chestAdSub').textContent=noAds()||!ADS_ON()?'бесплатно':'посмотреть рекламу';$('chestAd').hidden=!ADS_ON()&&!noAds();
+  $('chestAd').firstChild.textContent='▶ Ещё +'+r+' 🔥';$('chestAdSub').textContent=noAds()||!ADS_ON()?'бесплатно':'за короткую рекламу';$('chestAd').hidden=!ADS_ON()&&!noAds();$('chestTake').textContent='Отлично';
   $('chestSheet').hidden=false;track('chest_open',{day:d,src})}
-function takeChest(mult){const d=chestDayNow(),r=CHEST_REW[d-1]*mult;chest={last:DAY,day:d};store.set('mut.chest',chest);giveBonusFire(r,'chest');
-  $('chestSheet').hidden=true;$('overChest').hidden=true;track('chest_take',{day:d,mult});vibe([20,30,60]);
-  toast('Сундук открыт','+'+r+' '+plural(r,'заряд','заряда','зарядов')+' огнемёта','Они добавятся в следующей смене. Завтра — день '+(d%7+1)+'.')}
-$('chestTake').onclick=()=>takeChest(1);
-$('chestAd').onclick=()=>{if(noAds()||!ADS_ON())return takeChest(2);showAd('rewarded',ok=>takeChest(ok?2:1))};
+function takeChest(extra){const d=chest.day||1,r=chestGot*(extra?2:1);if(extra){giveBonusFire(chestGot,'chest_x2');track('chest_take',{day:d,mult:2})}chestGot=0;
+  $('chestSheet').hidden=true;toast('Сундук открыт','+'+r+' '+plural(r,'заряд','заряда','зарядов')+' огнемёта','Добавятся в следующей смене. Завтра — день '+(d%7+1)+'.')}
+$('chestTake').onclick=()=>takeChest(false);
+$('chestAd').onclick=()=>{if(noAds()||!ADS_ON())return takeChest(true);showAd('rewarded',ok=>takeChest(!!ok))};
 $('overChest').onclick=()=>openChest('over');
 $('overFire').onclick=()=>{if(overFireUsed)return;const give=()=>{overFireUsed=true;const b=$('overFire');b.disabled=true;const v=giveBonusFire(1,'over_ad');b.textContent='✓ Заряд в запасе ('+v+')'};
   track('over_fire_click',{});if(noAds())give();else showAd('rewarded',ok=>{if(ok)give()})};
