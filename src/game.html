@@ -1769,12 +1769,12 @@ function mergeFx(a,b,x,y,l){const L2=NEXT[l]!=null?NEXT[l]:l;if(!opts.lite&&!red
   MFX.push({ax:a.position.x,ay:a.position.y,bx:b.position.x,by:b.position.y,x,y,c:FORMS[l].c,r:Math.min(a.circleRadius,b.circleRadius),R:FORMS[NEXT[l]!=null?NEXT[l]:l].r,t0:performance.now()});if(MFX.length>12)MFX.shift()}
 const RIPS=[];
 function drawRipples(now){if(!RIPS.length)return;ctx.save();
-  for(const f of RIPS){const k=(now-f.t0)/(f.big?700:480);if(k>=1)continue;const e=1-Math.pow(1-k,2),R=f.R*(1+e*(f.big?3.2:2));
+  for(const f of RIPS){const k=Math.max(0,(now-f.t0)/(f.big?700:480));if(k>=1)continue;const e=1-Math.pow(1-k,2),R=f.R*(1+e*(f.big?3.2:2));
     ctx.globalAlpha=(1-k)*(f.big?.5:.32);ctx.strokeStyle='#fff1c8';ctx.lineWidth=(f.big?6:3)*(1-k)+.5;ctx.beginPath();ctx.arc(f.x,f.y,R,0,TAU);ctx.stroke();
     if(f.big&&!opts.lite){ctx.globalAlpha=(1-k)*.18;const g=ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,R);g.addColorStop(0,'rgba(255,230,170,.9)');g.addColorStop(1,'rgba(255,230,170,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(f.x,f.y,R,0,TAU);ctx.fill()}}
   ctx.restore();for(let i=RIPS.length-1;i>=0;i--)if(now-RIPS[i].t0>700)RIPS.splice(i,1)}
 function drawMergeFx(now){drawRipples(now);if(!MFX.length)return;ctx.save();ctx.lineCap='round';
-  for(const f of MFX){const k=(now-f.t0)/280;if(k>=1)continue;
+  for(const f of MFX){const k=Math.max(0,(now-f.t0)/280);if(k>=1)continue;
     if(k<.45&&!opts.lite){const q=k/.45,e=q*q,x1=f.ax+(f.x-f.ax)*e,y1=f.ay+(f.y-f.ay)*e,x2=f.bx+(f.x-f.bx)*e,y2=f.by+(f.y-f.by)*e;
       ctx.globalAlpha=.85*(1-q*.5);ctx.strokeStyle=f.c;ctx.lineWidth=f.r*1.5*(1-q*.55);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
     ctx.globalAlpha=(1-k)*.55;ctx.strokeStyle='#ffe6a8';ctx.lineWidth=3*(1-k)+1;ctx.beginPath();ctx.arc(f.x,f.y,f.R*(.75+k*.8),0,TAU);ctx.stroke()}
@@ -2893,7 +2893,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.16b';
+const APP_VER='2026.11.16c';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
