@@ -253,7 +253,10 @@ body.pk #prankBtn,body.pk #overPrank,body.pk #shareChal,body.pk #refLine,body.pk
 .sheet .row button{flex:1}
 /* game over */
 .over{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 80%,transparent);border-radius:10px;padding:16px}
-.card-over{width:100%;max-width:320px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:10px;text-align:center}
+.card-over{width:100%;max-width:340px;max-height:100%;overflow-y:auto;overscroll-behavior:contain;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px;text-align:center}
+.card-over>.row:last-child{position:sticky;bottom:-16px;margin:0 -16px -16px;padding:10px 16px 14px;background:linear-gradient(180deg,rgba(14,10,8,0),#0e0a08 30%);z-index:2}
+.stage:has(.over:not([hidden])) .disc{display:none!important}
+@media (max-height:760px){.over{padding:6px;position:fixed;z-index:40}.overx button{flex-basis:100%}.card-over{gap:6px;padding:12px}.card-over>.row:last-child{bottom:-12px;margin:0 -12px -12px}#over h2{font-size:24px!important;margin:0}#over .sc{font-size:44px!important}#tmrw,#shareBtn{display:none!important}.overq{font-size:11px;padding:6px 8px}.overx button{min-height:34px;font-size:12px}}
 .card-over h2{font-family:var(--f-display);font-weight:400;font-size:24px;margin:0;color:var(--blood)}
 .card-over .sc{font-family:var(--f-display);font-size:48px;font-variant-numeric:tabular-nums;line-height:1}
 .card-over p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
@@ -798,6 +801,9 @@ const JARS={
   dark:{name:'Тёмная',desc:'Внутри видно только под фонариком',dark:true}};
 const JAR_KEYS=Object.keys(JARS);
 const isAnom=k=>typeof k==='string';
+// форма тела ранних мутантов: вытянутые и сплюснутые капсулы вместо кругов — хуже укладываются, банка заполняется быстрее
+const SHAPE={drop:[.8,1.22],spore:[1.22,.8],slug:[1.5,.66],larva:[1.34,.74],leech:[1.55,.64],wormy:[1.18,.86],teeth:[1.12,.9]};
+const shapeOf=k=>!isAnom(k)&&FORMS[k]&&SHAPE[FORMS[k].id]||null;
 const radiusOf=k=>isAnom(k)?ANOM[k].r:FORMS[k].r;
 const formsFound=()=>[...found].filter(x=>typeof x==='number');
 
@@ -1298,7 +1304,7 @@ function fillCont(){const n=savesN(),ad=!contUsed;$('contAd').hidden=!ad;$('cont
   $('contBuy').hidden=!PIKABU||n>0;$('contBuySub').textContent=(PK.prices.saves5||'29 ₽')+' · без рекламы'}
 function offerContinue(){const first=!contUsed;paused=true;for(const id of ['leakPop','firePop','emgPop'])$(id).hidden=true;fillCont();contUsed=true;if(!first)$('contAd').hidden=true;$('contSub').textContent=noAds()||!(PIKABU||adBlock('rewarded'))?'бесплатно':'посмотреть короткую рекламу';$('contSheet').hidden=false;track('continue_offer',{score})}
 function doContinue(){$('contSheet').hidden=true;
-  const list=bodies.slice().sort((a,b)=>(a.position.y-a.circleRadius)-(b.position.y-b.circleRadius));let n=0;
+  const list=bodies.slice().sort((a,b)=>a.bounds.min.y-b.bounds.min.y);let n=0;
   for(const b of list){if(jarFill()<.5||n>=Math.ceil(bodies.length*.45))break;if(b.anom==='wormseg')continue;if(b.anom==='worm'){killWorm(b,0,'');n++;continue}removeBody(b);splat(b.position.x,b.position.y,b.lvl!=null?FORMS[b.lvl].c:'#888',10,1);n++}
   danger=0;over=false;paused=false;shake=8;flash=.6;floater(W/2,RIM+60,'смена продолжается!',true,'#7dffc8');track('continue',{score,removed:n});cv.focus({preventScroll:true})}
 // ---------- огнемёт: сжигает 3–5 мутантов вокруг точки касания ----------
@@ -1545,7 +1551,9 @@ function newGame(m){
 }
 function spawn(kind,x,y){
   const an=isAnom(kind)?kind:null,r=radiusOf(kind);
-  const b=Bodies.circle(x,y,r,{restitution:.12,friction:an==='rot'?.8:.35,frictionAir:(an==='parasite'||an==='brood'?.03:.018)*(jar.air||1),density:an==='rot'?.0016:.0012,slop:.03});
+  const opt={restitution:.12,friction:an==='rot'?.8:.35,frictionAir:(an==='parasite'||an==='brood'?.03:.018)*(jar.air||1),density:an==='rot'?.0016:.0012,slop:.03},sh=shapeOf(kind);
+  let b;if(sh){const w=2*r*sh[0],h=2*r*sh[1];b=Bodies.rectangle(x,y,w,h,{...opt,chamfer:{radius:Math.min(w,h)*.42}});b.circleRadius=r;b.shape=sh;Body.setAngle(b,(Math.random()-.5)*1.2)}
+  else b=Bodies.circle(x,y,r,opt);
   b.anom=an;b.rot=an==='rot';b.lvl=an?null:kind;b.born=performance.now();b.seed=(idc++)*7.31%13;b.stolen=0;b.drainT=0;b.host=null;
   Composite.add(engine.world,b);bodies.push(b);
   if(!an&&(kind<=MAX||kind===LV.hive)&&kind>topLvl)topLvl=kind;
@@ -2051,7 +2059,7 @@ function hzReset(){Object.assign(HZ,{t:0,gazeUntil:0,nextGaze:rnd(35e3,60e3),wav
   heartT:0,beat:0,nextSound:rnd(15e3,35e3),night:null,nightDone:false,inspect:null,nextInspect:rnd(70e3,120e3),preFlicker:0,silence:false,
   liqFrom:0,liqTo:0,liqK:1,nextLiq:40e3,fake:null,liqY:RIM,leak:null,nextLeak:rnd(60e3,100e3),blaze:null,nextBlaze:rnd(90e3,150e3),foam:null,refill:false,puddle:0,thoughts:[],nextThought:0,shade:null,nextShade:rnd(8e3,16e3)})}
 hzReset();
-function jarFill(){let top=FLOOR;for(const b of bodies)top=Math.min(top,b.position.y-b.circleRadius);return Math.max(0,Math.min(1,(FLOOR-top)/(FLOOR-RIM)))}
+function jarFill(){let top=FLOOR;for(const b of bodies)top=Math.min(top,b.bounds.min.y);return Math.max(0,Math.min(1,(FLOOR-top)/(FLOOR-RIM)))}
 function liquidNow(){const base=skinNow()?skinNow().liq:(LIQ[opts.liquid]||LIQ.amber).c;const pal=i=>i===0?base:LIQ_CYCLE[(i-1)%LIQ_CYCLE.length];
   const a=pal(HZ.liqFrom),b=pal(HZ.liqTo),k=Math.min(1,HZ.liqK);let c=[hexMix(a[0],b[0],k),hexMix(a[1],b[1],k)];
   if(opts.scare&&engine&&!isCalm()){const bl=Math.max(0,(jarFill()-.6)/.4)*.85;if(bl>0)c=[hexMix(c[0],'#5a0b0e',bl),hexMix(c[1],'#1b0203',bl)]}return c}
@@ -2119,7 +2127,7 @@ function canFake(){return opts.scare&&!isCalm()&&mode!=='daily'&&!store.get('mut
 function fakeOver(){over=true;track('fake_over',{score});HZ.fake=true;store.set('mut.fake',true);$('overTitle').textContent='Банка переполнена';$('overScore').textContent=score;
   $('overText').textContent='Высшая форма: '+FORMS[topLvl].name;$('overBoard').hidden=true;$('over').classList.add('fake');$('over').hidden=false;
   setTimeout(()=>{$('over').hidden=true;$('over').classList.remove('fake');HZ.glitchUntil=performance.now()+900;
-    for(const b of bodies.filter(b=>b.position.y-b.circleRadius<RIM+50)){removeBody(b);splat(b.position.x,b.position.y,'#5a0b0e',10,1)}
+    for(const b of bodies.filter(b=>b.bounds.min.y<RIM+50)){removeBody(b);splat(b.position.x,b.position.y,'#5a0b0e',10,1)}
     danger=0;over=false;HZ.fake=null;stats.fake++;saveStats();startScream(MAX);setTimeout(()=>toast('Ещё не конец','Она не отпустит так просто'),900);checkAch()},1600)}
 function hzMenu(){const n=Math.floor((Date.now()-(store.get('mut.lastSeenPrev',Date.now())))/864e5);const tag=document.querySelector('.menu .tag');
   if(opts.scare&&n>=1){const nm=typeof player==='function'&&store.get('mut.player',null)&&store.get('mut.player').name;tag.classList.add('whisper');
@@ -2445,7 +2453,7 @@ function drip(){if(!ac||!opts.sound)return;const t=ac.currentTime,o=ac.createOsc
   o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*.55,t+.12);g.gain.setValueAtTime(.045,t);g.gain.exponentialRampToValueAtTime(.0001,t+.18);
   o.connect(g).connect(outNode());o.start(t);o.stop(t+.2)}
 function ambTick(dt,live){if(!ac)return;if(!amb)ambStart();if(!amb)return;const t=ac.currentTime,on=live&&opts.sound&&!HZ.silence&&!gazeNow;
-  let top=FLOOR;for(const b of bodies)top=Math.min(top,b.position.y-b.circleRadius);const fill=Math.max(0,Math.min(1,(FLOOR-top)/(FLOOR-RIM)));
+  let top=FLOOR;for(const b of bodies)top=Math.min(top,b.bounds.min.y);const fill=Math.max(0,Math.min(1,(FLOOR-top)/(FLOOR-RIM)));
   amb.g.gain.setTargetAtTime(on?.85:0,t,.5);amb.wg.gain.setTargetAtTime(on?Math.max(0,fill-.5)*.55+Math.min(1,danger/2200)*.35+(darkUntil>performance.now()?.25:0):0,t,.35);
   if(on&&Math.random()<dt/3800)drip()}
 function tone(type,f1,f2,dur,gain,pan,delay=0){if(!ac||!opts.sound)return;const t=ac.currentTime+delay,o=ac.createOscillator(),g=ac.createGain();o.type=type;
@@ -2994,7 +3002,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.17b';
+const APP_VER='2026.11.17d';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -3183,7 +3191,7 @@ function countUp(el,to){el.textContent='0';if(reduced||to<=0){el.textContent=to;
 function fillOverExtra(){fillTrial();const q=$('overQ');q.hidden=mode==='trial'||window.__DEMO;
   if(!q.hidden){q.innerHTML='<b>Задания дня · '+questDone()+'/'+QUESTS.length+'</b>';for(const x of QUESTS){const p=questProg(x),d=document.createElement('div');if(p>=x.n)d.className='ok';
     d.innerHTML='<span></span><span></span>';d.children[0].textContent=(p>=x.n?'✅ ':'▫️ ')+x.text;d.children[1].textContent=p+'/'+x.n;q.appendChild(d)}}
-  overFireUsed=false;const f=$('overFire');f.hidden=!ADS_ON()||mode==='trial'||window.__DEMO;f.disabled=false;f.textContent=noAds()?'🔥 +1 заряд на след. смену':'🎬 +1 🔥 на след. смену';
+  overFireUsed=false;const f=$('overFire');f.hidden=!ADS_ON()||mode==='trial'||window.__DEMO;f.disabled=false;f.textContent=noAds()?'🔥 +1 заряд и следующая смена':'🎬 +1 🔥 и следующая смена';
   $('overChest').hidden=!chestAvail()||window.__DEMO;
   if(stats.games>=1&&!store.get('mut.starterT',0))store.set('mut.starterT',Date.now());
   const stLeft=864e5-(Date.now()-(store.get('mut.starterT',0)||Date.now()));
@@ -3195,7 +3203,7 @@ function fillTrial(){const t=$('overTry'),k=$('overKeep');k.hidden=true;t.hidden
     k.onclick=()=>{track('trial_buy_click',{id});PIKABU?pkBuy(it):(openShop())};track('trial_offer',{id});TRIAL.after=null;return}
   if(stats.games<2||TRIAL.armed)return;const left=['neon','relic','rust'].filter(x=>!hasItem(x));if(!left.length)return;
   const id=left[(DAY_NO+stats.games)%left.length];t.hidden=false;t.textContent=(noAds()?'🫙 ':'🎬 ')+'Смена в банке «'+skinName(id).replace(/^Набор «|»$/g,'')+'»';
-  t.onclick=()=>{const go=()=>{TRIAL.skin=id;TRIAL.armed=true;t.hidden=true;toast('Примерка','Следующая смена — в банке «'+skinName(id).replace(/^Набор «|»$/g,'')+'»','Понравится — останется навсегда за пару монет.');track('trial_skin',{id})};
+  t.onclick=()=>{const go=()=>{TRIAL.skin=id;TRIAL.armed=true;t.hidden=true;setTimeout(()=>{if(over&&!$('over').hidden)startMode(mode==='trial'?'classic':mode)},900);toast('Примерка','Следующая смена — в банке «'+skinName(id).replace(/^Набор «|»$/g,'')+'»','Понравится — останется навсегда за пару монет.');track('trial_skin',{id})};
     if(noAds())go();else showAd('rewarded',ok=>{if(ok)go()})}}
 function giveBonusFire(n,why){const v=Math.min(9,(store.get('mut.bonusFire',0)|0)+n);store.set('mut.bonusFire',v);track('bonus_fire',{n,why,total:v});return v}
 // ---------- сундук лаборатории: раз в день, 7 дней по кругу ----------
@@ -3216,7 +3224,7 @@ function takeChest(extra){const d=chest.day||1,r=chestGot*(extra?2:1);if(extra){
 $('chestTake').onclick=()=>takeChest(false);
 $('chestAd').onclick=()=>{if(noAds()||!ADS_ON())return takeChest(true);showAd('rewarded',ok=>takeChest(!!ok))};
 $('overChest').onclick=()=>openChest('over');
-$('overFire').onclick=()=>{if(overFireUsed)return;const give=()=>{overFireUsed=true;const b=$('overFire');b.disabled=true;const v=giveBonusFire(1,'over_ad');b.textContent='✓ Заряд в запасе ('+v+')'};
+$('overFire').onclick=()=>{if(overFireUsed)return;const give=()=>{overFireUsed=true;const b=$('overFire');b.disabled=true;const v=giveBonusFire(1,'over_ad');b.textContent='✓ Заряд в запасе ('+v+')';if(mode!=='trial')setTimeout(()=>{if(over&&!$('over').hidden)startMode(mode)},700)};
   track('over_fire_click',{});if(noAds())give();else showAd('rewarded',ok=>{if(ok)give()})};
 $('overStarter').onclick=()=>{track('starter_click',{});const it=SHOP.find(x=>x.id==='starter');if(PIKABU&&it){$('shopNote').textContent='';pkBuy(it).then(()=>{const t=$('shopNote').textContent;if(t&&$('shopSheet').hidden)toast('Набор новичка',t,'')})}else openShop()};
 setInterval(()=>{if(chestShown===DAY||!chestAvail()||stats.games<1||window.__DEMO||$('menu').hidden||document.querySelector('.scrim:not([hidden])'))return;openChest('menu')},1500);
@@ -3308,9 +3316,9 @@ function perfTick(dt,live){if(live&&!document.hidden&&!FPSM.sent&&dt<1000){FPSM.
   if(PERF.n>=90){const avg=PERF.sum/PERF.n;PERF.sum=0;PERF.n=0;PERF.bad=avg>27?PERF.bad+1:0;if(PERF.bad>=2){opts.lite=true;opts.liteAuto=true;saveOpts();applyLite();syncToggles();if(stats.games>0)toast('Лёгкая графика','Включена автоматически','Телефон не успевал рисовать все эффекты. Выключить можно в меню.');track('lite_auto',{ms:Math.round(avg)})}else if(avg<20)PERF.checked=true}}
 function frame(now){
   const dt=Math.min(50,now-last);last=now;const t=now/1000;NERV=engine&&started&&!over&&!paused?Math.max(0,Math.min(1,(jarFill()-.62)/.3)):0;
-  if(engine&&!paused&&!over&&!scream){if(now>=HIT)acc+=dt;while(acc>=1000/60){Engine.update(engine,1000/60);acc-=1000/60;if(queue.length||mutQ.length)processMerges()}
+  if(engine&&!paused&&!over&&!scream){if(now>=HIT)acc+=dt;while(acc>=1000/60){try{Engine.update(engine,1000/60)}catch(e){if(!window.__engErr){window.__engErr=1;track('error',{msg:'engine: '+String(e&&e.message).slice(0,120),src:'matter',line:0})}}acc-=1000/60;if(queue.length||mutQ.length)processMerges()}
     parasiteTick(dt);specialTick(dt);pressTick(dt);shiftTick();surgeTick(dt);limitTick(now);clearTick(now);goalTick();fireTick(now);prankTick(now);if(isAuto())fallTick(dt,now);
-    const bad=bodies.some(b=>now-b.born>1500&&b.position.y-b.circleRadius<RIM&&b.speed<2.5);
+    const bad=bodies.some(b=>now-b.born>1500&&b.bounds.min.y<RIM&&b.speed<2.5);
     danger=bad?danger+dt:Math.max(0,danger-dt*2);
     if(danger>2400){if(canFake())fakeOver();else if(canContinue())offerContinue();else gameOver()}
   }else acc=0;
@@ -3347,9 +3355,9 @@ function frame(now){
         if(b.anom==='magnet')drawMagnet(ctx,r,t,Math.max(0,1-(now-b.born)/9000));else if(b.anom==='brood'){const dx=pointer.x-b.position.x,dy=pointer.y-b.position.y,d=Math.hypot(dx,dy)||1;drawBrood(ctx,r,t,b.seed,{x:dx/d,y:dy/d})}
         else drawPiece(ctx,b.anom,r,t,b.seed,{x:0,y:0});ctx.restore();continue}
       if(b.boss){ctx.save();ctx.globalAlpha=.35+.25*Math.sin(t*5);ctx.fillStyle='#ff2a50';ctx.beginPath();ctx.arc(b.position.x,b.position.y,r*1.12,0,TAU);ctx.fill();ctx.restore()}
-      ctx.save();ctx.translate(b.position.x,b.position.y);if(!b.rot)liveXf(b,r,t,now);ctx.save();ctx.rotate(b.angle);
+      ctx.save();ctx.translate(b.position.x,b.position.y);if(!b.rot)liveXf(b,r,t,now);ctx.save();ctx.rotate(b.angle);if(b.shape)ctx.scale(b.shape[0],b.shape[1]);
       if(b.rot)drawRot(ctx,r,t,b.seed);else{waveX=b.position.x/W;const lk=gazeNow||(NERV>.6&&b.seed%3<1)?{x:0,y:0}:localLook(b);drawCreature(ctx,b.lvl,r,t,b.seed,lk,gazeNow);if(b.hy)drawHybrid(ctx,b.hy,r,t,b.seed,lk);if(b.burn)drawBurn(b,r,now);waveX=null}
-      ctx.restore();if(!b.rot)shine(ctx,r);ctx.restore();if(b.rot)drawFlies(ctx,b.position.x,b.position.y,r,t,b.seed)}
+      if(b.shape&&!b.rot)shine(ctx,r);ctx.restore();if(!b.rot&&!b.shape)shine(ctx,r);ctx.restore();if(b.rot)drawFlies(ctx,b.position.x,b.position.y,r,t,b.seed)}
     for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,TAU);ctx.fill()}
     ctx.globalAlpha=1;
     if(jar.dark||darkUntil>now||isTrial('uv'))drawDark(now,(jar.dark||isTrial('uv'))&&!(darkUntil>now));
