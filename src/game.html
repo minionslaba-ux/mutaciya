@@ -40,7 +40,8 @@ button.primary{background:var(--amber);color:#1c1508;border-color:transparent}
 .stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center}
 #cv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block;touch-action:none;border-radius:10px;outline:none;cursor:crosshair}
 #cv:focus-visible{box-shadow:0 0 0 2px var(--amber)}
-.abil{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px}
+.abil{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:6px}
+.abil button{padding-left:2px!important;padding-right:2px!important;font-size:clamp(10px,3.2vw,15px)!important;letter-spacing:0!important;white-space:nowrap;overflow:visible}
 .abil #abDown{border-color:var(--amber)}
 .abil #abLeak{animation:flick 1.6s infinite;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
 .abil #abExt{animation:flick 1.2s infinite;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;border-color:#ff6a1a}
@@ -445,8 +446,8 @@ body{height:100vh;height:100dvh}
   </div>
   <div class="abil" aria-label="Умения, по одному разу за партию">
     <button id="abShake">Тряска</button>
-    <button id="abRemove">Удалить</button>
-    <button id="abSwap">Заменить</button>
+    <button id="abRemove">Убрать</button>
+    <button id="abSwap">Замена</button>
     <button id="abFire" aria-label="Огнемёт">🔥<span class="lbl"> Огнемёт</span><i id="fireN"></i></button>
     <button id="abDown" hidden aria-label="Сбросить мутанта вниз">Вниз</button>
     <button id="abEmg" class="primary" hidden aria-label="Устранить ЧП"><span id="abEmgI"></span><small></small></button>
@@ -1914,9 +1915,9 @@ function updAbil(){for(const [id,k] of [['abShake','shake'],['abRemove','remove'
 for(const [id,k] of [['abShake','shake'],['abRemove','remove'],['abSwap','swap']]){$(id).disabled=!abil[k]&&!abilAdOk(k);$(id).classList.toggle('adre',!abil[k]&&abilAdOk(k));$(id).classList.toggle('arm',k==='remove'&&targeting)}
   {const n=abil.fire||0,adOk=!n&&!FIRE.adUsed&&(!!PUBLIC_URL||PIKABU)&&!window.__DEMO;$('abFire').disabled=!n&&!adOk;$('abFire').classList.toggle('arm',FIRE.aim);
    $('fireN').textContent=n?'×'+n:adOk?'+1':'';$('abFire').title=n?'Огнемёт: нажмите и коснитесь банки':adOk?'Ещё заряд за рекламу':'Заряд — за зачистку'}
-  $('abRemove').textContent=targeting?'Коснитесь цели':'Удалить'}
+  $('abRemove').textContent=targeting?'Цель?':'Убрать'}
 function abilAd(k){if(!abilAdOk(k)||over||paused)return false;ABIL_AD[k]=1;track('abil_ad',{k});const was=paused;paused=true;
-  const give=()=>{paused=was;abil[k]=1;updAbil();toast('Перезаряжено',{shake:'Тряска',remove:'Удалить',swap:'Заменить'}[k]+' — ещё раз','Используйте, когда станет тесно.')};
+  const give=()=>{paused=was;abil[k]=1;updAbil();toast('Перезаряжено',{shake:'Тряска',remove:'Убрать',swap:'Замена'}[k]+' — ещё раз','Используйте, когда станет тесно.')};
   if(noAds())give();else showAd('rewarded',ok=>{paused=was;if(ok)give();else updAbil()});return true}
 $('abShake').onclick=()=>{if(!abil.shake&&abilAd('shake'))return;if(!abil.shake||over||paused)return;abil.shake=0;doShake(1);updAbil();cv.focus({preventScroll:true})};
 $('abFire').onclick=()=>{if(over||paused)return;
@@ -2892,7 +2893,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.16a';
+const APP_VER='2026.11.16b';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
