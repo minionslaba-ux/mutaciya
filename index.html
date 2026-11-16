@@ -1325,7 +1325,7 @@ function fireAt(p){FIRE.aim=false;if(over||paused||!(abil.fire>0)){updAbil();ret
   const list=bodies.filter(b=>!b.burn&&b.anom!=='wormseg').map(b=>({b,d:Math.hypot(b.position.x-p.x,b.position.y-p.y)-b.circleRadius})).sort((a,c)=>a.d-c.d);
   let tg=list.filter(o=>o.d<70).slice(0,5);if(tg.length<3)tg=list.filter(o=>o.d<150).slice(0,3);
   if(!tg.length){floater(p.x,p.y,'мимо — здесь пусто',false,'#ff9a3a');updAbil();return}
-  abil.fire--;const now=performance.now();FIRE.jets.push({x:p.x,y:p.y,t0:now});
+  abil.fire--;GM.used=1;GM.fire=1;const now=performance.now();FIRE.jets.push({x:p.x,y:p.y,t0:now});
   for(const {b} of tg){b.burn=now+60+Math.random()*120;Body.setVelocity(b,{x:b.velocity.x*.3,y:Math.min(b.velocity.y,0)})}
   fireSound();vibe([30,20,60,20,90]);shake=Math.max(shake,6);track('fire',{n:tg.length});
   if(!store.get('mut.fireTip',false)){store.set('mut.fireTip',true)}updAbil()}
@@ -1335,7 +1335,7 @@ function fireTick(now){
     const x=b.position.x,y=b.position.y,r=b.circleRadius;if(b.anom==='worm'){killWorm(b,0,'');}else removeBody(b);
     for(let i=0;i<14;i++)particles.push({x:x+rnd(-r,r)*.7,y:y+rnd(-r,r)*.5,vx:rnd(-1.5,1.5),vy:rnd(-3,-.5),life:1,r:rnd(1.5,3.5),col:i%3?'#2a2420':'#6a5a50'});
     for(let i=0;i<6;i++)FIRE.p.push({x:x+rnd(-r,r)*.6,y:y,vx:rnd(-.3,.3),vy:rnd(-1.6,-.6),life:.8,r:rnd(5,9),smoke:1});
-    score+=5;FIRE.burned=(FIRE.burned||0)+1;floater(x,y,'сгорел +5',false,'#ff9a3a');updHud()}
+    score+=5;FIRE.burned=(FIRE.burned||0)+1;GM.burned++;floater(x,y,'сгорел +5',false,'#ff9a3a');updHud()}
   for(const f of FIRE.p){f.x+=f.vx;f.y+=f.vy;f.vy*=.985;f.life-=f.smoke?.012:.035}FIRE.p=FIRE.p.filter(f=>f.life>0);
   FIRE.jets=FIRE.jets.filter(j=>now-j.t0<700)}
 function drawFire(now){if(!FIRE.jets.length&&!FIRE.p.length)return;ctx.save();
@@ -1412,16 +1412,26 @@ function updRefs(){const el=$('refLine');if(!el)return;const nx=REF_REWARDS.find
 async function loadRefs(){if(!useSupa()||PIKABU)return;try{const n=await supa('/rest/v1/rpc/mutaciya_refs',{p_ref:myRef()});if(typeof n==='number'){
   const was=refCount;refCount=n;store.set('mut.refs',n);updRefs();const got=REF_REWARDS.filter(r=>was<r[0]&&n>=r[0]);
   for(const r of got)toast('Друг пришёл по вашей ссылке','Открыт '+r[2],'Выбрать цвет: «Достижения» → внизу «Формалин».')}}catch(e){}}
-// ---------- цель первых смен: Глаз → Червивец → Зубастик ----------
-const FIRST_GOALS=[[LV.eye,100],[LV.wormy,200],[LV.teeth,300]];
-const GOAL={lvl:null,pts:0,done:false};
+// ---------- цели первых смен (каталог миссий: docs/missii-katalog.md) ----------
+// 1-я смена: Глаз (первое слияние) → «Затор» (сжечь огнемётом 3) → «Перегрузка» (продержаться 30 с); 2-я: Червивец; 3-я: доработать смену до конца
+const GM={};function gmReset(){Object.assign(GM,{used:0,fire:0,burned:0,surge:0,calm:0,calmDone:0,mt:[],chainAt:0,cnt:{}})}gmReset();
+const FS_CHAIN=[{k:'form',lvl:LV.eye,pts:100},{k:'burn',n:3,pts:200},{k:'surge',n:30000,pts:300}];
+const FIRST_GOALS=[FS_CHAIN[0],{k:'form',lvl:LV.wormy,pts:200},{k:'shift',pts:300}];
+const GOAL={lvl:null,pts:0,done:false,k:'form',i:0,n:0};
+function goalSet(g,i){GOAL.k=g?g.k:'form';GOAL.lvl=g?(g.k==='form'?g.lvl:-1):null;GOAL.pts=g?g.pts:0;GOAL.n=g&&g.n||0;GOAL.i=i||0;GOAL.done=false;if(g&&g.k==='burn')GM.burned=0;if(g&&g.k==='surge')GM.surge=0}
+function goalName(){return GOAL.k==='burn'?'Сожгите огнемётом 3 мутантов':GOAL.k==='surge'?'Продержитесь 30 секунд перегрузки':GOAL.k==='shift'?'Доработайте смену до конца':'Выведите: '+FORMS[GOAL.lvl].name}
+function goalShort(){return GOAL.k==='burn'?`сжечь огнемётом ${Math.min(GM.burned,GOAL.n)}/${GOAL.n}`:GOAL.k==='surge'?(GM.surge>0?`перегрузка ${Math.floor(GM.surge/1000)}/30 с`:'продержаться в перегрузке 30 с'):GOAL.k==='shift'?'доработать смену до 5:00':FORMS[GOAL.lvl].name}
+function goalMet(){if(GOAL.k==='burn')return GM.burned>=GOAL.n;if(GOAL.k==='surge')return GM.surge>=GOAL.n;if(GOAL.k==='shift')return false;return topLvl>=GOAL.lvl&&!(topLvl>MAX&&topLvl!==LV.hive)}
 const FG={t:0,fire:false,mid:false};
-function goalReset(){const g=mode==='classic'&&!isCalm()?FIRST_GOALS[stats.games]:null;GOAL.lvl=g?g[0]:null;GOAL.pts=g?g[1]:0;GOAL.done=false;
-  if(g&&stats.games>0)setTimeout(()=>toast('Цель смены','Выведите: '+FORMS[g[0]].name,`Награда +${g[1]} очков.`),900)}
-function goalTick(){if(GOAL.lvl==null||GOAL.done||over||topLvl<GOAL.lvl||topLvl>MAX&&topLvl!==LV.hive)return;GOAL.done=true;score+=GOAL.pts;updHud();flash=1;shake=Math.max(shake,8);
-  floater(W/2,RIM+60,`цель выполнена +${GOAL.pts}`,true,'#ffcf7a');if(!firstShift())toast('Цель смены выполнена!',FORMS[GOAL.lvl].name,`+${GOAL.pts} очков. Играйте дальше — сколько продержитесь?`);
-  vibe([40,30,80]);track('goal',{form:FORMS[GOAL.lvl].id,games:stats.games});
-  if(firstShift()){const n=FIRST_GOALS.find(g=>g[0]>topLvl);if(n)setTimeout(()=>{if(over||!firstShift()||topLvl>=n[0])return;GOAL.lvl=n[0];GOAL.pts=n[1];GOAL.done=false;updHud();floater(W/2,RIM+90,'новая цель: '+FORMS[n[0]].name,false,'#ffcf7a')},2600)}}
+function goalReset(){let g=mode==='classic'&&!isCalm()?FIRST_GOALS[stats.games]:null;if(g&&g.k==='shift'&&!isTimed())g=null;goalSet(g,0);
+  if(g&&stats.games>0)setTimeout(()=>toast('Цель смены',goalName(),`Награда +${g.pts} очков.`),900)}
+function goalTick(){if(GOAL.lvl==null||GOAL.done||over||!goalMet())return;goalWin()}
+function goalWin(){GOAL.done=true;score+=GOAL.pts;updHud();flash=1;shake=Math.max(shake,8);
+  floater(W/2,RIM+60,`цель выполнена +${GOAL.pts}`,true,'#ffcf7a');if(!firstShift()&&GOAL.k!=='shift')toast('Цель смены выполнена!',goalShort(),`+${GOAL.pts} очков. Играйте дальше — сколько продержитесь?`);
+  vibe([40,30,80]);track('goal',{form:GOAL.k==='form'?FORMS[GOAL.lvl].id:GOAL.k,games:stats.games});
+  if(firstShift()){const i=GOAL.i+1,n=FS_CHAIN[i];if(n)setTimeout(()=>{if(over||!firstShift())return;goalSet(n,i);
+    if(n.k==='burn'){if(!(abil.fire>0)){abil.fire=1;floater(W/2,RIM+120,'лаборатория выдала заряд 🔥',false,'#ff9a3a')}FG.fire=true;updAbil();const b=$('abFire');b.classList.add('hint');setTimeout(()=>b.classList.remove('hint'),9000);toast('Затор!','Сожгите огнемётом 3 мутантов','Нажмите 🔥 внизу и коснитесь банки там, где тесно.')}
+    updHud();floater(W/2,RIM+90,'новая цель: '+goalShort(),false,'#ffcf7a')},2600)}}
 // ---------- «Завтра в лаборатории» на экране конца партии ----------
 function fillTomorrow(){const el=$('tmrw');if(!el)return;if(mode==='trial'||window.__DEMO){el.hidden=true;return}
   const f=FAMS[((DAY_NO)%FAMS.length+FAMS.length)%FAMS.length],i0=LV[f.id+'0'],F=FORMS[i0],open=labLvl()>=UNLOCK.fam,n=streakNow();
@@ -1439,7 +1449,7 @@ let shiftWarn=0,shiftShown=-1;
 // перегрузка: со 2-й минуты смены лаборатория досыпает образцы всё чаще (в первой смене новичка — мягче и позже)
 const SURGE={t:0,warned:0,said:0};
 const surgeK=()=>{if(!isTimed()||over)return 0;const fs=firstShift();const k=(HZ.t-(fs?170000:90000))/(fs?110000:120000);return Math.max(0,Math.min(fs?.55:1,k))};
-function surgeTick(dt){const k=surgeK();if(k<=0)return;
+function surgeTick(dt){const k=surgeK();if(k<=0)return;GM.surge+=dt;if(jarFill()<.6){GM.calm+=dt;if(GM.calm>=30000&&!GM.calmDone){GM.calmDone=1;ev('calm')}}
   if(!SURGE.said){SURGE.said=1;track('surge_start',{score});toast('Перегрузка лаборатории!','Образцы сыплются всё чаще','Продержитесь до конца смены — за целую банку +'+SHIFT_BONUS+'.');ECG.spike=Math.max(ECG.spike||0,30)}
   SURGE.t+=dt;const iv=7000-5000*k;
   if(SURGE.t>=iv){SURGE.t=0;const n=k>.85&&Math.random()<.35?3:k>.45&&Math.random()<.6?2:1;
@@ -1462,14 +1472,14 @@ function shiftTick(){if(!isTimed()||over)return;const left=SHIFT_MS-HZ.t,sec=Mat
 // сохранение смены: ушли посреди «Классики» — при следующем заходе «Продолжить смену» (3 дня)
 function saveShift(){try{if(!started||over||mode!=='classic'||window.__DEMO||!engine||!bodies.length)return;
   const bs=bodies.filter(b=>!b.burn&&!b.clearing&&b.anom!=='wormseg').slice(0,80).map(b=>[b.anom||b.lvl,Math.round(b.position.x),Math.round(b.position.y),b.hy||0]);
-  store.set('mut.save',{v:1,t:Date.now(),score,drops,top:topLvl,cur,nxt,abil:{...abil},ht:Math.round(HZ.t),goal:[GOAL.lvl,GOAL.pts,GOAL.done],jar:jarKey,bs})}catch(e){}}
+  store.set('mut.save',{v:1,t:Date.now(),score,drops,top:topLvl,cur,nxt,abil:{...abil},ht:Math.round(HZ.t),goal:[GOAL.lvl,GOAL.pts,GOAL.done,GOAL.k,GOAL.i,GOAL.n],jar:jarKey,bs})}catch(e){}}
 function saveGet(){const s=store.get('mut.save',null);return s&&s.v===1&&Date.now()-s.t<3*864e5&&Array.isArray(s.bs)&&s.bs.length?s:null}
 function saveClear(){if(store.get('mut.save',null))store.set('mut.save',null)}
 function resumeShift(){const sv=saveGet();if(!sv){startMode('classic');return}
   startMode('classic');for(const b of bodies.slice())removeBody(b);
   for(const [k,x,y,hy] of sv.bs){if(k==null)continue;const b=spawn(k,x,y);b.born=-1e9;if(hy)b.hy=hy}
   score=sv.score|0;drops=sv.drops|0;topLvl=sv.top|0;if(sv.cur!=null)cur=sv.cur;if(sv.nxt!=null)nxt=sv.nxt;for(const k in sv.abil||{})abil[k]=Math.max(abil[k]||0,sv.abil[k]|0);HZ.t=Math.min(sv.ht|0,SHIFT_MS-20000);
-  if(Array.isArray(sv.goal)){GOAL.lvl=sv.goal[0];GOAL.pts=sv.goal[1];GOAL.done=!!sv.goal[2]}
+  if(Array.isArray(sv.goal)){GOAL.lvl=sv.goal[0];GOAL.pts=sv.goal[1];GOAL.done=!!sv.goal[2];GOAL.k=sv.goal[3]||'form';GOAL.i=sv.goal[4]|0;GOAL.n=sv.goal[5]|0}
   TUT.step=-1;setTimeout(()=>{TUT.step=-1},30);updHud();updAbil();drawNext();saveClear();track('shift_resume',{score,age:Math.round((Date.now()-sv.t)/60000)});
   toast('Смена продолжается','Банка ждала вас',score+' очков · всё на месте')}
 document.addEventListener('visibilitychange',()=>{if(document.hidden)saveShift()});addEventListener('pagehide',saveShift);setInterval(saveShift,15000);
@@ -1546,7 +1556,7 @@ function newGame(m){
   {const bf=store.get('mut.bonusFire',0)|0;if(bf>0&&m!=='trial'&&m!=='daily'){abil.fire+=bf;store.set('mut.bonusFire',0);updAbil();setTimeout(()=>toast('Запас огнемёта','+'+bf+' '+plural(bf,'заряд','заряда','зарядов'),'Из сундука и наград. Кнопка 🔥 внизу.'),1200)}}
   cur=seq.next();nxt=seq.next();if(fs){cur=LV.larva;nxt=LV.larva;FG.t=performance.now();FG.fire=false;FG.mid=false;
     setTimeout(()=>{if(!started||over||!firstShift())return;const x=W/2-70;for(const dx of [-24,24]){const b=spawn(LV.spore,x+dx,RIM+90);b.born=performance.now();Body.setVelocity(b,{x:-dx/10,y:2})}
-      setTimeout(()=>{if(!over)floater(W/2,RIM+70,'МУТАЦИЯ!',true,'#ffcf7a');flash=Math.max(flash,.5)},650)},900);HZ.nextLight=rnd(65e3,80e3)}pressReset();goalReset();contUsed=false;
+      setTimeout(()=>{if(!over)floater(W/2,RIM+70,'МУТАЦИЯ!',true,'#ffcf7a');flash=Math.max(flash,.5)},650)},900);HZ.nextLight=rnd(65e3,80e3)}pressReset();gmReset();goalReset();contUsed=false;
   $('over').hidden=true;started=true;
   if(m==='trial')trialStart();else{trial=null;won=false}
   $('modeChip').textContent=(m==='trial'?`Испытание ${trialIdx+1}`:m==='daily'?`Дневной забег №${DAY_NO}`:m==='challenge'?`Вызов ${challenge.target}`+(challenge.fall?' · падение':''):m==='fall'?'Падение':'Классика')+(jarKey!=='normal'?' · '+jar.name:'');
@@ -1938,7 +1948,7 @@ function processMerges(){if(queue.length)tutEv('merge');
     if(k==='splitter'){removeBody(m);removeBody(o);const L=o.lvl,N=NEXT[L]!=null&&rk(L)<rk(LV.teeth)?NEXT[L]:L,x=o.position.x,y=o.position.y,now=performance.now(),dx=FORMS[N].r*.9;
       for(const sx of [-1,1]){const nb=spawn(N,Math.max(JL+FORMS[N].r,Math.min(JR-FORMS[N].r,x+sx*dx)),y);nb.noM=now+2600;nb.pop=now;Body.setVelocity(nb,{x:sx*2.6,y:-1.5})}
       splat(x,y,'#b8d86a',20,1.3);RIPS.push({x,y,R:FORMS[N].r,t0:now,big:true});const g=PTS[N]*(HZ.night?2:1);score+=g;floater(x,y-14,'делитель: ×2 '+FORMS[N].name+' +'+g,true,'#c8f070');
-      sound(rk(N),false);vibe([20,40,20]);shake=Math.max(shake,4);discover(N);ev('make',N);ev('make',N);track('splitter',{form:FORMS[N].id});continue}
+      sound(rk(N),false);vibe([20,40,20]);shake=Math.max(shake,4);discover(N);ev('make',N);ev('make',N);ev('split');track('splitter',{form:FORMS[N].id});continue}
     if(k==='mirror'){removeBody(m);const L=o.lvl;const nb=spawn(L,m.position.x,m.position.y);Body.setVelocity(nb,m.velocity);
       splat(m.position.x,m.position.y,'#e6e6ea',14,1);floater(m.position.x,m.position.y-10,'копия: '+FORMS[L].name,false);sound(L,false);vibe(20);continue}
     removeBody(m);removeBody(o);const L=NEXT[o.lvl],ox=o.position.x,oy=o.position.y;
@@ -1962,7 +1972,7 @@ function processMerges(){if(queue.length)tutEv('merge');
     // big births dissolve nearby rot
     if(rk(L)>=LV.eye){for(const rb of bodies.filter(q=>q.rot)){const d=Math.hypot(rb.position.x-x,rb.position.y-y);
       if(d<FORMS[L].r+ROT_R+10){removeBody(rb);splat(rb.position.x,rb.position.y,'#6e7550',14,1.3);score+=10;floater(rb.position.x,rb.position.y,'гниль растворена +10',false);stats.rot++;saveStats();ev('rot')}}}
-    crushParasites(x,y,FORMS[L].r);discover(L);ev('make',L);hzMerge(L);
+    crushParasites(x,y,FORMS[L].r);discover(L);ev('make',L);hzMerge(L,y);
   }
   queue=[];
   if(newForm>=0){renderReg();if(opts.scare&&!isCalm()&&newForm>=3&&!(stats.games===0&&HZ.t<75000))scheduleScream(newForm);else{if(rk(newForm)>=3||FORMS[newForm].nii||newForm===LV.hive)showDisc(newForm);else toast('Новая мутация',FORMS[newForm].name);flash=.6}}
@@ -1995,7 +2005,7 @@ function eaterTick(dt){const now=performance.now();
     const prey=bodies.filter(q=>q!==e&&q.lvl!=null&&!q.merging&&!q.burn&&!q.clearing&&q.circleRadius<r*1.02&&Math.hypot(q.position.x-e.position.x,q.position.y-e.position.y)<q.circleRadius+r+3).sort((a,b)=>b.circleRadius-a.circleRadius)[0];
     if(!prey)continue;e.eatT=0;e.meals++;e.ateAt=now;const pr=prey.circleRadius,px=prey.position.x,py=prey.position.y,pts=PTS[prey.lvl]||1;
     removeBody(prey);splat(px,py,FORMS[prey.lvl].c,12,1);const nr=Math.min(62,Math.sqrt(r*r+.92*pr*pr));Body.scale(e,nr/r,nr/r);e.pop=now;
-    score+=pts;updHud();floater(e.position.x,e.position.y-nr-6,'ам! +'+pts,false,'#e08ac0');chomp();vibe(18);track('eater_meal',{n:e.meals})}}
+    score+=pts;updHud();floater(e.position.x,e.position.y-nr-6,'ам! +'+pts,false,'#e08ac0');chomp();vibe(18);track('eater_meal',{n:e.meals});ev('meal')}}
 function specialTick(dt){eaterTick(dt);
   trialTick(dt);if(isTrial()&&(trial.uiT=(trial.uiT||0)+dt)>500){trial.uiT=0;updHud()}
   wormTick(dt);
@@ -2031,17 +2041,17 @@ for(const [id,k] of [['abShake','shake'],['abRemove','remove'],['abSwap','swap']
 function abilAd(k){if(!abilAdOk(k)||over||paused)return false;ABIL_AD[k]=1;track('abil_ad',{k});const was=paused;paused=true;
   const give=()=>{paused=was;abil[k]=1;updAbil();toast('Перезаряжено',{shake:'Тряска',remove:'Убрать',swap:'Замена'}[k]+' — ещё раз','Используйте, когда станет тесно.')};
   if(noAds())give();else showAd('rewarded',ok=>{paused=was;if(ok)give();else updAbil()});return true}
-$('abShake').onclick=()=>{if(!abil.shake&&abilAd('shake'))return;if(!abil.shake||over||paused)return;abil.shake=0;doShake(1);updAbil();cv.focus({preventScroll:true})};
+$('abShake').onclick=()=>{if(!abil.shake&&abilAd('shake'))return;if(!abil.shake||over||paused)return;abil.shake=0;GM.used=1;doShake(1);updAbil();cv.focus({preventScroll:true})};
 $('abFire').onclick=()=>{if(over||paused)return;
   if(!(abil.fire>0)){if(FIRE.adUsed||!(PUBLIC_URL||PIKABU))return;FIRE.adUsed=true;track('fire_ad',{});const was=paused;paused=true;
     const give=()=>{paused=was;abil.fire=1;updAbil();toast('Огнемёт заправлен','Нажмите 🔥 и коснитесь банки')};if(noAds())give();else showAd('rewarded',ok=>{paused=was;if(ok)give();else updAbil()});return}
   FIRE.aim=!FIRE.aim;targeting=false;updAbil();if(FIRE.aim&&!store.get('mut.fireAimTip',false)){store.set('mut.fireAimTip',true);toast('Огнемёт','Коснитесь банки','Сгорят 3–5 мутантов вокруг места касания.')}};
-$('abSwap').onclick=()=>{if(!abil.swap&&abilAd('swap'))return;if(!abil.swap||over||paused)return;abil.swap=0;cur=seq.next();drawNext();updAbil();floater(W/2,SPAWN_Y+40,'образец заменён',false)};
+$('abSwap').onclick=()=>{if(!abil.swap&&abilAd('swap'))return;if(!abil.swap||over||paused)return;abil.swap=0;GM.used=1;cur=seq.next();drawNext();updAbil();floater(W/2,SPAWN_Y+40,'образец заменён',false)};
 $('abRemove').onclick=()=>{if(!abil.remove&&abilAd('remove'))return;if(!abil.remove||over||paused)return;targeting=!targeting;updAbil()};
 function removeAt(p){const hit=bodies.find(q=>Math.hypot(q.position.x-p.x,q.position.y-p.y)<q.circleRadius+6);if(!hit)return false;
-  if(hit.anom==='worm'||hit.anom==='wormseg'){killWorm(hit.head||hit,0,'червь удалён');abil.remove=0;targeting=false;updAbil();vibe(30);return true}
+  if(hit.anom==='worm'||hit.anom==='wormseg'){killWorm(hit.head||hit,0,'червь удалён');abil.remove=0;GM.used=1;targeting=false;updAbil();vibe(30);return true}
   removeBody(hit);splat(hit.position.x,hit.position.y,hit.lvl!=null?FORMS[hit.lvl].c:'#888',16,1.2);floater(hit.position.x,hit.position.y,'удалено',false);
-  abil.remove=0;targeting=false;updAbil();vibe(30);return true}
+  abil.remove=0;GM.used=1;targeting=false;updAbil();vibe(30);return true}
 
 // fall mode: the piece descends by itself; the player steers it until it touches something
 // speed level grows every 500 points
@@ -2074,7 +2084,7 @@ function jarFill(){let top=FLOOR;for(const b of bodies)top=Math.min(top,b.bounds
 function liquidNow(){const base=skinNow()?skinNow().liq:(LIQ[opts.liquid]||LIQ.amber).c;const pal=i=>i===0?base:LIQ_CYCLE[(i-1)%LIQ_CYCLE.length];
   const a=pal(HZ.liqFrom),b=pal(HZ.liqTo),k=Math.min(1,HZ.liqK);let c=[hexMix(a[0],b[0],k),hexMix(a[1],b[1],k)];
   if(opts.scare&&engine&&!isCalm()){const bl=Math.max(0,(jarFill()-.6)/.4)*.85;if(bl>0)c=[hexMix(c[0],'#5a0b0e',bl),hexMix(c[1],'#1b0203',bl)]}return c}
-function hzMerge(L){trialMerge(L);if(rk(L)>=LV.leech&&HZ.cracks.length){HZ.heal++;if(HZ.heal>=2){HZ.heal=0;const c=HZ.cracks.shift();floater(c.x+c.side*30,c.y,'трещина затянулась',false,'#9fe0a0')}}
+function hzMerge(L,y){trialMerge(L,y);if(rk(L)>=LV.leech&&HZ.cracks.length){HZ.heal++;if(HZ.heal>=2){HZ.heal=0;const c=HZ.cracks.shift();floater(c.x+c.side*30,c.y,'трещина затянулась',false,'#9fe0a0')}}
   if(rk(L)>=LV.brain&&opts.scare)HZ.glitchUntil=performance.now()+650}
 function scheduleScream(l){HZ.silence=true;setTimeout(()=>{HZ.silence=false;if(!over){startScream(l);if(scream)scream.disc=true}},480)}
 function knock(b){const side=b.position.x<(JL+JR)/2?-1:1,x=side<0?JL:JR,y=Math.max(RIM+30,Math.min(FLOOR-30,b.position.y+rnd(-20,20)));
@@ -2128,7 +2138,7 @@ function hzTick(dt){
   if(HZ.night){HZ.night.t+=dt;if(HZ.night.t>30000){HZ.night=null;HZ.nightDone=true;stats.nights++;saveStats();checkAch();toast('Смена окончена','Свет снова обычный')}}
   if(isOpen('inspect')&&drops>15&&!HZ.inspect&&T>HZ.nextInspect){HZ.nextInspect=T+rnd(80e3,140e3);HZ.inspect={phase:'warn',t:0};toast('Шаги в коридоре','Проверка!','Через 2 секунды замрите на 5 секунд: ничего не бросайте');footsteps()}
   if(HZ.inspect){const I=HZ.inspect;I.t+=dt;if(I.phase==='warn'&&I.t>2000){I.phase='quiet';I.t=0}
-    else if(I.phase==='quiet'&&I.t>5000){HZ.inspect=null;score+=50;floater(W/2,RIM+70,'проверка пройдена +50',true);track('inspect',{ok:true});stats.inspect++;saveStats();checkAch();updHud()}}
+    else if(I.phase==='quiet'&&I.t>5000){HZ.inspect=null;score+=50;floater(W/2,RIM+70,'проверка пройдена +50',true);track('inspect',{ok:true});stats.inspect++;saveStats();ev('inspect');updHud()}}
   for(const q of bodies){if(q.anom!=='doll')continue;const age=now-q.born;if(age<12000)continue;q.dT=(q.dT||0)+dt;
     if(!q.laughed||q.dT>8000){q.laughed=true;q.dT=0;laugh();const near=bodies.filter(o=>o.lvl!=null&&o.lvl<=3&&Math.hypot(o.position.x-q.position.x,o.position.y-q.position.y)<130);
       if(near.length){const o=pick(near);removeBody(o);spawn('rot',o.position.x,o.position.y);splat(o.position.x,o.position.y,'#6e7550',12,1)}floater(q.position.x,q.position.y-30,'ха-ха-ха',true,'#ff6a72')}}
@@ -2152,10 +2162,10 @@ const EMGS={
   short:{name:'Короткое замыкание',icon:'⚡',open:5,cost:100,dur:10000,
     text:E=>`Искрит проводка: управление перепутано — влево значит вправо. Через ${emgLeft(E)} с пройдёт само.`,btn:'Рубильник'},
   rad:{name:'Утечка радиации',icon:'☢️',open:7,cost:200,dur:15000,
-    text:E=>`Мутанты рядом с источником меняют форму — иногда в худшую сторону, а иногда рождается редкий гибрид. Ещё ${emgLeft(E)} с.`,btn:'Защита'},
+    text:E=>`Мутанты рядом с источником меняют форму. Оттолкайте источник касаниями к стенке банки — или включите защиту. Ещё ${emgLeft(E)} с.`,btn:'Защита'},
   fumes:{name:'Пары формалина',icon:'🌫️',open:6,cost:100,dur:20000,
-    text:E=>`Вентиляция отключилась, всё плывёт перед глазами. Включить вытяжку — или терпеть ещё ${emgLeft(E)} с.`,btn:'Вытяжка'},
-  rat:{name:'Крыса в лаборатории!',icon:'🐀',open:4,dur:15000,bar:'Поймайте её касанием — она грызёт стекло'},
+    text:E=>`Вентиляция отключилась, всё плывёт перед глазами. Раскрутите вытяжку — 5 касаний по вентилятору справа вверху — или включите её за очки. Само пройдёт через ${emgLeft(E)} с.`,btn:'Вытяжка'},
+  rat:{name:'Крыса в лаборатории!',icon:'🐀',open:4,dur:15000,bar:'Удирает от пальца — прижмите к стенке и поймайте касанием'},
   escape:{name:'Мутант сбежал!',icon:'🏃',open:5,dur:6000,bar:'Поймайте касанием, иначе он вернётся вдвоём'},
   quar:{name:'Карантин!',icon:'🚨',open:7,dur:20000,bar:''},
   quake:{name:'Толчок!',icon:'🌍',open:4,dur:3500,bar:'Банку трясёт — держитесь'}};
@@ -2172,19 +2182,24 @@ function emgTick(dt,T,now){
         if(Math.random()<.12&&HYB[FORMS[L].id]){nb.hy=HYB[FORMS[L].id].id;if(!found.has('h:'+nb.hy)){found.add('h:'+nb.hy);store.set('mut.found',[...found]);renderReg();showDisc(L,HYB[FORMS[L].id])}}
         splat(x,y,'#9aff3a',12,1);floater(x,y-20,up?'облучён: '+FORMS[L].name:'облучён: усох',false,'#b8e020');discover(L)}}
     if(Math.random()<dt/90)tone('square',2000+Math.random()*800,2000,.012,.05,(Math.random()-.5))}
-  else if(E.id==='rat'){E.x+=E.vx*dt/16;if(E.x<JL+10||E.x>JR-10)E.vx*=-1;if((E.k=(E.k||0)+dt)>4500){E.k=0;const side=E.x<W/2?-1:1;HZ.cracks.push({x:side<0?JL:JR,y:RIM+rnd(10,60),side:-side,seed:Math.random()*1e4});
+  else if(E.id==='rat'){const d=E.x-aimX,near=Math.abs(d)<75;if(near)E.vx=(d<0?-1:1)*4.2;else E.vx=Math.sign(E.vx||1)*Math.max(1.6,Math.abs(E.vx)*.97);
+    E.x+=E.vx*dt/16;if(E.x<JL+12){E.x=JL+12;if(!near)E.vx=Math.abs(E.vx)}else if(E.x>JR-12){E.x=JR-12;if(!near)E.vx=-Math.abs(E.vx)}if((E.k=(E.k||0)+dt)>4500){E.k=0;const side=E.x<W/2?-1:1;HZ.cracks.push({x:side<0?JL:JR,y:RIM+rnd(10,60),side:-side,seed:Math.random()*1e4});
       floater(E.x,RIM+24,'хрум!',false,'#ff5a4e');thud();vibe(40);if(HZ.cracks.length>=5){glassBreak();emgEnd(false);gameOver('crack');return}}}
   else if(E.id==='escape'){E.x+=E.vx*dt/16;E.y=E.y0+Math.sin(E.t/300)*14;if(E.x<16||E.x>W-16)E.vx*=-1}
   else if(E.id==='quake'){if((E.k=(E.k||0)+dt)>700){E.k=0;doShake(.9);shake=16}}
+  else if(E.id==='quar'){E.zx=JL+(JR-JL-E.zw)*(.5+.5*Math.sin(E.t/3200+E.ph))}
   if(E.t>=E.dur){if(E.id==='escape'){for(let i=0;i<2;i++){const nb=spawn(E.lvl,JL+60+i*(JR-JL-120),SPAWN_Y+20);nb.pop=now}toast('Мутант вернулся','и привёл друга','В банке стало на одного больше.')}
-    if(E.id==='quar'){for(let i=0;i<4;i++)setTimeout(()=>{if(!over)spawn(Math.floor(Math.random()*3),JL+40+Math.random()*(JR-JL-80),SPAWN_Y+10)},i*250);toast('Карантин провален','Лаборатория подсыпала образцы')}
+    if(E.id==='quar'){const g=120;score+=g;updHud();floater(W/2,RIM+60,`карантин выдержан +${g}`,true,'#ffd23a');toast('Карантин снят','Зона чистая',`+${g} очков`);emgEnd(true);return}
     emgEnd(false)}}
+function quarDrop(x){const E=EMG;if(!E||E.id!=='quar'||x<E.zx||x>E.zx+E.zw)return;E.bad++;E.bar=`Не бросайте в жёлтую зону — она ползёт. Ошибок ${E.bad}/3`;
+  floater(x,SPAWN_Y+50,'в карантин! '+E.bad+'/3',true,'#ffd23a');thud();vibe(40);
+  if(E.bad>=3){for(let i=0;i<4;i++)setTimeout(()=>{if(!over)spawn(Math.floor(Math.random()*3),JL+40+Math.random()*(JR-JL-80),SPAWN_Y+10)},i*250);toast('Карантин провален','Лаборатория подсыпала образцы');emgEnd(false);return}updEmg()}
 function emgStart(id){const D=EMGS[id],E={id,t:0,ui:0,dur:D.dur,pop:D.cost?'show':'',h:0,taps:0};
   if(id==='rad'){E.x=rnd(JL+60,JR-60);E.y=rnd(RIM+120,FLOOR-80)}
   if(id==='rat'){E.x=rnd(JL+30,JR-30);E.vx=(Math.random()<.5?-1:1)*1.6}
   if(id==='escape'){const c=bodies.filter(b=>b.lvl!=null&&!b.anom&&b.lvl>=2&&b.lvl<=8&&!b.burn).sort((a,b)=>a.position.y-b.position.y)[0];if(!c){HZ.nextEmg=HZ.t+20000;return}
     E.lvl=c.lvl;E.x=c.position.x;E.y0=RIM+110;E.y=E.y0;E.vx=(Math.random()<.5?-1:1)*2.2;removeBody(c)}
-  if(id==='quar'){const t0=Math.max(3,Math.min(MAX-2,topLvl-1+Math.floor(Math.random()*3)));E.lvl=found.has(t0)?t0:Math.min(t0,Math.max(3,topLvl));E.bar=`Выведите «${FORMS[E.lvl].name}» за 20 секунд — награда ×4`}
+  if(id==='quar'){E.zw=(JR-JL)*.3;E.ph=Math.random()*TAU;E.zx=JL+(JR-JL-E.zw)*(.5+.5*Math.sin(E.ph));E.bad=0;E.bar='Не бросайте в жёлтую зону — она ползёт. Ошибок 0/3'}
   EMG=E;track('emg_start',{id});emgSiren(id);vibe([40,30,40,30,80]);updEmg()}
 function emgEnd(fixed){const E=EMG;if(!E)return;EMG=null;
   for(const b of bodies)if(b.frozen){b.frozen=false;Body.setStatic(b,false)}
@@ -2198,6 +2213,10 @@ function emgMade(L){const E=EMG;if(!E||E.id!=='quar'||L!==E.lvl)return;const bon
 function emgTap(p){const E=EMG;if(!E||over||paused)return false;
   if(E.id==='rat'&&Math.hypot(p.x-E.x,p.y-(RIM+46))<42){score+=80;updHud();floater(E.x,RIM+20,'крыса поймана +80',true,'#9fe0a0');tone('sine',1400,2200,.12,.15);vibe([30,20,50]);emgEnd(true);return true}
   if(E.id==='escape'&&Math.hypot(p.x-E.x,p.y-E.y)<FORMS[E.lvl].r+26){const g=PTS[E.lvl]*2;score+=g;updHud();splat(E.x,E.y,FORMS[E.lvl].c,18,1.2);floater(E.x,E.y,`пойман +${g}`,true,'#9fe0a0');vibe([30,20,60]);emgEnd(true);return true}
+  if(E.id==='rad'&&Math.hypot(p.x-E.x,p.y-E.y)<44){const dir=E.x<W/2?-1:1;E.x+=dir*55;tone('square',320,180,.08,.06);vibe(20);
+    if(E.x<JL+40||E.x>JR-40){score+=60;updHud();floater(E.x,E.y-30,'источник изолирован +60',true,'#b8e020');emgEnd(true)}else floater(E.x,E.y-30,'толчок к стенке',false,'#b8e020');return true}
+  if(E.id==='fumes'&&Math.hypot(p.x-(JR-30),p.y-(RIM+34))<40){E.vent=(E.vent||0)+1;tone('triangle',200+E.vent*70,260+E.vent*70,.08,.05);vibe(15);
+    if(E.vent>=5){score+=40;updHud();floater(JR-40,RIM+76,'проветрено +40',true,'#d8e0b0');emgEnd(true)}else floater(JR-40,RIM+76,'вытяжка '+E.vent+'/5',false,'#d8e0b0');return true}
   if(E.id==='ice'&&p.y>FLOOR-E.h-20){E.taps++;shake=Math.max(shake,5);glassBreak();floater(p.x,p.y,E.taps>=3?'лёд разбит!':'трещит… '+E.taps+'/3',E.taps>=3,'#bfe8ff');
     if(E.taps>=3){emgEnd(true)}return true}
   return false}
@@ -2223,7 +2242,13 @@ function drawEmg(now,t){const E=EMG;if(!E)return;ctx.save();
       for(let k=0;k<3;k++){let x=sp.x,y=sp.y;ctx.beginPath();ctx.moveTo(x,y);for(let j=0;j<5;j++){x+=(sp.x<W/2?1:-1)*rnd(4,12);y+=rnd(-10,10);ctx.lineTo(x,y)}ctx.stroke()}}}
   if(E.id==='rad'){const g=ctx.createRadialGradient(E.x,E.y,5,E.x,E.y,130);g.addColorStop(0,`rgba(170,255,60,${.25+.1*Math.sin(t*6)})`);g.addColorStop(1,'rgba(170,255,60,0)');ctx.globalCompositeOperation='lighter';ctx.fillStyle=g;ctx.beginPath();ctx.arc(E.x,E.y,130,0,TAU);ctx.fill();
     ctx.globalCompositeOperation='source-over';ctx.save();ctx.translate(E.x,E.y);ctx.rotate(t);ctx.fillStyle='#e8c820';for(let i=0;i<3;i++){const a=i/3*TAU;ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,16,a-.5,a+.5);ctx.closePath();ctx.fill()}ctx.fillStyle='#111';ctx.beginPath();ctx.arc(0,0,3.5,0,TAU);ctx.fill();ctx.restore()}
-  if(E.id==='fumes'){for(let i=0;i<7;i++){const x=(i*83+t*14*(i%2?1:-1))%(W+160)-80,y=RIM+((i*131)%(FLOOR-RIM));ctx.fillStyle='rgba(190,200,150,.16)';ctx.beginPath();ctx.ellipse(x,y,90,40,0,0,TAU);ctx.fill()}}
+  if(E.id==='quar'){ctx.fillStyle='rgba(255,210,40,.13)';ctx.fillRect(E.zx,RIM-30,E.zw,FLOOR-RIM+30);ctx.save();ctx.beginPath();ctx.rect(E.zx,RIM-30,E.zw,FLOOR-RIM+30);ctx.clip();
+    ctx.strokeStyle='rgba(255,210,40,.22)';ctx.lineWidth=6;for(let y=RIM-60;y<FLOOR+E.zw;y+=26){ctx.beginPath();ctx.moveTo(E.zx,y);ctx.lineTo(E.zx+E.zw,y-E.zw*.6);ctx.stroke()}ctx.restore();
+    ctx.strokeStyle='rgba(255,210,40,.75)';ctx.lineWidth=2;ctx.setLineDash([8,6]);ctx.strokeRect(E.zx,RIM-30,E.zw,FLOOR-RIM+30);ctx.setLineDash([]);
+    ctx.fillStyle='#ffd23a';ctx.font='600 11px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.fillText('КАРАНТИН',E.zx+E.zw/2,RIM-12)}
+  if(E.id==='fumes'){{const fx=JR-30,fy=RIM+34,v=E.vent||0;ctx.save();ctx.translate(fx,fy);ctx.fillStyle='rgba(30,32,28,.85)';ctx.beginPath();ctx.arc(0,0,22,0,TAU);ctx.fill();
+    ctx.strokeStyle=`rgba(220,230,180,${.5+.4*Math.sin(t*5)})`;ctx.lineWidth=2;ctx.stroke();ctx.rotate(t*(1+v*3));ctx.fillStyle='#b8bfa0';for(let i=0;i<4;i++){ctx.rotate(TAU/4);ctx.beginPath();ctx.ellipse(9,0,9,4,0,0,TAU);ctx.fill()}ctx.restore()}
+    for(let i=0;i<7;i++){const x=(i*83+t*14*(i%2?1:-1))%(W+160)-80,y=RIM+((i*131)%(FLOOR-RIM));ctx.fillStyle='rgba(190,200,150,.16)';ctx.beginPath();ctx.ellipse(x,y,90,40,0,0,TAU);ctx.fill()}}
   if(E.id==='rat'){const x=E.x,y=RIM+46,d=E.vx>0?1:-1,run=Math.sin(t*25)*2;ctx.translate(x,y);ctx.scale(d,1);
     ctx.strokeStyle='#c09090';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(-14,2);ctx.quadraticCurveTo(-34,-8+run,-44,6);ctx.stroke();
     ctx.fillStyle='#5a4e46';ctx.beginPath();ctx.ellipse(0,0,17,10,0,0,TAU);ctx.fill();ctx.beginPath();ctx.ellipse(15,-1,9,7,.2,0,TAU);ctx.fill();
@@ -2423,6 +2448,7 @@ function drop(px,py,vy){
   const r=curR(),x=px!=null?px:Math.max(JL+r+1,Math.min(JR-r-1,aimX));
   const b=spawn(cur,x+(Math.random()-.5)*.5,py!=null?py:SPAWN_Y);tutEv('drop');if(vy)Body.setVelocity(b,{x:0,y:vy});plop();vibe(6);
   cur=nxt;nxt=seq.next();canDropAt=t+(isAuto()?320:420);drawNext();fallY=SPAWN_Y;fastFall=false;
+  if(EMG&&EMG.id==='quar')quarDrop(x);if(isTrial('centri'))centriDrop(x);
   if(isAnom(nxt)&&!found.has('a:'+nxt)){found.add('a:'+nxt);store.set('mut.found',[...found]);toast('Новая аномалия',ANOM[nxt].name,ANOM[nxt].rule)}
   else if(!isAnom(nxt)&&FORMS[nxt].fam&&!found.has(nxt)){found.add(nxt);store.set('mut.found',[...found]);renderReg();const f=famOf(nxt);
     toast('Семейство дня: '+f.name,FORMS[nxt].name,'Сливаются между собой: '+f.forms.map(x=>x[0]).join(' → ')+'. Два «'+f.forms[4][0]+'» становятся «'+FORMS[LV[f.to]].name+'».')}
@@ -2666,32 +2692,32 @@ function checkAch(){if(window.__DEMO)return;let ch=false;for(const [id,name,desc
   if(v){ach[id]=Date.now();ch=true;if(!(typeof firstShift==='function'&&firstShift()&&started&&!over))toast('Достижение',name,desc);vibe([20,40,20])}}
   if(ch){store.set('mut.ach',ach);updProg()}}
 const QPOOL=[
- {id:'r6',text:'Выведите Зубастика',ev:'make',lvl:LV.teeth,reach:true,n:1},
- {id:'r7',text:'Выведите Многоглаза',ev:'make',lvl:LV.multi,reach:true,n:1},
- {id:'r8',text:'Выведите Мозгляка',ev:'make',lvl:LV.brain,reach:true,n:1},
- {id:'r9',text:'Выведите Сгусток',ev:'make',lvl:LV.clot,reach:true,n:1},
- {id:'e5',text:'Выведите 5 Глаз',ev:'make',lvl:LV.eye,n:5},
- {id:'l4',text:'Выведите 4 Пиявки',ev:'make',lvl:LV.leech,n:4},
+ {id:'e5g',text:'Выведите 5 Глаз за одну партию',ev:'make',lvl:LV.eye,n:5,game:true},
+ {id:'ch3',text:'Цепная реакция: 3 слияния за 2 секунды',ev:'chain',n:1},
  {id:'c2',text:'Раздавите 2 паразитов',ev:'crush',n:2},
  {id:'rt3',text:'Растворите 3 гнили',ev:'rot',n:3},
  {id:'m2',text:'Используйте 2 мутагена',ev:'mut',n:2},
- {id:'s600',text:'Наберите 600 очков за партию',ev:'score',n:600},
- {id:'s1000',text:'Наберите 1000 очков за партию',ev:'score',n:1000},
- {id:'g3',text:'Сыграйте 3 партии',ev:'game',n:3},
+ {id:'s800',text:'Наберите 800 очков за партию',ev:'score',n:800},
  {id:'d1',text:'Сыграйте дневной забег',ev:'daily',n:1},
+ {id:'eat4',text:'Накормите Пожирателя 4 раза',ev:'meal',n:4,need:'eater'},
+ {id:'spl2',text:'Разделите Делителем 2 мутантов',ev:'split',n:2,need:'splitter'},
+ {id:'bare',text:'Голыми руками: 400 очков без умений',ev:'bare',n:400},
+ {id:'calm',text:'Укротите перегрузку: 30 с в ней, банка ниже 60%',ev:'calm',n:1},
+ {id:'insp',text:'Пройдите проверку: замрите, когда шаги в коридоре',ev:'inspect',n:1,need:'inspect'},
+ {id:'keep',text:'Доработайте смену до конца, не тратя огнемёт',ev:'keep',n:1},
 ];
 const QUESTS=(()=>{const R=rng(hashStr('quests:'+DAY)),a=QPOOL.slice();
   for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
-  const out=[],kinds=new Set();for(const q of a){const k=q.ev+(q.reach?'r':'');if(kinds.has(k)||(q.ev==='make'&&kinds.has('make'+(q.reach?'':'r'))))continue;kinds.add(k);out.push(q);if(out.length===3)break}
+  const g=typeof stats!=='undefined'?stats.games:0,out=[];for(const q of a){if(q.need&&g<UNLOCK[q.need])continue;out.push(q);if(out.length===3)break}
   return out})();
 let qp=store.get('mut.q.'+DAY,{});
 const questProg=q=>Math.min(q.n,qp[q.id]||0);
 const questDone=()=>QUESTS.filter(q=>questProg(q)>=q.n).length;
-function ev(type,val){if(type==='make')emgMade(val);
+function ev(type,val){if(type==='make'){emgMade(val);const t=performance.now();GM.mt.push(t);GM.mt=GM.mt.filter(x=>t-x<2000);if(GM.mt.length>=3&&t-GM.chainAt>2000){GM.chainAt=t;GM.mt=[];ev('chain')}}
   let ch=false;
   for(const q of QUESTS){if(questProg(q)>=q.n||q.ev!==type)continue;let p=qp[q.id]||0;
-    if(type==='make'){if(q.reach?val>=q.lvl:val===q.lvl)p=q.reach?1:p+1}
-    else if(type==='score')p=Math.max(p,val);else p++;
+    if(type==='make'){if(q.reach?val>=q.lvl:val===q.lvl){if(q.reach)p=1;else if(q.game){GM.cnt[q.id]=(GM.cnt[q.id]||0)+1;p=Math.max(p,GM.cnt[q.id])}else p++}}
+    else if(type==='score'||type==='bare')p=Math.max(p,val);else p++;
     if(p!==(qp[q.id]||0)){qp[q.id]=p;ch=true;
       if(p>=q.n){toast('Задание выполнено',q.text);vibe(30);if(questDone()===QUESTS.length){stats.qdays++;saveStats();toast('Все задания дня','выполнены','Завтра будут новые')}}}}
   if(ch){store.set('mut.q.'+DAY,qp);updProg()}
@@ -2727,7 +2753,7 @@ function renderQuests(){
   for(const q of QUESTS){const p=questProg(q),done=p>=q.n,li=document.createElement('li');if(done)li.className='done';
     li.innerHTML=`<span class="ck">${done?'✓':''}</span><span class="qt"></span><span class="qn">${q.ev==='score'?p+'/'+q.n:p+'/'+q.n}</span><span class="bar2"><i style="width:${Math.round(p/q.n*100)}%"></i></span>`;
     li.querySelector('.qt').textContent=q.text;ul.appendChild(li)}
-  $('questNote').textContent=`Одинаковые у всех игроков. Засчитываются в любом режиме. Новые задания каждый день в 03:00 по Москве.`;
+  $('questNote').textContent=`Засчитываются в любом режиме. Новые задания каждый день в 03:00 по Москве. Задания с ещё не открытыми мутантами не выпадают.`;
 }
 function renderAch(){
   const g=$('achs');g.innerHTML='';
@@ -2742,21 +2768,24 @@ function renderAch(){
 
 // ---------- trials: five lab levels, each with one special mechanic ----------
 const TRIALS=[
- {id:'laser', name:'Лазерная решётка',desc:'Красный луч время от времени перегораживает банку. Всё, что его пересекает, режется на форму ниже, мелочь сгорает.',goal:{type:'form',lvl:LV.teeth},stars:[150,230]},
- {id:'disinf',name:'Дезинфекция',     desc:'Каждые 20 секунд распылитель растворяет Капель, Спор, вирусы и гниль. Продержитесь 3 минуты.',goal:{type:'survive',sec:180},stars:[700,350]},
+ {id:'laser', name:'Лазерная решётка',desc:'Красный луч время от времени перегораживает банку. Всё, что его пересекает, режется на форму ниже, мелочь сгорает. Разрежьте 20 мутантов: подставляйте под луч тех, кто мешает.',goal:{type:'cut',n:20},stars:[70,120]},
+ {id:'disinf',name:'Дезинфекция',     desc:'Каждые 20 секунд сверху проходит распылитель и растворяет Капель, Спор, вирусы и гниль. Укрывайте мелочь под крупными мутантами: после распыления должны уцелеть хотя бы 2 Капли или Споры.',goal:{type:'shield',n:5},stars:[130,180]},
  {id:'uv',    name:'Ультрафиолет',    desc:'Свет погашен, горят только УФ-лампы: существ видно лишь под фонариком, вирусы светятся.',goal:{type:'score',n:500},stars:[150,240]},
- {id:'centri',name:'Центрифуга',      desc:'Банка вращается — существ прижимает к стенкам, сила то растёт, то спадает.',goal:{type:'score',n:400},stars:[140,220]},
- {id:'cryo',  name:'Криокамера',      desc:'Формалин замерзает снизу. Замёрзшие не двигаются и не сливаются; слияния от Глаза и выше растапливают лёд.',goal:{type:'survive',sec:150},stars:[600,300]},
+ {id:'centri',name:'Центрифуга',      desc:'Банка вращается рывками и каждые 5 секунд затихает. Бросайте в затишье — когда загорается зелёный: такой бросок падает ровно и даёт +10. Бросок в рывок сбивает счёт на 1, а мутантов отбрасывает к стенкам.',goal:{type:'beat',n:15},stars:[55,95]},
+ {id:'cryo',  name:'Криокамера',      desc:'Формалин замерзает снизу. Замёрзшие не двигаются и не сливаются. Слияние от Глаза и выше прямо над льдом растапливает его — засчитывается, если освободило хоть одного вмёрзшего. Дойдёт до середины банки — испытание провалено.',goal:{type:'thaw',n:10},stars:[80,140]},
 ];
 let trialIdx=0,trial=null,won=false,trialStars=store.get('mut.trials',{});
 const isTrial=k=>mode==='trial'&&trial&&(!k||trial.def.id===k);
 function trialUnlocked(i){return i===0||(trialStars[TRIALS[i-1].id]||0)>=1}
+const TRIAL_CNT={cut:['разрезано','Цель: разрезать лучом 20 мутантов'],shield:['отбито распылений','Цель: отбить 5 распылений'],beat:['в такт','Цель: 15 бросков в такт'],thaw:['лёд растоплен','Цель: растопить лёд 10 раз']};
+const trialProg=()=>trial?({cut:trial.cuts,shield:trial.held,beat:trial.beats,thaw:trial.thaw}[trial.def.goal.type]||0):0;
 function trialGoalText(){if(!trial)return'';const g=trial.def.goal,sec=Math.floor(HZ.t/1000),mm=`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
+  if(TRIAL_CNT[g.type])return `${TRIAL_CNT[g.type][0]} ${trialProg()}/${g.n} · ${mm}`;
   return g.type==='form'?`цель: ${FORMS[g.lvl].name} · ${mm}`:g.type==='score'?`цель: ${g.n} очков · ${mm}`:`продержаться ${Math.max(0,g.sec-sec)} с`}
-function trialGoalLong(def){const g=def.goal;return g.type==='form'?`Цель: вывести ${FORMS[g.lvl].name}`:g.type==='score'?`Цель: набрать ${g.n} очков`:`Цель: продержаться ${Math.floor(g.sec/60)}:${String(g.sec%60).padStart(2,'0')}`}
+function trialGoalLong(def){const g=def.goal;if(TRIAL_CNT[g.type])return TRIAL_CNT[g.type][1];return g.type==='form'?`Цель: вывести ${FORMS[g.lvl].name}`:g.type==='score'?`Цель: набрать ${g.n} очков`:`Цель: продержаться ${Math.floor(g.sec/60)}:${String(g.sec%60).padStart(2,'0')}`}
 function trialStarCount(){const d=trial.def,g=d.goal,sec=HZ.t/1000;
   if(g.type==='survive')return score>=d.stars[0]?3:score>=d.stars[1]?2:1;return sec<=d.stars[0]?3:sec<=d.stars[1]?2:1}
-function trialStart(){trial={def:TRIALS[trialIdx],laser:{t:0,phase:'off',y:RIM+120},mist:{t:0,y:-1,warned:false},iceY:FLOOR,spin:0};won=false;
+function trialStart(){trial={def:TRIALS[trialIdx],laser:{t:0,phase:'off',y:RIM+120},mist:{t:0,y:-1,warned:false},iceY:FLOOR,spin:0,cuts:0,held:0,beats:0,thaw:0};won=false;
   setTimeout(()=>toast(`Испытание ${trialIdx+1}: ${trial.def.name}`,trialGoalLong(trial.def),trial.def.desc),250)}
 function trialWin(){if(won||over)return;won=true;const st=trialStarCount(),id=trial.def.id;trialStars[id]=Math.max(trialStars[id]||0,st);store.set('mut.trials',trialStars);
   stats.trialsDone=TRIALS.filter(t=>(trialStars[t.id]||0)>=1).length;saveStats();checkAch();track('trial_end',{id,win:true,stars:st,score,dur:Math.round(HZ.t/1000)});gameOver('win')}
@@ -2766,27 +2795,32 @@ function trialTick(dt){
   if(g.type==='form'&&topLvl>=g.lvl)return trialWin();
   if(g.type==='score'&&score>=g.n)return trialWin();
   if(g.type==='survive'&&HZ.t>=g.sec*1000)return trialWin();
+  if(TRIAL_CNT[g.type]&&trialProg()>=g.n)return trialWin();
   if(d.id==='laser'){const L=trial.laser;L.t+=dt;
     if(L.phase==='off'&&L.t>4200){L.phase='warn';L.t=0;L.y=rnd(RIM+40,RIM+(FLOOR-RIM)*.55);tone('square',880,880,.12,.03)}
     else if(L.phase==='warn'&&L.t>1100){L.phase='on';L.t=0;zap()}
     else if(L.phase==='on'){if(L.t>2600){L.phase='off';L.t=0}
       for(const b of bodies.slice()){const r=b.circleRadius;if(Math.abs(b.position.y-L.y)>r||now-(b.cutAt||0)<1200)continue;
         const x=b.position.x,y=b.position.y;removeBody(b);splat(x,L.y,'#ff3020',10,1);zap();
-        if(b.lvl!=null&&b.lvl>0&&b.lvl<=MAX){const nb=spawn(b.lvl-1,x,y);nb.cutAt=now;floater(x,y-14,'разрезан',false,'#ff6a5e')}else floater(x,y-14,'сгорел',false,'#ff6a5e')}}}
+        if(b.lvl!=null&&b.lvl>0&&b.lvl<=MAX){const nb=spawn(b.lvl-1,x,y);nb.cutAt=now;trial.cuts++;floater(x,y-14,`разрезан ${trial.cuts}/${d.goal.n}`,false,'#ff6a5e');updHud()}else floater(x,y-14,'сгорел',false,'#ff6a5e')}}}
   if(d.id==='disinf'){const M=trial.mist;M.t+=dt;
-    if(!M.warned&&M.t>17000){M.warned=true;toast('Дезинфекция через 3 секунды','Сливайте мелочь!');siren()}
-    if(M.t>20000&&M.y<0){M.y=RIM;noise(3,'bandpass',900,1,.25,0,0,300)}
+    if(!M.warned&&M.t>17000){M.warned=true;toast('Дезинфекция через 3 секунды','Укройте мелочь под крупными!');siren()}
+    if(M.t>20000&&M.y<0){M.y=RIM;M.t0=now;noise(3,'bandpass',900,1,.25,0,0,300)}
     if(M.y>=0){M.y+=dt*.17;for(const b of bodies.slice()){if(Math.abs(b.position.y-M.y)>b.circleRadius+14)continue;
         const kill=(b.lvl!=null&&(b.lvl<=1||FORMS[b.lvl].virus))||b.anom==='rot'||b.anom==='parasite';
+        if(kill&&b.lvl!=null&&b.lvl<=1&&!FORMS[b.lvl].virus&&bodies.some(c=>c!==b&&c.lvl!=null&&c.lvl>=2&&!FORMS[c.lvl].virus&&c.position.y<b.position.y&&Math.abs(c.position.x-b.position.x)<c.circleRadius*.95)){
+          if(!b.shT||now-b.shT>3000){b.shT=now;floater(b.position.x,b.position.y-10,'укрыт',false,'#9fe0a0')}continue}
         if(kill){removeBody(b);splat(b.position.x,b.position.y,'#8dff9a',8,1);score+=2;floater(b.position.x,b.position.y,'+2',false,'#9fe0a0')}}
-      if(M.y>FLOOR+20){M.y=-1;M.t=0;M.warned=false;updHud()}}}
-  if(d.id==='centri'){trial.spin=.55+.45*Math.sin(HZ.t/15000*TAU);const cx=(JL+JR)/2,half=(JR-JL)/2;
+      if(M.y>FLOOR+20){M.y=-1;M.t=0;M.warned=false;const left=bodies.filter(b=>b.lvl!=null&&b.lvl<=1&&!FORMS[b.lvl].virus&&b.born<M.t0).length;
+        if(left>=2){trial.held++;floater(W/2,RIM+60,`отбито ${trial.held}/${g.n} · уцелело ${left}`,true,'#9fe0a0')}else floater(W/2,RIM+60,`мелочь не уцелела (${left} из 2)`,true,'#ff9a8a');updHud()}}}
+  if(d.id==='centri'){trial.spin=.5+.5*Math.sin(HZ.t/5000*TAU);const cx=(JL+JR)/2,half=(JR-JL)/2;
     for(const b of bodies){if(b.isStatic)continue;const k=(b.position.x-cx)/half;Body.applyForce(b,b.position,{x:k*b.mass*.0011*trial.spin,y:0})}}
-  if(d.id==='cryo'){trial.iceY=Math.max(RIM+150,trial.iceY-dt*.0026);
+  if(d.id==='cryo'){trial.iceY=Math.max(RIM+150,trial.iceY-dt*.0026);if(trial.iceY<=RIM+(FLOOR-RIM)*.5){glassBreak();return gameOver('ice')}
     for(const b of bodies){if(!b.frozen&&b.position.y-b.circleRadius*.2>trial.iceY&&b.speed<1.5&&now-b.born>800){b.frozen=true;Body.setStatic(b,true)}}}
 }
-function trialMerge(L){if(isTrial('cryo')&&rk(L)>=LV.eye){trial.iceY=Math.min(FLOOR,trial.iceY+48);let n=0;
-  for(const b of bodies)if(b.frozen&&b.position.y<trial.iceY){b.frozen=false;Body.setStatic(b,false);n++}floater(W/2,trial.iceY-10,'лёд тает',false,'#bfe8ff')}}
+function centriDrop(x){if(trial.spin<.22){trial.beats++;score+=10;updHud();floater(x,SPAWN_Y+40,`в такт ${trial.beats}/${trial.def.goal.n} +10`,true,'#9fe0a0');tone('triangle',990,990,.1,.05)}else if(trial.spin>.6){trial.beats=Math.max(0,trial.beats-1);updHud();floater(x,SPAWN_Y+40,`рывок! ${trial.beats}/${trial.def.goal.n}`,false,'#ff9a8a')}}
+function trialMerge(L,y){if(isTrial('cryo')&&rk(L)>=LV.eye&&(y==null||y>trial.iceY-120)){trial.iceY=Math.min(FLOOR,trial.iceY+48);let n=0;
+  for(const b of bodies)if(b.frozen&&b.position.y<trial.iceY){b.frozen=false;Body.setStatic(b,false);n++}if(n){trial.thaw++;updHud();floater(W/2,trial.iceY-10,`лёд тает ${trial.thaw}/${trial.def.goal.n} · свободны ${n}`,false,'#bfe8ff')}else floater(W/2,trial.iceY-10,'лёд подтаял',false,'#bfe8ff')}}
 function drawTrial(now,t){if(!isTrial())return;const id=trial.def.id;ctx.save();
   if(id==='laser'){const L=trial.laser;
     if(L.phase==='warn'){ctx.setLineDash([6,6]);ctx.strokeStyle=`rgba(255,40,30,${.4+.4*Math.sin(now/60)})`;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(JL,L.y);ctx.lineTo(JR,L.y);ctx.stroke();ctx.setLineDash([])}
@@ -2798,8 +2832,8 @@ function drawTrial(now,t){if(!isTrial())return;const id=trial.def.id;ctx.save();
     const left=Math.max(0,Math.ceil((20000-M.t)/1000));if(M.y<0){ctx.fillStyle=left<=3?'#7dff8a':'rgba(200,255,200,.5)';ctx.font='600 12px "IBM Plex Mono",monospace';ctx.textAlign='left';ctx.fillText('распыление через '+left+' с',JL+8,RIM+18)}}
   if(id==='uv'){ctx.globalCompositeOperation='lighter';for(const b of bodies){if(!((b.lvl!=null&&FORMS[b.lvl].virus)||b.anom))continue;const g=ctx.createRadialGradient(b.position.x,b.position.y,0,b.position.x,b.position.y,b.circleRadius*1.4);
       g.addColorStop(0,'rgba(190,90,255,.55)');g.addColorStop(1,'rgba(190,90,255,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(b.position.x,b.position.y,b.circleRadius*1.4,0,TAU);ctx.fill()}ctx.globalCompositeOperation='source-over'}
-  if(id==='centri'){ctx.strokeStyle=`rgba(220,210,180,${.08+.12*trial.spin})`;ctx.lineWidth=2;const off=(now*.12*trial.spin)%40;for(let x=JL+off;x<JR;x+=40){ctx.beginPath();ctx.moveTo(x,RIM);ctx.lineTo(x,FLOOR);ctx.stroke()}}
-  if(id==='cryo'){const y=trial.iceY;const g=ctx.createLinearGradient(0,y,0,FLOOR);g.addColorStop(0,'rgba(200,235,255,.55)');g.addColorStop(1,'rgba(150,200,240,.35)');ctx.fillStyle=g;ctx.fillRect(JL,y,JR-JL,FLOOR-y);
+  if(id==='centri'){const calm=trial.spin<.22;ctx.fillStyle=calm?'#5dff7a':`rgba(255,120,100,${.3+.5*trial.spin})`;ctx.beginPath();ctx.arc(W/2,RIM-16,calm?9:6,0,TAU);ctx.fill();ctx.font='600 11px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.fillText(calm?'БРОСАЙ':'рывок',W/2,RIM-30);ctx.strokeStyle=`rgba(220,210,180,${.08+.12*trial.spin})`;ctx.lineWidth=2;const off=(now*.12*trial.spin)%40;for(let x=JL+off;x<JR;x+=40){ctx.beginPath();ctx.moveTo(x,RIM);ctx.lineTo(x,FLOOR);ctx.stroke()}}
+  if(id==='cryo'){const y=trial.iceY,my=RIM+(FLOOR-RIM)*.5;ctx.strokeStyle='rgba(120,200,255,.6)';ctx.setLineDash([6,6]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(JL,my);ctx.lineTo(JR,my);ctx.stroke();ctx.setLineDash([]);const g=ctx.createLinearGradient(0,y,0,FLOOR);g.addColorStop(0,'rgba(200,235,255,.55)');g.addColorStop(1,'rgba(150,200,240,.35)');ctx.fillStyle=g;ctx.fillRect(JL,y,JR-JL,FLOOR-y);
     ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(JL,y);ctx.lineTo(JR,y);ctx.stroke();
     for(const b of bodies)if(b.frozen){ctx.fillStyle='rgba(180,225,255,.35)';ctx.beginPath();ctx.arc(b.position.x,b.position.y,b.circleRadius,0,TAU);ctx.fill()}}
   ctx.restore()}
@@ -2875,7 +2909,7 @@ $('demoBtn').onclick=startDemo;$('demoBar').onclick=()=>stopDemo(false);
 
 // ---------- HUD & UI ----------
 let hudScore=0;
-function updHud(){{const el=$('score'),d=score-hudScore;if(d>0&&started&&!over&&!reduced){el.classList.remove('bump','bigbump');void el.offsetWidth;el.classList.add(d>=100?'bigbump':'bump')}hudScore=score}$('score').textContent=score;if(typeof updLeak==='function'&&HZ.leak)updLeak();$('bestLine').textContent=mode==='trial'&&trial?trialGoalText():mode==='challenge'&&challenge?'цель '+challenge.target+(isFall()?` · уровень ${fallLevel()}`:''):isFall()?`уровень ${fallLevel()} · рекорд ${bestScore()}`:GOAL.lvl!=null&&!GOAL.done?`цель: ${FORMS[GOAL.lvl].name} · +${GOAL.pts}`:(isPress()?`уровень ${pressLvl()} · `:'')+(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
+function updHud(){{const el=$('score'),d=score-hudScore;if(d>0&&started&&!over&&!reduced){el.classList.remove('bump','bigbump');void el.offsetWidth;el.classList.add(d>=100?'bigbump':'bump')}hudScore=score}$('score').textContent=score;if(typeof updLeak==='function'&&HZ.leak)updLeak();$('bestLine').textContent=mode==='trial'&&trial?trialGoalText():mode==='challenge'&&challenge?'цель '+challenge.target+(isFall()?` · уровень ${fallLevel()}`:''):isFall()?`уровень ${fallLevel()} · рекорд ${bestScore()}`:GOAL.lvl!=null&&!GOAL.done?`цель: ${goalShort()} · +${GOAL.pts}`:(isPress()?`уровень ${pressLvl()} · `:'')+(mode==='daily'?'рекорд дня ':'рекорд ')+bestScore();
   const unread=formsFound().filter(i=>!loreRead.has(i)).length;
   $('regCount').textContent=formsFound().length+'/'+FORMS.length+(unread?` · ${unread} нов.`:'')}
 const nctx=$('next').getContext('2d');
@@ -3013,7 +3047,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.17e';
+const APP_VER='2026.11.17f';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -3166,16 +3200,16 @@ $('shareChal').onclick=async()=>{track('challenge_send',{score,fall:isFall()});c
 $('shareCopy').onclick=()=>{const t=shareText();
   navigator.clipboard.writeText(t).then(()=>shareNote('Текст скопирован.'),()=>shareNote(t))};
 
-function gameOver(reason){
+function gameOver(reason){if(reason==='time'&&GOAL.k==='shift'&&GOAL.lvl!=null&&!GOAL.done)goalWin();
   if(stats.games===2&&PUBLIC_URL&&!IS_APP&&!store.get('mut.installTip',false)&&(installEvt||IS_IOS||/Android/.test(navigator.userAgent))){store.set('mut.installTip',true);
     setTimeout(()=>toast('Совет','Установите игру на телефон','Меню → «На телефон»: иконка рядом с приложениями, работает без интернета.'),1800)}
   track('game_end',{lvl:pressLvl(),score,top:topLvl,dur:Math.round(HZ.t/1000),drops,reason:reason||'overflow',lab:Math.min(labLvl(),9),cracks:HZ.cracks.length});anFlush();
   $('leakPop').hidden=true;$('firePop').hidden=true;$('abExt').hidden=true;if(EMG)emgEnd(false);
-  $('overTitle').textContent=reason==='win'?'Испытание пройдено':reason==='time'?'Смена закончена!':reason==='crack'?'Банка лопнула':'Банка переполнена';
+  $('overTitle').textContent=reason==='win'?'Испытание пройдено':reason==='time'?'Смена закончена!':reason==='crack'?'Банка лопнула':reason==='ice'?'Банка вмёрзла':'Банка переполнена';
   if(mode==='trial'&&reason!=='win'&&trial)track('trial_end',{id:trial.def.id,win:false,score,dur:Math.round(HZ.t/1000)});
   if(TRIAL.active){TRIAL.active=false;TRIAL.after=TRIAL.skin}
   over=true;stats.games++;stats.best=Math.max(stats.best,score);if(isFall())stats.fallBest=Math.max(stats.fallBest,score);if(mode==='daily'){stats.dailies++;bumpStreak()}saveStats();
-  ev('game');ev('score',score);if(mode==='daily')ev('daily');updProg();try{shot=document.createElement('canvas');shot.width=cv.width;shot.height=cv.height;shot.getContext('2d').drawImage(cv,0,0)}catch(e){shot=null}if(reason==='win'){[523,659,784,1047].forEach((f,i)=>tone('triangle',f,f,.35,.07,0,i*.12));vibe([30,40,30,40,90])}else{sound(9,true);vibe([120,60,200])}
+  ev('game');ev('score',score);if(mode==='daily')ev('daily');if(!GM.used)ev('bare',score);if(reason==='time'&&!GM.fire)ev('keep');updProg();try{shot=document.createElement('canvas');shot.width=cv.width;shot.height=cv.height;shot.getContext('2d').drawImage(cv,0,0)}catch(e){shot=null}if(reason==='win'){[523,659,784,1047].forEach((f,i)=>tone('triangle',f,f,.35,.07,0,i*.12));vibe([30,40,30,40,90])}else{sound(9,true);vibe([120,60,200])}
   countUp($('overScore'),score);
   $('overText').textContent='Высшая форма: '+FORMS[topLvl].name+(score>0&&score>=bestScore()?' · новый рекорд':'');
   const ob=$('overBoard');
@@ -3190,7 +3224,7 @@ function gameOver(reason){
   else ob.hidden=true;
   $('again').textContent=mode==='trial'&&reason==='win'&&trialIdx<TRIALS.length-1?'Следующее':reason==='time'?'Ещё смена':'Ещё раз';saveClear();
   grabClip('Финал партии');
-  {const og=$('overGoal');og.hidden=GOAL.lvl==null;if(GOAL.lvl!=null)og.textContent=GOAL.done?`✅ Цель смены выполнена: ${FORMS[GOAL.lvl].name}`:`🎯 Цель смены: ${FORMS[GOAL.lvl].name} — не хватило совсем чуть-чуть. Ещё раз?`}
+  {const og=$('overGoal');og.hidden=GOAL.lvl==null;if(GOAL.lvl!=null)og.textContent=GOAL.done?`✅ Цель смены выполнена: ${goalShort()}`:`🎯 Цель смены: ${goalShort()} — не хватило совсем чуть-чуть. Ещё раз?`}
   fillTomorrow();clearTimeout(discTimer);$('disc').hidden=true;fillOverExtra();
   $('over').hidden=false;
 }
@@ -3405,7 +3439,7 @@ track('session_start',{pk:PIKABU||undefined,boot:Math.round(performance.now()),r
   if(!('lite' in so)&&IS_TOUCH&&(mem<=3||cores<=4)){opts.lite=true;opts.liteAuto=true;saveOpts();track('lite_pre',{mem,cores})}}
 applyLite();applySafe();
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={st:()=>({adHint:FG.adHint,top:topLvl,goal:GOAL.lvl,done:GOAL.done,score,b:bodies.filter(b=>b.lvl!=null).map(b=>FORMS[b.lvl].id).join(',')}),G:()=>({FORMS,HYB,LV,drawCreature,drawHybrid,shine,found,HZ}),emg:id=>emgStart(id),emgNow:()=>EMG&&EMG.id,setScore2:v=>{score=v},drops:()=>drops,count:l=>bodies.filter(b=>b.lvl===l).length,spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={st:()=>({adHint:FG.adHint,top:topLvl,goal:GOAL.lvl,done:GOAL.done,score,b:bodies.filter(b=>b.lvl!=null).map(b=>FORMS[b.lvl].id).join(',')}),G:()=>({FORMS,HYB,LV,drawCreature,drawHybrid,shine,found,HZ}),emg:id=>emgStart(id),emgNow:()=>EMG&&EMG.id,setScore2:v=>{score=v},drops:()=>drops,count:l=>bodies.filter(b=>b.lvl===l).length,spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),gm:()=>GM,geo:()=>({JL,JR,RIM,FLOOR,W}),goalX:()=>({...GOAL,short:goalShort()}),trialX:()=>trial,emgX:()=>EMG,tap:(x,y)=>emgTap({x,y}),qpool:()=>QPOOL.map(q=>q.id),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
