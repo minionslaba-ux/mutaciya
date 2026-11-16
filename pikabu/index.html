@@ -2955,7 +2955,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.16e';
+const APP_VER='2026.11.16f';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -3179,7 +3179,7 @@ $('chestAd').onclick=()=>{if(noAds()||!ADS_ON())return takeChest(true);showAd('r
 $('overChest').onclick=()=>openChest('over');
 $('overFire').onclick=()=>{if(overFireUsed)return;const give=()=>{overFireUsed=true;const b=$('overFire');b.disabled=true;const v=giveBonusFire(1,'over_ad');b.textContent='✓ Заряд в запасе ('+v+')'};
   track('over_fire_click',{});if(noAds())give();else showAd('rewarded',ok=>{if(ok)give()})};
-$('overStarter').onclick=()=>{track('starter_click',{});openShop()};
+$('overStarter').onclick=()=>{track('starter_click',{});const it=SHOP.find(x=>x.id==='starter');if(PIKABU&&it){$('shopNote').textContent='';pkBuy(it).then(()=>{const t=$('shopNote').textContent;if(t&&$('shopSheet').hidden)toast('Набор новичка',t,'')})}else openShop()};
 setInterval(()=>{if(chestShown===DAY||!chestAvail()||stats.games<1||window.__DEMO||$('menu').hidden||document.querySelector('.scrim:not([hidden])'))return;openChest('menu')},1500);
 
 // ---------- render ----------
