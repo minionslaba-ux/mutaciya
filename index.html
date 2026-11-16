@@ -1297,7 +1297,7 @@ let contUsed=false;
 function canContinue(){return (!!PUBLIC_URL||PIKABU)&&(!contUsed||savesN()>0)&&(mode==='classic'||mode==='fall')&&!window.__DEMO&&drops>12}
 function fillCont(){const n=savesN(),ad=!contUsed;$('contAd').hidden=!ad;$('contSave').hidden=!n;$('contSaveSub').textContent='осталось '+n;
   $('contBuy').hidden=!PIKABU||n>0;$('contBuySub').textContent=(PK.prices.saves5||'29 ₽')+' · без рекламы'}
-function offerContinue(){const first=!contUsed;paused=true;fillCont();contUsed=true;if(!first)$('contAd').hidden=true;$('contSub').textContent=noAds()||!(PIKABU||adBlock('rewarded'))?'бесплатно':'посмотреть короткую рекламу';$('contSheet').hidden=false;track('continue_offer',{score})}
+function offerContinue(){const first=!contUsed;paused=true;for(const id of ['leakPop','firePop','emgPop'])$(id).hidden=true;fillCont();contUsed=true;if(!first)$('contAd').hidden=true;$('contSub').textContent=noAds()||!(PIKABU||adBlock('rewarded'))?'бесплатно':'посмотреть короткую рекламу';$('contSheet').hidden=false;track('continue_offer',{score})}
 function doContinue(){$('contSheet').hidden=true;
   const list=bodies.slice().sort((a,b)=>(a.position.y-a.circleRadius)-(b.position.y-b.circleRadius));let n=0;
   for(const b of list){if(jarFill()<.5||n>=Math.ceil(bodies.length*.45))break;if(b.anom==='wormseg')continue;if(b.anom==='worm'){killWorm(b,0,'');n++;continue}removeBody(b);splat(b.position.x,b.position.y,b.lvl!=null?FORMS[b.lvl].c:'#888',10,1);n++}
@@ -1346,7 +1346,7 @@ function pkLoad(){if(!PIKABU||PK.p)return PK.p;PK.p=new Promise(res=>{const sc=d
   sc.onload=async()=>{try{const sdk=await window.PkbSDK.init();PK.sdk=sdk;try{sdk.gameStarted()}catch(e){}
       try{sdk.on('storageSaveError',r=>{if(r==='REVISION_CONFLICT'&&!PK.dead){PK.dead=true;toast('Прогресс изменён в другой вкладке','Перезапустите игру, чтобы не потерять его')}})}catch(e){}
       try{sdk.on('userAuthorized',()=>pkCloudLoad())}catch(e){}
-      pkCloudLoad();res(sdk);setTimeout(pkStoreInit,1500);setTimeout(pkPreloader,900)}catch(e){track('pk_error',{m:String(e&&e.message||e).slice(0,80)});res(null)}};
+      pkCloudLoad();res(sdk);setTimeout(pkStoreInit,1500)}catch(e){track('pk_error',{m:String(e&&e.message||e).slice(0,80)});res(null)}};
   sc.onerror=()=>{track('pk_error',{m:'sdk load'});res(null)};document.head.appendChild(sc);setTimeout(()=>res(PK.sdk),20000)});return PK.p}
 // облако: ключ «mut» = все записи mut.* из браузера; при запуске выигрывает сторона, где сыграно больше
 function pkCloudLoad(){const sdk=PK.sdk;if(!sdk)return;let c=null;try{c=sdk.storage.get('mut')}catch(e){}
@@ -1420,6 +1420,25 @@ function fillTomorrow(){const el=$('tmrw');if(!el)return;if(mode==='trial'||wind
 const SHIFT_MS=300000,SHIFT_BONUS=300;
 const isTimed=()=>mode==='classic'&&!opts.endless&&!window.__DEMO;
 let shiftWarn=0,shiftShown=-1;
+// перегрузка: со 2-й минуты смены лаборатория досыпает образцы всё чаще (в первой смене новичка — мягче и позже)
+const SURGE={t:0,warned:0,said:0};
+const surgeK=()=>{if(!isTimed()||over)return 0;const fs=firstShift();const k=(HZ.t-(fs?200000:110000))/(fs?100000:150000);return Math.max(0,Math.min(fs?.45:1,k))};
+function surgeTick(dt){const k=surgeK();if(k<=0)return;
+  if(!SURGE.said){SURGE.said=1;track('surge_start',{score});toast('Перегрузка лаборатории!','Образцы сыплются всё чаще','Продержитесь до конца смены — за целую банку +'+SHIFT_BONUS+'.');ECG.spike=Math.max(ECG.spike||0,30)}
+  SURGE.t+=dt;const iv=8500-5800*k;
+  if(SURGE.t>=iv){SURGE.t=0;const n=k>.7&&Math.random()<.5?2:1;
+    for(let i=0;i<n;i++){const lv=Math.min(LV.leech,Math.floor(Math.random()*3)+(k>.5&&Math.random()<.5?1:0)),x=JL+30+Math.random()*(JR-JL-60);
+      const b=spawn(lv,x,SPAWN_Y+10+i*20);b.born=performance.now();floater(x,SPAWN_Y+44,'перегрузка',false,'#ff6a5a')}plop()}}
+// на пределе: банка почти полна — сирена, красная пульсация у края, пульс
+const LIMIT={on:false,next:0,shown:0};
+function limitTick(now){const f=jarFill(),on=started&&!over&&!paused&&f>.8&&!window.__DEMO;
+  if(on&&!LIMIT.on){LIMIT.on=true;if(!LIMIT.shown){LIMIT.shown=1;track('limit',{fill:Math.round(f*100),score})}vibe([60,40,60])}
+  if(!on)LIMIT.on=false;
+  if(on&&now>LIMIT.next&&opts.sound){LIMIT.next=now+1100;tone('square',880,760,.12,.035);tone('square',660,560,.12,.03,0,.18)}}
+function drawLimit(now){if(!LIMIT.on||over)return;const a=.35+.3*Math.sin(now/170);ctx.save();
+  const g=ctx.createLinearGradient(0,RIM-10,0,RIM+90);g.addColorStop(0,`rgba(220,20,20,${a*.55})`);g.addColorStop(1,'rgba(220,20,20,0)');ctx.fillStyle=g;ctx.fillRect(JL,RIM-10,JR-JL,100);
+  ctx.strokeStyle=`rgba(255,60,50,${.5+a})`;ctx.lineWidth=4;ctx.setLineDash([12,8]);ctx.lineDashOffset=-now/30;ctx.beginPath();ctx.moveTo(JL,RIM);ctx.lineTo(JR,RIM);ctx.stroke();ctx.setLineDash([]);
+  ctx.textAlign='center';ctx.font='18px "Rubik Distressed",sans-serif';ctx.fillStyle=`rgba(255,90,80,${.6+a*.6})`;ctx.fillText('⚠ БАНКА НА ПРЕДЕЛЕ',W/2,RIM-18);ctx.restore()}
 function shiftTick(){if(!isTimed()||over)return;const left=SHIFT_MS-HZ.t,sec=Math.max(0,Math.ceil(left/1000));
   if(sec!==shiftShown){shiftShown=sec;$('modeChip').textContent=$('modeChip').textContent.replace(/ · \d+:\d\d$/,'')+' · '+Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');$('modeChip').classList.toggle('late',sec<=30);$('modeChip').classList.toggle('final',sec<=10)}
   if(left<=30000&&shiftWarn<1){shiftWarn=1;toast('30 секунд до конца смены','Продержитесь!',`За целую банку в конце — +${SHIFT_BONUS} очков.`)}
@@ -1515,7 +1534,7 @@ function newGame(m){
   $('over').hidden=true;started=true;
   if(m==='trial')trialStart();else{trial=null;won=false}
   $('modeChip').textContent=(m==='trial'?`Испытание ${trialIdx+1}`:m==='daily'?`Дневной забег №${DAY_NO}`:m==='challenge'?`Вызов ${challenge.target}`+(challenge.fall?' · падение':''):m==='fall'?'Падение':'Классика')+(jarKey!=='normal'?' · '+jar.name:'');
-  shiftWarn=0;shiftShown=-1;$('modeChip').classList.remove('late','final');fallY=SPAWN_Y;fastFall=false;shownLevel=1;$('abDown').hidden=!isAuto();
+  shiftWarn=0;shiftShown=-1;SURGE.t=0;SURGE.said=0;LIMIT.on=false;LIMIT.shown=0;$('modeChip').classList.remove('late','final');fallY=SPAWN_Y;fastFall=false;shownLevel=1;$('abDown').hidden=!isAuto();
   if(stats.games>0&&!store.get('mut.fireNews',false)&&mode!=='trial'){store.set('mut.fireNews',true);setTimeout(()=>toast('Новое: огнемёт 🔥','Сжигает 3–5 мутантов','Кнопка «🔥» внизу, потом коснитесь банки. Новый заряд — за каждую зачистку.'),2600)}
   if(!isFall()&&isAuto()&&stats.games>0&&!store.get('mut.autoTip',false)){store.set('mut.autoTip',true);
     setTimeout(()=>toast('Новое','Мутанты падают сами','Ведите '+FINGER+' влево-вправо. '+(FINGER==='мышью'?'Кликните или нажмите ↓':'Коснитесь или смахните вниз')+' — упадёт быстрее. Как в тетрисе.'),700)}
@@ -2001,7 +2020,7 @@ function removeAt(p){const hit=bodies.find(q=>Math.hypot(q.position.x-p.x,q.posi
 const fallLevel=()=>1+Math.floor(Math.max(0,score)/500);
 const fallSpeed=()=>Math.min(300,70*(1+.3*(fallLevel()-1)))*(HZ.night?1.4:1);
 // «Классика»: спокойнее, ускоряется с уровнем; на обучении ещё медленнее
-const autoSpeed=()=>firstShift()&&drops<=4?220:(isFall()?fallSpeed():Math.min(260,100*(1+.15*(pressLvl()-1)))*(HZ.night?1.3:1))*(TUT.step>=0&&TUT.step<2?.6:1);
+const autoSpeed=()=>firstShift()&&drops<=4?220:(1+.7*(typeof surgeK==='function'?surgeK():0))*(isFall()?fallSpeed():Math.min(260,100*(1+.15*(pressLvl()-1)))*(HZ.night?1.3:1))*(TUT.step>=0&&TUT.step<2?.6:1);
 let shownLevel=1;
 function checkLevel(){if(mode!=='fall'||over)return;const L=fallLevel();if(L>shownLevel){shownLevel=L;toast('Скорость растёт','Уровень '+L);sound(L+3,true);vibe([30,40,30]);flash=Math.max(flash,.5)}updHud()}
 function fallTick(dt,now){
@@ -2393,7 +2412,7 @@ function unlockAudio(){
   if(!opts.sound)return;
   if(!ac&&navigator.userActivation&&!navigator.userActivation.hasBeenActive)return;
   try{if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback'}catch(e){}
-  if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=1;
+  if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.6;
     try{const len=Math.floor(ac.sampleRate*2.2),ir=ac.createBuffer(2,len,ac.sampleRate);for(let ch=0;ch<2;ch++){const d=ir.getChannelData(ch);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.2)}
       const cvr=ac.createConvolver();cvr.buffer=ir;const wet=ac.createGain();wet.gain.value=.22;master.connect(cvr);cvr.connect(wet);window.__wet=wet}catch(e){}
     try{earLP=ac.createBiquadFilter();earLP.type='lowpass';earLP.frequency.value=19000;earLP.Q.value=.5;master.connect(earLP);earLP.connect(ac.destination);if(window.__wet)window.__wet.connect(earLP);
@@ -2966,7 +2985,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.16f';
+const APP_VER='2026.11.17a';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -3281,7 +3300,7 @@ function perfTick(dt,live){if(live&&!document.hidden&&!FPSM.sent&&dt<1000){FPSM.
 function frame(now){
   const dt=Math.min(50,now-last);last=now;const t=now/1000;NERV=engine&&started&&!over&&!paused?Math.max(0,Math.min(1,(jarFill()-.62)/.3)):0;
   if(engine&&!paused&&!over&&!scream){if(now>=HIT)acc+=dt;while(acc>=1000/60){Engine.update(engine,1000/60);acc-=1000/60;if(queue.length||mutQ.length)processMerges()}
-    parasiteTick(dt);specialTick(dt);pressTick(dt);shiftTick();clearTick(now);goalTick();fireTick(now);prankTick(now);if(isAuto())fallTick(dt,now);
+    parasiteTick(dt);specialTick(dt);pressTick(dt);shiftTick();surgeTick(dt);limitTick(now);clearTick(now);goalTick();fireTick(now);prankTick(now);if(isAuto())fallTick(dt,now);
     const bad=bodies.some(b=>now-b.born>1500&&b.position.y-b.circleRadius<RIM&&b.speed<2.5);
     danger=bad?danger+dt:Math.max(0,danger-dt*2);
     if(danger>2400){if(canFake())fakeOver();else if(canContinue())offerContinue();else gameOver()}
@@ -3326,7 +3345,7 @@ function frame(now){
     if(jar.dark||darkUntil>now||isTrial('uv'))drawDark(now,(jar.dark||isTrial('uv'))&&!(darkUntil>now));
     drawGlass();drawSkinDeco(now);drawLabel();drawBlaze(now,t);drawEmg(now,t);
     drawHorror(now,t);
-    drawTut(now);drawPress(now);drawMergeFx(now);drawFire(now);
+    drawTut(now);drawPress(now);drawMergeFx(now);drawFire(now);drawLimit(now);
     ctx.textAlign='center';for(const f of floaters){ctx.globalAlpha=Math.min(1,f.life*1.5);ctx.font=f.big?'22px "Rubik Distressed",sans-serif':'600 13px "IBM Plex Mono",monospace';
       ctx.fillStyle='#000';ctx.fillText(f.text,f.x+1,f.y+1);ctx.fillStyle=f.col||(f.big?'#f0c060':'#ece3cb');ctx.fillText(f.text,f.x,f.y)}ctx.globalAlpha=1;
     if(flash>.02&&!opts.safe){ctx.fillStyle=`rgba(255,200,120,${flash*.25})`;ctx.fillRect(0,0,W,H)}
