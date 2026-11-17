@@ -706,6 +706,9 @@ body{height:100vh;height:100dvh}
 
 <script src="vendor/matter-0.19.0.min.js"></script>
 <script>
+// старые браузеры (Safari < 16, Chrome < 99): нет ctx.roundRect — рисуем скругление сами
+if(window.CanvasRenderingContext2D&&!CanvasRenderingContext2D.prototype.roundRect)CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){r=Array.isArray(r)?r[0]:r||0;r=Math.max(0,Math.min(r,Math.abs(w)/2,Math.abs(h)/2));
+  this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath();return this};
 (()=>{
 if(!window.Matter){const m=document.querySelector('.menu .tag');if(m)m.textContent='Не загрузилась физика игры. Проверьте интернет и обновите страницу.';
   document.querySelectorAll('.menu .big,#menuBoardBtn').forEach(b=>b.disabled=true);return}
@@ -820,8 +823,12 @@ const radiusOf=k=>isAnom(k)?ANOM[k].r:FORMS[k].r;
 const formsFound=()=>[...found].filter(x=>typeof x==='number');
 
 // ---------- storage ----------
-const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
-  set(k,v){if(window.__DEMO)return;try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}if(window.MUT_PLATFORM==='pikabu'&&typeof pkSave==='function')pkSave()}};
+// хранилище: если браузер запрещает localStorage (сторонние данные в рамке Пикабу заблокированы) — держим всё в памяти, игра работает
+const MEM=new Map();let LS_OK=true;try{localStorage.setItem('mut._t','1');localStorage.removeItem('mut._t')}catch(e){LS_OK=false}
+const LS={get:k=>{if(LS_OK)try{return localStorage.getItem(k)}catch(e){}return MEM.has(k)?MEM.get(k):null},set:(k,v)=>{MEM.set(k,v);if(LS_OK)try{localStorage.setItem(k,v)}catch(e){}},
+  keys:()=>{if(LS_OK)try{const a=[];for(let i=0;i<localStorage.length;i++)a.push(localStorage.key(i));return a}catch(e){}return [...MEM.keys()]}};
+const store={get(k,d){try{const v=LS.get(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+  set(k,v){if(window.__DEMO)return;try{LS.set(k,JSON.stringify(v))}catch(e){}if(window.MUT_PLATFORM==='pikabu'&&typeof pkSave==='function')pkSave()}};
 let found=new Set(store.get('mut.found',[0,1,2]));
 let loreRead=new Set(store.get('mut.lore',[]));
 if(store.get('mut.formsV',1)<2){const map={8:9,9:11,10:13};found=new Set([...found].map(x=>typeof x==='number'&&map[x]!=null?map[x]:x));store.set('mut.found',[...found]);store.set('mut.formsV',2)}
@@ -1357,7 +1364,7 @@ function drawBurn(b,r,now){const k=Math.max(0,Math.min(1,(now-b.burn)/BURN_MS));
 // ---------- Пикабу Игры (PkbSDK): облачное сохранение, реклама, покупки ----------
 var PK={sdk:null,p:null,prices:{},saveT:0,dead:false,buying:0}; // var: store.set может позвать pkSave раньше этой строки
 const PK_SKIP=new Set(['mut.dev','mut.payInv','mut.refIn','mut.refs']);
-function pkSnap(){const d={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('mut.')&&!PK_SKIP.has(k))d[k]=localStorage.getItem(k)}return d}
+function pkSnap(){const d={};for(const k of LS.keys()){if(k&&k.startsWith('mut.')&&!PK_SKIP.has(k))d[k]=LS.get(k)}return d}
 const pkScore=d=>{try{const st=JSON.parse(d['mut.stats']||'{}'),fd=JSON.parse(d['mut.found']||'[]');return(st.games||0)*10+fd.length}catch(e){return 0}};
 function pkLoad(){if(!PIKABU||PK.p)return PK.p;PK.p=new Promise(res=>{const sc=document.createElement('script');sc.async=true;sc.src='https://games.pikabu.ru/sdk/sdk.js';
   sc.onload=async()=>{try{const sdk=await window.PkbSDK.init();PK.sdk=sdk;try{sdk.gameStarted()}catch(e){}
@@ -1368,7 +1375,8 @@ function pkLoad(){if(!PIKABU||PK.p)return PK.p;PK.p=new Promise(res=>{const sc=d
 // облако: ключ «mut» = все записи mut.* из браузера; при запуске выигрывает сторона, где сыграно больше
 function pkCloudLoad(){const sdk=PK.sdk;if(!sdk)return;let c=null;try{c=sdk.storage.get('mut')}catch(e){}
   const local=pkSnap();
-  if(c&&c.d&&pkScore(c.d)>pkScore(local)&&!sessionStorage.getItem('mut.pkApplied')&&!started){try{sessionStorage.setItem('mut.pkApplied','1')}catch(e){}
+  let applied=true;try{applied=!!sessionStorage.getItem('mut.pkApplied')}catch(e){}
+  if(LS_OK&&c&&c.d&&pkScore(c.d)>pkScore(local)&&!applied&&!started){try{sessionStorage.setItem('mut.pkApplied','1')}catch(e){}
     for(const [k,v] of Object.entries(c.d))try{localStorage.setItem(k,v)}catch(e){}location.reload();return}
   pkSave()}
 function pkSave(){if(!PK||!PK.sdk||PK.dead||PK.saveT)return;PK.saveT=setTimeout(()=>{PK.saveT=0;try{const d=pkSnap(),json=JSON.stringify(d);if(json.length<180000)PK.sdk.storage.set('mut',{v:1,t:Date.now(),d})}catch(e){}},3000)}
@@ -3054,7 +3062,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.17j';
+const APP_VER='2026.11.17k';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
