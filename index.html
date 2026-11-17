@@ -266,12 +266,12 @@ body.pk #prankBtn,body.pk #overPrank,body.pk #shareChal,body.pk #refLine,body.pk
 .card-over{width:100%;max-width:340px;max-height:100%;overflow-y:auto;overscroll-behavior:contain;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px;text-align:center}
 .card-over>.row:last-child{position:sticky;bottom:-16px;margin:0 -16px -16px;padding:10px 16px 14px;background:#0e0a08;box-shadow:0 -12px 12px -4px #0e0a08;z-index:2}
 .stage:has(.over:not([hidden])) .disc{display:none!important}
-@media (max-height:760px){.over{padding:6px;position:fixed;z-index:40}.overx button{flex-basis:100%}.card-over{gap:6px;padding:12px}.card-over>.row:last-child{bottom:-12px;margin:0 -12px -12px}#over h2{font-size:24px!important;margin:0}#over .sc{font-size:44px!important}#tmrw,#shareBtn{display:none!important}.overq{font-size:11px;padding:6px 8px}.overx button{min-height:34px;font-size:12px}}
+@media (max-height:760px){.over{padding:6px;position:fixed;z-index:40}.overx button{flex-basis:100%}.card-over{gap:6px;padding:12px}.card-over>.row:last-child{bottom:-12px;margin:0 -12px -12px}#over h2{font-size:24px!important;margin:0}#over .sc{font-size:44px!important}#shareBtn{display:none!important}#tmrwCv,#tmrw small{display:none}#tmrw{padding:6px 10px;font-size:12px}.overq{font-size:11px;padding:6px 8px}.overx button{min-height:34px;font-size:12px}}
 .card-over h2{font-family:var(--f-display);font-weight:400;font-size:24px;margin:0;color:var(--blood)}
 .card-over .sc{font-family:var(--f-display);font-size:48px;font-variant-numeric:tabular-nums;line-height:1}
 .card-over p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
 .card-over .row{display:flex;gap:8px}
-.card-over .row button{flex:1}.card-over .row #overFire{font-size:12px;line-height:1.15;padding-left:6px;padding-right:6px}.overx #overMenu{flex-basis:100%}
+.card-over .row button{flex:1}.rateask{font-size:12.5px;line-height:1.35;padding:8px 30px 8px 10px;border:1px solid #6a5420;border-radius:12px;background:rgba(60,44,12,.55);color:#f2e2b8;position:relative;text-align:left}.rateask button{position:absolute;right:4px;top:4px;min-height:0;padding:2px 7px;font-size:12px;background:none;border:0;color:#c9b88a}.card-over .row #overFire{font-size:12px;line-height:1.15;padding-left:6px;padding-right:6px}.overx #overMenu{flex-basis:100%}
 #scream{position:fixed;inset:0;z-index:50;pointer-events:none;width:100%;height:100%}
 @media (prefers-reduced-motion:reduce){.toast,.sheet{transition:none;animation:none}}
 /* ===== horror skin ===== */
@@ -486,6 +486,7 @@ body{height:100vh;height:100dvh}
         <p id="overText">Высшая форма: —</p>
         <p class="overgoal" id="overGoal" hidden></p>
         <div class="overq" id="overQ" hidden></div>
+        <div class="rateask" id="rateAsk" hidden>⭐ Нравится «Мутация»? Поставьте оценку на странице игры на Пикабу — так её найдут другие игроки. Спасибо!<button id="rateX" aria-label="Скрыть">✕</button></div>
         <div class="overx" id="overX"><button id="overChest" hidden>🎁 Сундук дня</button><button id="overStarter" hidden>🔥 Набор новичка</button><button id="overTry" hidden></button><button id="overKeep" class="primary" hidden></button><button id="overMenu">Меню</button></div>
         <p id="overBoard" hidden></p>
         <button class="share" id="shareBtn">Поделиться результатом</button>
@@ -1388,7 +1389,7 @@ function firstBuyBonus(){if(store.get('mut.firstBuy',false))return;store.set('mu
 async function pkConsume(p){const st=PK.sdk&&PK.sdk.store;if(!st)return;try{await st.consumePurchase(p.purchaseId)}catch(e){try{await st.consumePurchase({purchaseId:p.purchaseId})}catch(_){}}}
 async function pkHandle(purchase,loud){const id=purchase.productId;if(!SHOP.find(x=>x.id===id))return false;let j=null;
   try{const signedData=await purchase.getSignedData();const r=await fetch(SUPA.url+'/functions/v1/mutaciya-pikabu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({signedData})});j=await r.json().catch(()=>null)}catch(e){}
-  if(!j||!j.ok){if(loud)toast('Оплата прошла','Покупка придёт при следующем запуске','Проверить её сейчас не получилось.');return false}
+  if(!j||!j.ok){track('buy_verify_fail',{item:id,pk:1,err:j&&j.error||'no_answer'});if(loud)toast('Оплата прошла','Покупка придёт при следующем запуске','Проверить её сейчас не получилось.');return false}
   if(id==='saves5'){if(j.fresh){store.set('mut.saves',savesN()+5);track('buy_done',{item:id,pk:1});firstBuyBonus();if(loud)toast('Спасибо за покупку!','+5 жетонов спасения','Банка переполнится — жетон её спасёт. У вас: '+savesN()+'.')}
     await pkConsume(purchase);renderShop();if(!$('contSheet').hidden)fillCont();return true}
   const was=hasItem(id);owned.add(id);store.set('mut.owned',[...owned]);
@@ -1398,11 +1399,12 @@ async function pkHandle(purchase,loud){const id=purchase.productId;if(!SHOP.find
 async function pkBuy(it){const st=PK.sdk&&PK.sdk.store,note=$('shopNote');if(!st){note.textContent='Магазин Пикабу загружается — попробуйте через пару секунд.';pkLoad();return}
   if(PK.buying&&Date.now()-PK.buying<20000)return;PK.buying=Date.now();note.textContent='Открываю оплату…';track('buy_click',{item:it.id,pk:1});
   try{const pl=PK.sdk.player;if(pl&&pl.isAuthorized===false&&PK.sdk.auth&&PK.sdk.auth.openAuthDialog){note.textContent='Войдите в аккаунт Пикабу — после входа откроется оплата.';
-      try{await PK.sdk.auth.openAuthDialog()}catch(e){}if(PK.sdk.player&&PK.sdk.player.isAuthorized===false){note.textContent='Для покупки нужно войти в аккаунт Пикабу.';PK.buying=0;return}}
+      try{await PK.sdk.auth.openAuthDialog()}catch(e){}if(PK.sdk.player&&PK.sdk.player.isAuthorized===false){note.textContent='Для покупки нужно войти в аккаунт Пикабу.';track('buy_result',{item:it.id,pk:1,ok:0,why:'no_auth'});PK.buying=0;return}}
     const r=await st.purchase({productId:it.id,developerPayload:JSON.stringify({from:'shop'})});
+    track('buy_result',{item:it.id,pk:1,ok:r&&r.success?1:0,why:r&&r.reason||(r?'':'empty')});
     if(!r||!r.success){const why=r&&r.reason;if(why==='NON_CONSUMABLE_ALREADY_OWNED'){note.textContent='Уже куплено — возвращаю покупку.';await pkStoreInit()}
       else note.textContent=why==='USER_CANCELLED'?'Покупка отменена.':why==='USER_UNAUTHORIZED'?'Для покупки нужно войти в аккаунт Пикабу.':'Покупка не прошла. Попробуйте ещё раз.'}
-    else{note.textContent='';await pkHandle(r.purchase,true)}}catch(e){note.textContent='Покупка не прошла. Попробуйте ещё раз.'}
+    else{note.textContent='';await pkHandle(r.purchase,true)}}catch(e){note.textContent='Покупка не прошла. Попробуйте ещё раз.';track('buy_result',{item:it.id,pk:1,ok:0,why:'exc:'+String(e&&e.message||e).slice(0,60)})}
   PK.buying=0}
 // ---------- рефералы: сколько новых игроков пришло по моим ссылкам ----------
 let refCount=store.get('mut.refs',0);
@@ -1435,8 +1437,9 @@ function goalWin(){GOAL.done=true;score+=GOAL.pts;updHud();flash=1;shake=Math.ma
 // ---------- «Завтра в лаборатории» на экране конца партии ----------
 function fillTomorrow(){const el=$('tmrw');if(!el)return;if(mode==='trial'||window.__DEMO){el.hidden=true;return}
   const f=FAMS[((DAY_NO)%FAMS.length+FAMS.length)%FAMS.length],i0=LV[f.id+'0'],F=FORMS[i0],open=labLvl()>=UNLOCK.fam,n=streakNow();
-  $('tmrwName').textContent=open?`Семейство «${f.name}»`:`Дневной забег №${DAY_NO+1}`;
-  $('tmrwSub').textContent=(open?`Новые мутанты и дневной забег №${DAY_NO+1}. `:'Новые образцы — одинаковые у всех игроков. ')+(n>0?`Серия ${n} ${plural(n,'день','дня','дней')} — не прервите её.`:'Сыграйте завтра — начнётся серия дней.');
+  const tk=chest.last===DAY,cd=tk?chest.day%7+1:1,cr=CHEST_REW[cd-1];
+  $('tmrwName').textContent=`Сундук на ${cr} 🔥`+(open?` · семейство «${f.name}»`:` · забег №${DAY_NO+1}`);
+  $('tmrwSub').textContent=(tk?`День ${cd} из 7: зайдите завтра — пропуск вернёт сундук к первому дню. `:chestAvail()?'Сегодняшний сундук ещё не открыт — кнопка «Сундук дня» выше. ':'')+(open?'Новые мутанты в дневном забеге. ':'Новые образцы — одинаковые у всех. ')+(n>0?`Серия ${n} ${plural(n,'день','дня','дней')}.`:'');
   const c=$('tmrwCv').getContext('2d');c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,120,120);c.save();c.translate(60,60);const sc=46/F.r;c.scale(sc,sc);drawCreature(c,i0,F.r,1.3,3,{x:0,y:0});c.restore();
   c.globalCompositeOperation='source-atop';c.fillStyle='#0d0806';c.fillRect(0,0,120,120);c.globalCompositeOperation='source-over';
   c.fillStyle='#c8141a';c.font='bold 44px "Rubik Distressed",sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('?',60,62);
@@ -3000,7 +3003,8 @@ $('shopSheet').addEventListener('click',e=>{if(e.target.id==='shopSheet')closeSh
 $('contAd').onclick=()=>{track('continue_click',{});const go=()=>doContinue();if(noAds())go();else showAd('rewarded',ok=>{if(ok)go();else{$('contSheet').hidden=true;gameOver()}})};
 $('contEnd').onclick=()=>{$('contSheet').hidden=true;gameOver()};
 $('contSave').onclick=()=>{const n=savesN();if(!n)return;store.set('mut.saves',n-1);track('continue_save',{left:n-1});doContinue()};
-$('contBuy').onclick=()=>{track('saves_click',{from:'cont'});const it=SHOP.find(x=>x.id==='saves5');if(it)pkBuy(it)};
+$('contBuy').onclick=()=>{track('saves_click',{from:'cont'});const it=SHOP.find(x=>x.id==='saves5');if(!it)return;$('shopNote').textContent='';
+  pkBuy(it).then(()=>{fillCont();const t=$('shopNote').textContent;if(t&&$('shopSheet').hidden)toast('5 продолжений',t,'')})};
 $('tmrwPush').onclick=async()=>{track('push_offer',{where:'over',click:1});await togglePush();$('tmrwPush').hidden=pushOn()};
 $('installClose').onclick=()=>closeSheet('installSheet');
 $('installSheet').addEventListener('click',e=>{if(e.target.id==='installSheet')closeSheet('installSheet')});
@@ -3050,7 +3054,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.17h';
+const APP_VER='2026.11.17i';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -3237,7 +3241,10 @@ function ADS_ON(){return !!PUBLIC_URL||PIKABU}
 let overFireUsed=false;
 function countUp(el,to){el.textContent='0';if(reduced||to<=0){el.textContent=to;return}const t0=performance.now(),D=Math.min(1100,350+to/4);
   const st=()=>{const k=Math.min(1,(performance.now()-t0)/D),e=1-Math.pow(1-k,3);el.textContent=Math.round(to*e);if(k<1)requestAnimationFrame(st);else{el.classList.remove('count');void el.offsetWidth;el.classList.add('count')}};requestAnimationFrame(st)}
-function fillOverExtra(){fillTrial();const q=$('overQ');q.hidden=mode==='trial'||window.__DEMO;
+function fillRate(){const el=$('rateAsk');el.hidden=true;if(!PIKABU||window.__DEMO||mode==='trial')return;const a=store.get('mut.rateAsk',{n:0,g:0,x:0});
+  if(a.x||a.n>=2||stats.games<3||(a.n&&stats.games-a.g<5))return;el.hidden=false;a.n++;a.g=stats.games;store.set('mut.rateAsk',a);track('rate_ask',{n:a.n,games:stats.games})}
+$('rateX').onclick=()=>{$('rateAsk').hidden=true;const a=store.get('mut.rateAsk',{n:0,g:0,x:0});a.x=1;store.set('mut.rateAsk',a);track('rate_x',{})};
+function fillOverExtra(){fillTrial();fillRate();const q=$('overQ');q.hidden=mode==='trial'||window.__DEMO;
   if(!q.hidden){q.innerHTML='<b>Задания дня · '+questDone()+'/'+QUESTS.length+'</b>';for(const x of QUESTS){const p=questProg(x),d=document.createElement('div');if(p>=x.n)d.className='ok';
     d.innerHTML='<span></span><span></span>';d.children[0].textContent=(p>=x.n?'✅ ':'▫️ ')+x.text;d.children[1].textContent=p+'/'+x.n;q.appendChild(d)}}
   overFireUsed=false;const f=$('overFire');f.hidden=!ADS_ON()||mode==='trial'||window.__DEMO;f.disabled=false;f.textContent=noAds()?'🔥 +1 заряд и следующая смена':'🎬 +1 🔥 и следующая смена';
@@ -3263,7 +3270,7 @@ const chestDayNow=()=>chest.last===YDAY?chest.day%7+1:1;
 let chestShown='';
 let chestGot=0;
 function openChest(src){if(!chestAvail())return;chestShown=DAY;const d=chestDayNow(),r=CHEST_REW[d-1];
-  chest={last:DAY,day:d};store.set('mut.chest',chest);giveBonusFire(r,'chest');chestGot=r;$('overChest').hidden=true;track('chest_take',{day:d,mult:1,src});vibe([20,30,60]);
+  chest={last:DAY,day:d};store.set('mut.chest',chest);giveBonusFire(r,'chest');chestGot=r;$('overChest').hidden=true;track('chest_take',{day:d,mult:1,src});if(over)fillTomorrow();vibe([20,30,60]);
   $('chestNote').textContent=`Получено: ${r} 🔥 — ${plural(r,'заряд','заряда','зарядов')} огнемёта на следующую смену! День ${d} из 7: заходите каждый день — награда растёт.`;
   const el=$('chestDays');el.innerHTML='';for(let i=1;i<=7;i++){const x=document.createElement('i');x.textContent=i<d?'✓':CHEST_REW[i-1]+'🔥';if(i<d)x.className='got';if(i===d)x.className='now';el.appendChild(x)}
   $('chestAd').firstChild.textContent='▶ Ещё +'+r+' 🔥';$('chestAdSub').textContent=noAds()||!ADS_ON()?'бесплатно':'за короткую рекламу';$('chestAd').hidden=!ADS_ON()&&!noAds();$('chestTake').textContent='Отлично';
