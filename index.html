@@ -814,7 +814,7 @@ const JARS={
 const JAR_KEYS=Object.keys(JARS);
 const isAnom=k=>typeof k==='string';
 // форма тела ранних мутантов: вытянутые и сплюснутые капсулы вместо кругов — хуже укладываются, банка заполняется быстрее
-const SHAPE={drop:[.8,1.22],spore:[1.22,.8],slug:[1.5,.66],larva:[1.34,.74],leech:[1.55,.64],wormy:[1.18,.86],teeth:[1.12,.9]};
+const SHAPE={drop:[.9,1.11],spore:[1.1,.91],slug:[1.2,.84],larva:[1.15,.87],leech:[1.22,.83],wormy:[1.08,.93],teeth:[1.05,.95]};
 const shapeOf=k=>!isAnom(k)&&FORMS[k]&&SHAPE[FORMS[k].id]||null;
 const radiusOf=k=>isAnom(k)?ANOM[k].r:FORMS[k].r;
 const formsFound=()=>[...found].filter(x=>typeof x==='number');
@@ -1552,7 +1552,7 @@ function newGame(m){
   const o={isStatic:true,friction:.4,restitution:.1};
   Composite.add(engine.world,[Bodies.rectangle(W/2,FLOOR+40,W,80,o),Bodies.rectangle(JL-40,H/2,80,H*2,o),Bodies.rectangle(JR+40,H/2,80,H*2,o)]);
   Events.on(engine,'collisionStart',e=>{pairs(e.pairs);if(opts.lite||reduced)return;const now=performance.now();for(const p of e.pairs){const a=p.bodyA,b=p.bodyB;if(a.isStatic&&b.isStatic)continue;
-    const v=Math.hypot(a.velocity.x-b.velocity.x,a.velocity.y-b.velocity.y);if(v<2.2)continue;const n=p.collision&&p.collision.normal||{x:0,y:1},ang=Math.atan2(n.y,n.x),amt=Math.min(.14,v*.018);
+    const v=Math.hypot(a.velocity.x-b.velocity.x,a.velocity.y-b.velocity.y);if(v<2.2)continue;const n=p.collision&&p.collision.normal||{x:0,y:1},ang=Math.atan2(n.y,n.x),amt=Math.min(.07,v*.009);
     for(const q of [a,b])if(!q.isStatic&&q.lvl!=null&&(!q.sq||now-q.sq.t0>120))q.sq={t0:now,amt,ang}}});Events.on(engine,'collisionActive',e=>pairs(e.pairs));
   bodies=[];queue=[];mutQ=[];particles=[];floaters=[];shot=null;crushedGame=0;score=0;danger=0;over=false;topLvl=0;seenThisGame=new Set();
   const fs=firstShift();
@@ -1878,7 +1878,7 @@ function maybeHybrid(nb,L,x,y){const H=HYB[FORMS[L].id];if(!H||window.__DEMO||Ma
 let MFX=[],NERV=0;
 let HIT=0;
 function mergeFx(a,b,x,y,l){const L2=NEXT[l]!=null?NEXT[l]:l;if(!opts.lite&&!reduced&&rk(L2)>=5)HIT=performance.now()+(rk(L2)>=7?130:70);RIPS.push({x,y,R:FORMS[L2].r,t0:performance.now(),big:rk(L2)>=4});if(RIPS.length>8)RIPS.shift();
-  for(const q of bodies){if(q.lvl==null)continue;const d=Math.hypot(q.position.x-x,q.position.y-y)-q.circleRadius;if(d<FORMS[L2].r*1.6){q.sq={t0:performance.now(),amt:Math.min(.16,.06+.02*rk(L2))*(1-Math.max(0,d)/(FORMS[L2].r*1.6)),ang:Math.atan2(q.position.y-y,q.position.x-x)}}}
+  for(const q of bodies){if(q.lvl==null)continue;const d=Math.hypot(q.position.x-x,q.position.y-y)-q.circleRadius;if(d<FORMS[L2].r*1.6){q.sq={t0:performance.now(),amt:Math.min(.08,.03+.01*rk(L2))*(1-Math.max(0,d)/(FORMS[L2].r*1.6)),ang:Math.atan2(q.position.y-y,q.position.x-x)}}}
   MFX.push({ax:a.position.x,ay:a.position.y,bx:b.position.x,by:b.position.y,x,y,c:FORMS[l].c,r:Math.min(a.circleRadius,b.circleRadius),R:FORMS[NEXT[l]!=null?NEXT[l]:l].r,t0:performance.now()});if(MFX.length>12)MFX.shift()}
 const RIPS=[];
 function drawRipples(now){if(!RIPS.length)return;ctx.save();
@@ -3054,7 +3054,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.17i';
+const APP_VER='2026.11.17j';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
