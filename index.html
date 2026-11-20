@@ -801,13 +801,14 @@ const ANOM={
   mutagen:{r:15,name:'Мутаген',rule:'Первое существо, которого коснётся, мутирует на уровень выше.'},
   acid:{r:14,name:'Кислота',rule:'При первом касании растворяет всех Капель и Спор вокруг (+2 за каждую).'},
   mirror:{r:18,name:'Зеркало',rule:'Превращается в копию первого существа, которого коснётся.'},
+  gull:{r:18,name:'Чайка',rule:'Не падает, а кружит над банкой: пикирует и уносит верхних мутантов не крупнее Червивца — до трёх. Улетая, оставляет «подарок» — гниль. Прогоните её касанием (+10) — бросит добычу обратно, но и гнили не будет. Идея из комментариев на Пикабу.'},
   eater:{r:17,name:'Пожиратель',rule:'Глотает соседей помельче себя и растёт почти на их объём — места в банке не прибавится. Съев четверых (или через 20 секунд), переваривает и становится обычным мутантом своего размера. Идея из комментариев на Пикабу.'},
   splitter:{r:17,name:'Делитель',rule:'Срастается с первым, кого коснётся, и тут же делится на двоих — на звено старше. Пару секунд они не сливаются и толкаются: банке только теснее. Идея из комментариев на Пикабу.'},
   magnet:{r:17,name:'Магнит',rule:'8 секунд стягивает одинаковых существ друг к другу, потом рассыпается.'},
   brood:{r:23,name:'Матка паразитов',rule:'Каждые 9 секунд рожает паразита. Раздавите её слиянием рядом: +60.'},
   worm:{r:14,name:'Зубастый червь',rule:'Ползает и заглатывает Капель, Спор и Слизней, вырастая на звено за каждого. Через 30 секунд уползает. Крупное слияние рядом с головой давит его: +30.'},
   doll:{r:19,name:'Кукла',rule:'Нажмите на неё, пока она не засмеялась (+20). Через 12 секунд смеётся и превращает соседей в гниль.'}};
-const ANOM_TABLE=[['mutagen',.035,8],['parasite',.04,18],['rot',.045,12],['acid',.025,10],['mirror',.025,15],['splitter',.03,10],['eater',.025,14],['magnet',.02,15],['brood',.015,35],['doll',.016,20],['worm',.035,9]];
+const ANOM_TABLE=[['mutagen',.035,8],['parasite',.04,18],['rot',.045,12],['acid',.025,10],['mirror',.025,15],['splitter',.03,10],['eater',.025,14],['gull',.02,12],['magnet',.02,15],['brood',.015,35],['doll',.016,20],['worm',.035,9]];
 const JARS={
   normal:{name:'Обычная',desc:'Без особых правил'},
   viscous:{name:'Вязкая',desc:'Густой формалин: всё падает медленно',grav:.55,air:2.6},
@@ -1096,6 +1097,16 @@ function drawAcid(ctx,r,t){
   ctx.fillStyle='rgba(255,255,220,.75)';for(let i=0;i<4;i++){const a=t*2+i*1.7,d=r*(.2+.35*((t*.7+i*.3)%1));ctx.beginPath();ctx.arc(Math.cos(a)*d,Math.sin(a)*d,r*.09,0,TAU);ctx.fill()}
   ctx.fillStyle='rgba(40,50,0,.75)';ctx.font=`${r*.9}px "Rubik Distressed",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('!',0,r*.05);
 }
+// Чайка: белая, крылья машут, жёлтый клюв с красным пятном; hold — уровень унесённого мутанта
+function drawGull(ctx,r,t,hold,dir){dir=dir||1;const fl=Math.sin(t*14);ctx.save();ctx.scale(dir,1);
+  if(hold!=null){ctx.save();ctx.translate(0,r*.95);const F=FORMS[hold],k=Math.min(1,r*.75/F.r);ctx.scale(k,k);drawCreature(ctx,hold,F.r,t,3,{x:0,y:-1});ctx.restore()}
+  ctx.fillStyle='#b9bec4';for(const s of [-1,1]){ctx.beginPath();ctx.moveTo(-r*.1,-r*.05);ctx.quadraticCurveTo(-r*.4,-r*(.5+.6*fl)*s*-1-r*.2,-r*1.35,-r*(.15+.75*fl));ctx.quadraticCurveTo(-r*.6,r*.1,-r*.1,r*.15);ctx.fill();if(s>0)break}
+  ctx.fillStyle='#f4f4f0';ctx.beginPath();ctx.ellipse(0,0,r*.85,r*.5,0,0,TAU);ctx.fill();ctx.beginPath();ctx.arc(r*.7,-r*.25,r*.36,0,TAU);ctx.fill();
+  ctx.fillStyle='#d9dde0';ctx.beginPath();ctx.moveTo(-r*.7,-r*.1);ctx.lineTo(-r*1.25,-r*.25);ctx.lineTo(-r*1.2,r*.12);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#b9bec4';ctx.beginPath();ctx.moveTo(r*.1,-r*.1);ctx.quadraticCurveTo(r*.3,-r*(.6+.7*fl),r*1.0,-r*(.2+.8*fl));ctx.quadraticCurveTo(r*.55,r*.05,r*.15,r*.12);ctx.fill();
+  ctx.fillStyle='#f2c230';ctx.beginPath();ctx.moveTo(r*1.0,-r*.32);ctx.lineTo(r*1.5,-r*.2);ctx.lineTo(r*1.0,-r*.12);ctx.closePath();ctx.fill();ctx.fillStyle='#d8261c';ctx.beginPath();ctx.arc(r*1.32,-r*.18,r*.05,0,TAU);ctx.fill();
+  ctx.fillStyle='#111';ctx.beginPath();ctx.arc(r*.8,-r*.33,r*.07,0,TAU);ctx.fill();ctx.strokeStyle='#5a3a20';ctx.lineWidth=r*.06;ctx.beginPath();ctx.moveTo(r*.68,-r*.45);ctx.lineTo(r*.92,-r*.4);ctx.stroke();
+  ctx.restore()}
 function drawEater(ctx,r,t,full){const ch=Math.abs(Math.sin(t*(full?9:3.2))),jaw=r*(.16+.3*ch);
   ctx.save();const g=ctx.createRadialGradient(-r*.3,-r*.35,r*.1,0,0,r);g.addColorStop(0,'#8a3a6a');g.addColorStop(1,'#3a0c2a');ctx.fillStyle=g;
   ctx.beginPath();for(let i=0;i<=24;i++){const a=i/24*TAU,w=1+.06*Math.sin(a*5+t*4);const x=Math.cos(a)*r*w,y=Math.sin(a)*r*w;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();ctx.fill();
@@ -1166,7 +1177,7 @@ function drawWormBody(ctx,pts,t){
     ctx.beginPath();ctx.moveTo(a.x+Math.cos(ang)*a.r*.9,a.y+Math.sin(ang)*a.r*.9);ctx.lineTo(a.x-Math.cos(ang)*a.r*.9,a.y-Math.sin(ang)*a.r*.9);ctx.stroke()}
   ctx.restore()}
 function drawWormIcon(c,r,t){const pts=[{x:0,y:0,r}];for(let i=1;i<=6;i++){const a=i*.95+t*.8,d=r*.32*i;pts.push({x:Math.cos(a)*d,y:Math.sin(a)*d,r:r*(1-i*.07)})}drawWormBody(c,pts,t);drawWormHead(c,0,0,r,{x:Math.cos(t),y:Math.sin(t)},t,.5+.5*Math.sin(t*5))}
-function drawPiece(c,kind,r,t,seed,look){if(kind==='worm')drawWormIcon(c,r,t);else if(kind==='doll')drawDoll(c,r,t,look,0);else if(kind==='acid')drawAcid(c,r,t);else if(kind==='mirror')drawMirror(c,r,t);else if(kind==='splitter')drawSplitter(c,r,t);else if(kind==='eater')drawEater(c,r,t,false);else if(kind==='magnet')drawMagnet(c,r,t,1);else if(kind==='brood')drawBrood(c,r,t,seed,look);else if(kind==='rot')drawRot(c,r,t,seed);else if(kind==='parasite')drawParasite(c,r,t,seed,look,false);else if(kind==='mutagen')drawMutagen(c,r,t);else{drawCreature(c,kind,r,t,seed,look);shine(c,r)}}
+function drawPiece(c,kind,r,t,seed,look){if(kind==='worm')drawWormIcon(c,r,t);else if(kind==='doll')drawDoll(c,r,t,look,0);else if(kind==='acid')drawAcid(c,r,t);else if(kind==='mirror')drawMirror(c,r,t);else if(kind==='splitter')drawSplitter(c,r,t);else if(kind==='eater')drawEater(c,r,t,false);else if(kind==='gull')drawGull(c,r,t,null);else if(kind==='magnet')drawMagnet(c,r,t,1);else if(kind==='brood')drawBrood(c,r,t,seed,look);else if(kind==='rot')drawRot(c,r,t,seed);else if(kind==='parasite')drawParasite(c,r,t,seed,look,false);else if(kind==='mutagen')drawMutagen(c,r,t);else{drawCreature(c,kind,r,t,seed,look);shine(c,r)}}
 
 // ---------- canvas sizing ----------
 const cv=$('cv'),ctx=cv.getContext('2d'),stage=$('stage');
@@ -1536,9 +1547,9 @@ const isFall=()=>mode==='fall'||(mode==='challenge'&&!!challenge&&challenge.fall
 // падают сами: «Классика», дневной забег, вызов и «Падение»; испытания — прицельный бросок
 const isAuto=()=>!window.__DEMO&&(isFall()||mode==='classic'||mode==='daily'||mode==='challenge');
 // progressive unlocks: the lab opens anomalies and events one game at a time; daily runs and challenges are always complete
-const UNLOCK={rot:2,mutagen:2,sounds:2,parasite:3,acid:3,gaze:3,whisper:3,lightning:3,mirror:4,splitter:2,eater:3,magnet:4,worm:4,virus:4,knock:5,hand:5,inspect:5,brood:6,doll:6,leak:6,night:6,blackout:6,nii:5,fam:3,blaze:7};
+const UNLOCK={rot:2,mutagen:2,sounds:2,parasite:3,acid:3,gaze:3,whisper:3,lightning:3,mirror:4,splitter:2,eater:3,gull:3,magnet:4,worm:4,virus:4,knock:5,hand:5,inspect:5,brood:6,doll:6,leak:6,night:6,blackout:6,nii:5,fam:3,blaze:7};
 const UNLOCK_NAMES={rot:'Гниль',mutagen:'Мутаген',sounds:'звуки за кадром',parasite:'Паразит',acid:'Кислота',gaze:'взгляды',whisper:'шёпот',lightning:'молния',
-  mirror:'Зеркало',splitter:'Делитель',eater:'Пожиратель',magnet:'Магнит',worm:'Зубастый червь',virus:'вирусы',knock:'стук в стекло',hand:'рука из формалина',inspect:'проверка',
+  mirror:'Зеркало',splitter:'Делитель',eater:'Пожиратель',gull:'Чайка',magnet:'Магнит',worm:'Зубастый червь',virus:'вирусы',knock:'стук в стекло',hand:'рука из формалина',inspect:'проверка',
   brood:'Матка паразитов',doll:'Кукла',leak:'утечка формалина',night:'ночная смена',blackout:'отключения света',nii:'объекты НИИ',fam:'семейство дня',blaze:'пожар в лаборатории'};
 const isCalm=()=>!!opts.calm&&(mode==='classic'||mode==='fall');
 const labLvl=()=>mode==='daily'||mode==='challenge'?99:(typeof stats!=='undefined'?stats.games:0);
@@ -1554,7 +1565,7 @@ function newGame(m){
   const seed=m==='daily'?hashStr('mutaciya:'+DAY):m==='challenge'&&challenge?challenge.seed:(Math.random()*2**32)>>>0;gameSeed=seed;
   seq=makeSeq(seed);const R0=rng(seed^0x9e3779b9);
   jarKey=m==='trial'?'normal':m==='daily'?DAILY_JAR:m==='challenge'&&challenge&&challenge.jar?challenge.jar:(opts.jar||'normal');if(!JARS[jarKey])jarKey='normal';jar=JARS[jarKey];
-  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;blackoutAt=performance.now()+55000+Math.random()*40000;inBlackout=false;darkUntil=0;abil={shake:1,remove:1,swap:1,fire:1+(hasItem('starter')?1:0)};for(const k in ABIL_AD)delete ABIL_AD[k];FG.adHint=false;FIRE.aim=false;FIRE.adUsed=false;FIRE.jets=[];FIRE.p=[];targeting=false;bossSeen=false;updAbil();hzReset();updLeak();updBlaze();if(EMG)emgEnd(false);
+  JL=jar.jl||24;JR=jar.jr||376;shakeT=0;blackoutAt=performance.now()+55000+Math.random()*40000;inBlackout=false;darkUntil=0;abil={shake:1,remove:1,swap:1,fire:1+(hasItem('starter')?1:0)};for(const k in ABIL_AD)delete ABIL_AD[k];FG.adHint=false;FIRE.aim=false;FIRE.adUsed=false;FIRE.jets=[];FIRE.p=[];targeting=false;bossSeen=false;updAbil();hzReset();updLeak();updBlaze();if(EMG)emgEnd(false);if(typeof GULLS!=='undefined')GULLS.length=0;
   for(const bb of bubbles){bb.x=JL+8+Math.random()*(JR-JL-16)}
   engine=Engine.create();engine.positionIterations=8;engine.velocityIterations=6;engine.gravity.y=jar.grav||1;
   const o={isStatic:true,friction:.4,restitution:.1};
@@ -2020,7 +2031,28 @@ function eaterTick(dt){const now=performance.now();
     if(!prey)continue;e.eatT=0;e.meals++;e.ateAt=now;const pr=prey.circleRadius,px=prey.position.x,py=prey.position.y,pts=PTS[prey.lvl]||1;
     removeBody(prey);splat(px,py,FORMS[prey.lvl].c,12,1);const nr=Math.min(62,Math.sqrt(r*r+.92*pr*pr));Body.scale(e,nr/r,nr/r);e.pop=now;
     score+=pts;updHud();floater(e.position.x,e.position.y-nr-6,'ам! +'+pts,false,'#e08ac0');chomp();vibe(18);track('eater_meal',{n:e.meals});ev('meal')}}
-function specialTick(dt){eaterTick(dt);
+// ---------- Чайка (идея из комментариев на Пикабу) ----------
+const GULLS=[];
+function gullScreech(){tone('sawtooth',1500,900,.22,.05);tone('sawtooth',1300,800,.25,.04,0,.28)}
+function gullStart(x){GULLS.push({x,y:RIM-46,vx:(x<W/2?1:-1)*1.8,t:0,k:0,grabs:0,hold:null,ph:'fly',tg:null,gone:false});gullScreech();track('gull',{});
+  if(!store.get('mut.gullTip',false)){store.set('mut.gullTip',true);floater(W/2,RIM+40,'Чайка! Тапните — прогоните',true,'#f2f2ea')}}
+function gullTick(dt){for(const g of GULLS){g.t+=dt;const sp=dt/16;
+  if(g.ph==='fly'){g.x+=g.vx*sp;g.y=RIM-46+Math.sin(g.t/300)*8;if(g.x<JL+20||g.x>JR-20)g.vx*=-1;
+    if(g.t>12000||g.grabs>=3){g.ph='leave';g.gift=true;continue}
+    if((g.k+=dt)>2200){const tg=bodies.filter(b=>b.lvl!=null&&!b.anom&&!b.isStatic&&!b.burn&&!b.merging&&rk(b.lvl)<=rk(LV.wormy)&&!FORMS[b.lvl].nii&&b.lvl<=MAX).sort((a,b)=>a.bounds.min.y-b.bounds.min.y)[0];
+      if(tg){g.k=0;g.ph='dive';g.tg=tg;gullScreech()}}}
+  else if(g.ph==='dive'){const tg=g.tg;if(!tg||!bodies.includes(tg)){g.ph='fly';g.tg=null;continue}const dx=tg.position.x-g.x,dy=tg.position.y-g.y,d=Math.hypot(dx,dy);
+    if(d<tg.circleRadius+8){g.hold=tg.lvl;removeBody(tg);splat(g.x,g.y,'#f2f2ea',8,.8);g.ph='up';g.grabs++;floater(g.x,g.y-20,'чайка унесла: '+FORMS[g.hold].name,false,'#f2f2ea')}
+    else{const v=6.5*sp;g.x+=dx/d*v;g.y+=dy/d*v;g.vx=Math.sign(dx)||g.vx}}
+  else if(g.ph==='up'){g.y-=5*sp;if(g.y<RIM-70){g.hold=null;g.ph='fly';g.k=0}}
+  else if(g.ph==='leave'){g.x+=(g.vx>0?1:-1)*5*sp;g.y-=1.4*sp;if(g.x<-60||g.x>W+60){g.gone=true;
+      if(g.gift&&!over){const x=JL+40+Math.random()*(JR-JL-80);spawn('rot',x,SPAWN_Y+10);floater(x,SPAWN_Y+44,'подарок от чайки',false,'#9aa070');thud()}}}}
+  for(let i=GULLS.length-1;i>=0;i--)if(GULLS[i].gone)GULLS.splice(i,1)}
+function gullTap(p){if(over||paused)return false;const g=GULLS.find(g=>g.ph!=='leave'&&Math.hypot(p.x-g.x,p.y-g.y)<40);if(!g)return false;
+  if(g.hold!=null){const nb=spawn(g.hold,g.x,Math.max(SPAWN_Y,g.y));nb.pop=performance.now();g.hold=null}
+  g.ph='leave';g.gift=false;g.tg=null;score+=10;updHud();floater(g.x,g.y+20,'кыш! +10',true,'#f2f2ea');tone('square',600,300,.1,.05);vibe(25);track('gull_shoo',{grabs:g.grabs});return true}
+function drawGulls(t){for(const g of GULLS){ctx.save();ctx.translate(g.x,g.y);drawGull(ctx,25,t,g.hold,g.vx<0?-1:1);ctx.restore()}}
+function specialTick(dt){eaterTick(dt);gullTick(dt);
   trialTick(dt);if(isTrial()&&(trial.uiT=(trial.uiT||0)+dt)>500){trial.uiT=0;updHud()}
   wormTick(dt);
   const nowB=performance.now();
@@ -2445,7 +2477,7 @@ let firstTouch=false;
 function firstTouchFx(){if(firstTouch||!started||over)return;firstTouch=true;setTimeout(()=>{try{tone('sine',520,1180,.16,.09);tone('sine',900,1500,.09,.05,0,.12)}catch(e){}},40);
   const now=performance.now();for(const b of bodies)if(b.lvl!=null)b.pop=now;vibe(15);floater(fallX,SPAWN_Y+30,'пи!',false,'#ffcf7a');track('first_touch',{t:Math.round(HZ.t)})}
 cv.addEventListener('pointerdown',e=>{unlockAudio();firstTouchFx();pressing=true;const p=toLocal(e);downX0=p.x;pointer=p;aimX=p.x;downY=p.y;downT=performance.now();try{cv.setPointerCapture(e.pointerId)}catch(_){}});
-cv.addEventListener('pointerup',e=>{if(!pressing)return;pressing=false;const p=toLocal(e);if(emgTap(p))return;if(FIRE.aim){fireAt(p);return}if(targeting){removeAt(p);return}
+cv.addEventListener('pointerup',e=>{if(!pressing)return;pressing=false;const p=toLocal(e);if(emgTap(p))return;if(gullTap(p))return;if(FIRE.aim){fireAt(p);return}if(targeting){removeAt(p);return}
   {const d=bodies.find(q=>q.anom==='doll'&&Math.hypot(q.position.x-p.x,q.position.y-p.y)<q.circleRadius+12);
    if(d){removeBody(d);splat(d.position.x,d.position.y,'#efe0d6',16,1.1);score+=20;floater(d.position.x,d.position.y,'кукла разбита +20',true);stats.dolls++;saveStats();checkAch();updHud();glassBreak();return}}
   // падает сам: смахнуть вниз или коснуться — упадёт быстрее, прямо вниз
@@ -2460,7 +2492,7 @@ function curR(){return radiusOf(cur)}
 function drop(px,py,vy){
   const t=performance.now();if(over||paused||scream||t<canDropAt)return;inspectCatch();
   const r=curR(),x=px!=null?px:Math.max(JL+r+1,Math.min(JR-r-1,aimX));
-  const b=spawn(cur,x+(Math.random()-.5)*.5,py!=null?py:SPAWN_Y);tutEv('drop');if(vy)Body.setVelocity(b,{x:0,y:vy});plop();vibe(6);
+  const b=cur==='gull'?(gullStart(x),null):spawn(cur,x+(Math.random()-.5)*.5,py!=null?py:SPAWN_Y);tutEv('drop');if(b&&vy)Body.setVelocity(b,{x:0,y:vy});plop();vibe(6);
   cur=nxt;nxt=seq.next();canDropAt=t+(isAuto()?320:420);drawNext();fallY=SPAWN_Y;fastFall=false;
   if(EMG&&EMG.id==='quar')quarDrop(x);if(isTrial('centri'))centriDrop(x);
   if(isAnom(nxt)&&!found.has('a:'+nxt)){found.add('a:'+nxt);store.set('mut.found',[...found]);toast('Новая аномалия',ANOM[nxt].name,ANOM[nxt].rule)}
@@ -3062,7 +3094,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.17k';
+const APP_VER='2026.11.20a';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
@@ -3220,7 +3252,7 @@ function gameOver(reason){const heat0=heatLvl();if(isTimed()&&!firstShift()){sta
   if(stats.games===2&&PUBLIC_URL&&!IS_APP&&!store.get('mut.installTip',false)&&(installEvt||IS_IOS||/Android/.test(navigator.userAgent))){store.set('mut.installTip',true);
     setTimeout(()=>toast('Совет','Установите игру на телефон','Меню → «На телефон»: иконка рядом с приложениями, работает без интернета.'),1800)}
   track('game_end',{heat:heat0,lvl:pressLvl(),score,top:topLvl,dur:Math.round(HZ.t/1000),drops,reason:reason||'overflow',lab:Math.min(labLvl(),9),cracks:HZ.cracks.length});anFlush();
-  $('leakPop').hidden=true;$('firePop').hidden=true;$('abExt').hidden=true;if(EMG)emgEnd(false);
+  $('leakPop').hidden=true;$('firePop').hidden=true;$('abExt').hidden=true;if(EMG)emgEnd(false);GULLS.length=0;
   $('overTitle').textContent=reason==='win'?'Испытание пройдено':reason==='time'?'Смена закончена!':reason==='crack'?'Банка лопнула':reason==='ice'?'Банка вмёрзла':'Банка переполнена';
   if(mode==='trial'&&reason!=='win'&&trial)track('trial_end',{id:trial.def.id,win:false,score,dur:Math.round(HZ.t/1000)});
   if(TRIAL.active){TRIAL.active=false;TRIAL.after=TRIAL.skin}
@@ -3425,7 +3457,7 @@ function frame(now){
     for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,TAU);ctx.fill()}
     ctx.globalAlpha=1;
     if(jar.dark||darkUntil>now||isTrial('uv'))drawDark(now,(jar.dark||isTrial('uv'))&&!(darkUntil>now));
-    drawGlass();drawSkinDeco(now);drawLabel();drawBlaze(now,t);drawEmg(now,t);
+    drawGlass();drawSkinDeco(now);drawLabel();drawBlaze(now,t);drawEmg(now,t);drawGulls(t);
     drawHorror(now,t);
     drawTut(now);drawPress(now);drawMergeFx(now);drawFire(now);drawLimit(now);
     ctx.textAlign='center';for(const f of floaters){ctx.globalAlpha=Math.min(1,f.life*1.5);ctx.font=f.big?'22px "Rubik Distressed",sans-serif':'600 13px "IBM Plex Mono",monospace';
@@ -3458,7 +3490,7 @@ track('session_start',{pk:PIKABU||undefined,boot:Math.round(performance.now()),r
   if(!('lite' in so)&&IS_TOUCH&&(mem<=3||cores<=4)){opts.lite=true;opts.liteAuto=true;saveOpts();track('lite_pre',{mem,cores})}}
 applyLite();applySafe();
 // test hook, only with #test in the address
-if(location.hash==='#test')window.__mut={st:()=>({adHint:FG.adHint,top:topLvl,goal:GOAL.lvl,done:GOAL.done,score,b:bodies.filter(b=>b.lvl!=null).map(b=>FORMS[b.lvl].id).join(',')}),G:()=>({FORMS,HYB,LV,drawCreature,drawHybrid,shine,found,HZ}),emg:id=>emgStart(id),emgNow:()=>EMG&&EMG.id,setScore2:v=>{score=v},drops:()=>drops,count:l=>bodies.filter(b=>b.lvl===l).length,spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),gm:()=>GM,curK:()=>cur,bpos:()=>bodies.filter(b=>!b.isStatic).map(b=>({l:b.lvl,a:b.anom,x:b.position.x,y:b.position.y,top:b.bounds.min.y,r:b.circleRadius})),geo:()=>({JL,JR,RIM,FLOOR,W}),goalX:()=>({...GOAL,short:goalShort()}),trialX:()=>trial,emgX:()=>EMG,tap:(x,y)=>emgTap({x,y}),qpool:()=>QPOOL.map(q=>q.id),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
+if(location.hash==='#test')window.__mut={st:()=>({adHint:FG.adHint,top:topLvl,goal:GOAL.lvl,done:GOAL.done,score,b:bodies.filter(b=>b.lvl!=null).map(b=>FORMS[b.lvl].id).join(',')}),G:()=>({FORMS,HYB,LV,drawCreature,drawHybrid,shine,found,HZ}),emg:id=>emgStart(id),emgNow:()=>EMG&&EMG.id,setScore2:v=>{score=v},drops:()=>drops,count:l=>bodies.filter(b=>b.lvl===l).length,spawn:(k,x,y)=>spawn(k,x,y),gameOver:()=>gameOver(),setScore:v=>{score=v;updHud()},stats,ev:(a,b)=>ev(a,b),abil:()=>abil,fake:()=>fakeOver(),drawForm:(i,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const F=FORMS[i];g.translate(size/2,size/2);const k=size*.42/F.r;g.scale(k,k);drawCreature(g,i,F.r,1.3,2,{x:.15,y:.25});if(!F.virus)shine(g,F.r);return c.toDataURL()},forms:()=>FORMS.map(f=>f.name),drawAnom:(k,size)=>{const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');const A=ANOM[k];g.translate(size/2,size/2);const s=size*.38/A.r;g.scale(s,s);drawPiece(g,k,A.r,1.3,3,{x:.3,y:.3});return c.toDataURL()},tut:()=>TUT.step,demo:()=>!!window.__DEMO,lite:()=>!!opts.lite,trial:()=>trial&&({id:trial.def.id,t:Math.round(HZ.t),laser:trial.laser.phase,mistY:Math.round(trial.mist.y),iceY:Math.round(trial.iceY),frozen:bodies.filter(b=>b.frozen).length,won}),setTrialStars:o=>{trialStars=o;store.set('mut.trials',o)},an:()=>({q:AN.q.map(e=>e.ev),dev:store.get('mut.dev',null)}),anFlush:()=>anFlush(),lab:()=>({lvl:labLvl(),calm:isCalm(),open:Object.keys(UNLOCK).filter(isOpen)}),hz:()=>({t:HZ.t,cracks:HZ.cracks.length,night:!!HZ.night,inspect:HZ.inspect&&HZ.inspect.phase,hand:!!HZ.hand,liq:liquidNow(),gaze:gazeNow}),hzSet:o=>Object.assign(HZ,o),psy:()=>({stress:+PSY.stress.toFixed(2),thoughts:HZ.thoughts.length}),ecg:()=>({bpm:Math.round(ECG.bpm),flat:ECG.flat,n:ECG.n}),leak:()=>({leak:!!HZ.leak,liqY:Math.round(HZ.liqY),btn:$('abLeak').hidden?null:[$('abLeak').textContent,$('abLeak').disabled],rot:bodies.filter(b=>b.rot).length}),setDrops:n=>{drops=n},worms:()=>bodies.filter(q=>q.anom==='worm').map(h=>({eaten:h.eaten,segs:h.segs.length,x:Math.round(h.position.x),y:Math.round(h.position.y)})),knock:()=>{const b=bodies.find(q=>q.lvl!=null);if(b)knock(b)},fall:()=>({lvl:fallLevel(),speed:fallSpeed(),fallX,fallY,fastFall,mode,n:bodies.length,drops}),blackout:()=>{blackoutAt=0;drops=99},lore:i=>openLore(i),amb:()=>!!amb,jar:()=>jarKey,setJar:k=>{opts.jar=k},dark:ms=>{darkUntil=performance.now()+ms},rec:()=>({ok:REC.ok,mime:REC.mime,slots:REC.slots.map(s=>Math.round(s.act)),clips:REC.clips.map(c=>[c.label,c.blob.size,c.secs])}),grab:l=>grabClip(l),chal:()=>[challenge,gameSeed,chalUrl()],quests:()=>QUESTS.map(q=>[q.text,questProg(q)]),gm:()=>GM,gulls:()=>GULLS,gull:x=>gullStart(x),curK:()=>cur,bpos:()=>bodies.filter(b=>!b.isStatic).map(b=>({l:b.lvl,a:b.anom,x:b.position.x,y:b.position.y,top:b.bounds.min.y,r:b.circleRadius})),geo:()=>({JL,JR,RIM,FLOOR,W}),goalX:()=>({...GOAL,short:goalShort()}),trialX:()=>trial,emgX:()=>EMG,tap:(x,y)=>emgTap({x,y}),qpool:()=>QPOOL.map(q=>q.id),bodies:()=>bodies.map(b=>({anom:b.anom,lvl:b.lvl,host:!!b.host,stolen:b.stolen}))};
 // boot: a classic jar sits behind the menu so the page is never empty
 newGame('classic');paused=true;started=false;fit();renderReg();openMenu();checkAch();requestAnimationFrame(frame);
 })();
