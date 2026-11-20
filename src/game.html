@@ -762,7 +762,7 @@ const ANOM={
   brood:{r:23,name:'Матка паразитов',rule:'Каждые 9 секунд рожает паразита. Раздавите её слиянием рядом: +60.'},
   worm:{r:14,name:'Зубастый червь',rule:'Ползает и заглатывает Капель, Спор и Слизней, вырастая на звено за каждого. Через 30 секунд уползает. Крупное слияние рядом с головой давит его: +30.'},
   doll:{r:19,name:'Кукла',rule:'Нажмите на неё, пока она не засмеялась (+20). Через 12 секунд смеётся и превращает соседей в гниль.'}};
-const ANOM_TABLE=[['mutagen',.035,8],['parasite',.04,18],['rot',.045,12],['acid',.025,10],['mirror',.025,15],['splitter',.03,10],['eater',.025,14],['gull',.02,12],['magnet',.02,15],['brood',.015,35],['doll',.016,20],['worm',.035,9]];
+const ANOM_TABLE=[['mutagen',.035,8],['parasite',.04,18],['rot',.045,12],['acid',.025,10],['mirror',.025,15],['splitter',.03,10],['eater',.025,14],['gull',.014,12],['magnet',.02,15],['brood',.015,35],['doll',.016,20],['worm',.035,9]];
 const JARS={
   normal:{name:'Обычная',desc:'Без особых правил'},
   viscous:{name:'Вязкая',desc:'Густой формалин: всё падает медленно',grav:.55,air:2.6},
@@ -1988,7 +1988,7 @@ function eaterTick(dt){const now=performance.now();
 // ---------- Чайка (идея из комментариев на Пикабу) ----------
 const GULLS=[];
 function gullScreech(){tone('sawtooth',1500,900,.22,.05);tone('sawtooth',1300,800,.25,.04,0,.28)}
-function gullStart(x){GULLS.push({x,y:RIM-46,vx:(x<W/2?1:-1)*1.8,t:0,k:0,grabs:0,hold:null,ph:'fly',tg:null,gone:false});gullScreech();track('gull',{});
+function gullStart(x){const L=x>W/2;x=L?JL+24:JR-24;GULLS.push({x,y:RIM-46,vx:(L?1:-1)*1.8,t:0,k:0,grabs:0,hold:null,ph:'fly',tg:null,gone:false});gullScreech();track('gull',{});
   if(!store.get('mut.gullTip',false)){store.set('mut.gullTip',true);floater(W/2,RIM+40,'Чайка! Тапните — прогоните',true,'#f2f2ea')}}
 function gullTick(dt){for(const g of GULLS){g.t+=dt;const sp=dt/16;
   if(g.ph==='fly'){g.x+=g.vx*sp;g.y=RIM-46+Math.sin(g.t/300)*8;if(g.x<JL+20||g.x>JR-20)g.vx*=-1;
@@ -2002,7 +2002,7 @@ function gullTick(dt){for(const g of GULLS){g.t+=dt;const sp=dt/16;
   else if(g.ph==='leave'){g.x+=(g.vx>0?1:-1)*5*sp;g.y-=1.4*sp;if(g.x<-60||g.x>W+60){g.gone=true;
       if(g.gift&&!over){const x=JL+40+Math.random()*(JR-JL-80);spawn('rot',x,SPAWN_Y+10);floater(x,SPAWN_Y+44,'подарок от чайки',false,'#9aa070');thud()}}}}
   for(let i=GULLS.length-1;i>=0;i--)if(GULLS[i].gone)GULLS.splice(i,1)}
-function gullTap(p){if(over||paused)return false;const g=GULLS.find(g=>g.ph!=='leave'&&Math.hypot(p.x-g.x,p.y-g.y)<40);if(!g)return false;
+function gullTap(p){if(over||paused)return false;const g=GULLS.find(g=>g.ph!=='leave'&&g.t>800&&Math.hypot(p.x-g.x,p.y-g.y)<34);if(!g)return false;
   if(g.hold!=null){const nb=spawn(g.hold,g.x,Math.max(SPAWN_Y,g.y));nb.pop=performance.now();g.hold=null}
   g.ph='leave';g.gift=false;g.tg=null;score+=10;updHud();floater(g.x,g.y+20,'кыш! +10',true,'#f2f2ea');tone('square',600,300,.1,.05);vibe(25);track('gull_shoo',{grabs:g.grabs});return true}
 function drawGulls(t){for(const g of GULLS){ctx.save();ctx.translate(g.x,g.y);drawGull(ctx,25,t,g.hold,g.vx<0?-1:1);ctx.restore()}}
@@ -2551,7 +2551,7 @@ const REC={mime:'',ext:'',slots:[],stream:null,ok:false,clips:[],paused:false};
 (()=>{try{if(!window.MediaRecorder||!clipCv.captureStream)return;
   for(const m of ['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'])if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m)){REC.mime=m;break}
   if(!REC.mime)return;REC.ext=REC.mime.startsWith('video/mp4')?'mp4':'webm';REC.stream=clipCv.captureStream(30);REC.ok=true}catch(e){REC.ok=false}})();
-function recActive(){return REC.ok&&opts.clips&&!opts.lite&&engine&&started}
+function recActive(){return REC.ok&&!PIKABU&&opts.clips&&!opts.lite&&engine&&started}
 function newSlot(){try{const tr=[...REC.stream.getVideoTracks()];if(recDest)tr.push(...recDest.stream.getAudioTracks());
   const mr=new MediaRecorder(new MediaStream(tr),{mimeType:REC.mime,videoBitsPerSecond:2200000});const sl={mr,chunks:[],t0:performance.now(),act:0};
   mr.ondataavailable=e=>{if(e.data&&e.data.size)sl.chunks.push(e.data)};mr.start(500);REC.slots.push(sl)}catch(e){REC.ok=false}}
@@ -3048,7 +3048,7 @@ function localWeek(){let sum=0,n=0;for(const d of WEEK_DAYS){const v=store.get('
 // mutaciya.com: shared leaderboard in Supabase (only reads, plus writes through checked functions)
 const SUPA={url:'https://auequuxfcwdshblqrwbd.supabase.co',key:'sb_publishable_ZF67r4UX91_n180NPFQuvA_0D_-8Ya2'};
 // ---------- anonymous analytics (mutaciya.com only): game actions, random device id, no personal data ----------
-const APP_VER='2026.11.20a';
+const APP_VER='2026.11.20b';
 function uid4(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch(e){}const h=[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');
   return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`}
 const AN={q:[],session:uid4(),firstRun:!store.get('mut.dev',null),gameT0:0};
